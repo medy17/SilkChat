@@ -60,6 +60,8 @@ import { useConvexAuth } from "@convex-dev/react-query"
 import { Link } from "@tanstack/react-router"
 import {
     Archive,
+    Building2,
+    CalendarPlus,
     Calculator,
     CheckCircle,
     ChevronDown,
@@ -68,9 +70,12 @@ import {
     ExternalLink,
     Globe,
     GraduationCap,
+    History,
     Image,
     Key,
+    type LucideIcon,
     Search,
+    Server,
     Sparkle,
     Star,
     Terminal,
@@ -365,19 +370,104 @@ const getModelAbilities = (model: DisplayModel) => {
         .map(({ ability }) => ability)
 }
 
-const FeatureBadge = ({ ability }: { ability: string }) => {
-    const featureColor = FEATURE_COLORS[ability] ?? "var(--primary)"
+const TintedChip = ({
+    color,
+    icon,
+    title,
+    children
+}: {
+    color: string
+    icon: React.ReactNode
+    title?: string
+    children: React.ReactNode
+}) => (
+    <div
+        title={title}
+        className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--feature-color)_28%,transparent)] bg-[color-mix(in_oklab,var(--feature-color)_12%,transparent)] px-3 py-1.5 text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))] text-sm"
+        style={{ "--feature-color": color } as React.CSSProperties}
+    >
+        {icon}
+        <span>{children}</span>
+    </div>
+)
 
-    return (
-        <div
-            className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_oklab,var(--feature-color)_28%,transparent)] bg-[color-mix(in_oklab,var(--feature-color)_12%,transparent)] px-3 py-1.5 text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))] text-sm"
-            style={{ "--feature-color": featureColor } as React.CSSProperties}
-        >
-            {renderAbilityIcon(ability, "size-4")}
-            <span>{getAbilityTooltip(ability)}</span>
-        </div>
-    )
+const FeatureBadge = ({ ability }: { ability: string }) => (
+    <TintedChip
+        color={FEATURE_COLORS[ability] ?? "var(--primary)"}
+        icon={renderAbilityIcon(ability, "size-4")}
+    >
+        {getAbilityTooltip(ability)}
+    </TintedChip>
+)
+
+const monthYearFormat = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC"
+})
+
+const formatMonthYear = (isoDate?: string) => {
+    if (!isoDate) return null
+    const date = new Date(isoDate)
+    return Number.isNaN(date.getTime()) ? null : monthYearFormat.format(date)
 }
+
+type ModelDetail = {
+    key: string
+    icon: LucideIcon
+    title: string
+    prefix?: string
+    value: string
+}
+
+// Provider only appears when it differs from the developer: OpenRouter for open-weight
+// models. Missing dates are left out rather than shown as placeholders.
+const getModelDetails = ({
+    developer,
+    provider,
+    knowledgeCutoff,
+    addedOn
+}: {
+    developer: string
+    provider: string
+    knowledgeCutoff?: string
+    addedOn?: string
+}): ModelDetail[] => {
+    const cutoff = formatMonthYear(knowledgeCutoff)
+    const added = formatMonthYear(addedOn)
+
+    return [
+        { key: "developer", icon: Building2, title: "Developer", value: developer },
+        ...(provider !== developer
+            ? [{ key: "provider", icon: Server, title: "Provider", value: provider }]
+            : []),
+        ...(cutoff
+            ? [
+                  {
+                      key: "cutoff",
+                      icon: History,
+                      title: "Knowledge cutoff",
+                      prefix: "Cutoff",
+                      value: cutoff
+                  }
+              ]
+            : []),
+        ...(added
+            ? [{ key: "added", icon: CalendarPlus, title: "Added", prefix: "Added", value: added }]
+            : [])
+    ]
+}
+
+const DetailChip = ({ detail }: { detail: ModelDetail }) => (
+    <TintedChip
+        color="var(--muted-foreground)"
+        icon={<detail.icon className="size-4" />}
+        title={detail.title}
+    >
+        {detail.prefix && <span className="opacity-70">{detail.prefix} </span>}
+        {detail.value}
+    </TintedChip>
+)
 
 const AdminOnlyModelBadge = ({ className }: { className?: string }) => (
     <Badge
@@ -541,6 +631,12 @@ const ModelDetailPanel = ({
         sharedModel?.developer?.trim() ||
         (isCustom ? getProviderDisplayName(model.providerId, currentProviders) : providerLabel)
     const headerIcon = getProviderSectionIcon(getModelSectionId(model), [model], "size-12")
+    const details = getModelDetails({
+        developer: developerLabel,
+        provider: providerLabel,
+        knowledgeCutoff: sharedModel?.knowledgeCutoff,
+        addedOn: sharedModel?.addedOn
+    })
 
     return (
         <div className="flex h-full min-h-0 flex-col bg-background">
@@ -597,26 +693,12 @@ const ModelDetailPanel = ({
                         </section>
                     )}
 
-                    <section className="grid grid-cols-2 gap-x-4 gap-y-5">
-                        <div>
-                            <h4 className="font-semibold text-base">Provider</h4>
-                            <p className="mt-2 text-muted-foreground text-sm">{providerLabel}</p>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-base">Developer</h4>
-                            <p className="mt-2 text-muted-foreground text-sm">{developerLabel}</p>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-base">Knowledge Cutoff</h4>
-                            <p className="mt-2 text-muted-foreground text-sm">
-                                {sharedModel?.knowledgeCutoff ?? "Not specified"}
-                            </p>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-base">Added On</h4>
-                            <p className="mt-2 text-muted-foreground text-sm">
-                                {sharedModel?.addedOn ?? "Not specified"}
-                            </p>
+                    <section>
+                        <h4 className="font-semibold text-base">Details</h4>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {details.map((detail) => (
+                                <DetailChip key={detail.key} detail={detail} />
+                            ))}
                         </div>
                     </section>
 
