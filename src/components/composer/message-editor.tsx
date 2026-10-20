@@ -367,7 +367,8 @@ const MessageEditor = memo(
         return (
             <>
                 <div
-                    className="@container"
+                    // Glass controls mix from --secondary, which is the bubble's own fill.
+                    className="@container [--glass-control-hover:color-mix(in_oklab,var(--foreground)_14%,transparent)] [--glass-control:color-mix(in_oklab,var(--foreground)_8%,transparent)]"
                     onFocusCapture={activateDropTarget}
                     onPointerDownCapture={activateDropTarget}
                 >
@@ -378,7 +379,7 @@ const MessageEditor = memo(
                         onChange={setEditedContent}
                         onKeyDown={handleKeyDown}
                         onPaste={handlePaste}
-                        className="[--prompt-editor-min-height:6rem] [--prompt-editor-padding:0_0_0.75rem] md:[--prompt-editor-min-height:6rem]"
+                        className="leading-7 [--prompt-editor-min-height:4.5rem] [--prompt-editor-padding:0_0_0.75rem] md:text-base md:[--prompt-editor-min-height:4.5rem]"
                     />
 
                     {totalAttachmentCount > 0 && (
@@ -423,7 +424,7 @@ const MessageEditor = memo(
                     )}
 
                     <div data-edit-controls>
-                        <div className="flex items-center gap-2 border-border/70 border-t pt-3">
+                        <div className="flex items-center gap-2">
                             <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
                                 {selectedModel && (
                                     <ModelSelector

@@ -31,6 +31,9 @@
     --secondary-foreground: oklch(0 0 0);
     --user-message: var(--secondary);
     --user-message-foreground: var(--foreground);
+    /* Imported themes fall back to --secondary for messages, which can sit on the page color.
+     * Pulling toward --foreground keeps the open editor off the page in any theme. */
+    --message-edit: color-mix(in oklab, var(--user-message), var(--foreground) 6%);
     --composer: color-mix(in oklab, var(--background) 80%, transparent);
     --code-background: var(--background);
     --code-foreground: var(--foreground);
@@ -166,6 +169,7 @@ html {
     --color-secondary-foreground: var(--secondary-foreground);
     --color-user-message: var(--user-message);
     --color-user-message-foreground: var(--user-message-foreground);
+    --color-message-edit: var(--message-edit);
     --color-composer: var(--composer);
     --color-glass-control: var(--glass-control);
     --color-glass-control-hover: var(--glass-control-hover);

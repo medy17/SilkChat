@@ -850,7 +850,7 @@ const MessageRowComponent = ({
                     message.role === "user" && !isEditing && USER_MESSAGE_BUBBLE_CLASS,
                     message.role === "user" &&
                         isEditing &&
-                        "my-12 ml-auto w-full border-2 border-input bg-background/80 p-3 shadow-xs dark:bg-input/70"
+                        "my-12 ml-auto w-full border border-input bg-message-edit p-3 text-user-message-foreground transition-[border-color,box-shadow] has-[.cm-focused]:border-ring/45 has-[.cm-focused]:ring-[3px] has-[.cm-focused]:ring-ring/12"
                 )}
                 style={isEditing ? { borderRadius: "var(--radius-lg)" } : undefined}
             >
