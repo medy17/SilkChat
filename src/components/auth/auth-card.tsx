@@ -2,17 +2,17 @@
 
 import { GoogleIcon } from "@/components/brand-icons"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { LogoSymbol } from "@/components/logo"
 import { useSession } from "@/hooks/auth-hooks"
 import { authClient } from "@/lib/auth-client"
 import type { RestrictionNotice } from "@/convex/lib/moderation"
 import { trackGoogleAdsSignupConversion } from "@/lib/google-ads"
 import type { AuthSearch } from "@/routes/auth/$pathname"
 import { useMutation } from "@tanstack/react-query"
-import { useRouter, useSearch } from "@tanstack/react-router"
+import { Link, useRouter, useSearch } from "@tanstack/react-router"
 import { ArrowLeft, Loader2, Mail, ShieldAlert } from "lucide-react"
 import { MotionConfig, motion } from "motion/react"
-import { useEffect } from "react"
+import { type ReactNode, useEffect } from "react"
 import { toast } from "sonner"
 
 export function AuthCard() {
@@ -75,43 +75,53 @@ export function AuthCard() {
                 ease: [0.25, 0.46, 0.45, 0.94]
             }}
         >
-            <div className="flex w-full max-w-sm flex-col gap-6 md:max-w-md">
-                <Card className="inset-shadow-sm gap-4 overflow-hidden border-2 bg-card pt-3 pb-5">
-                    <CardHeader className="flex justify-center border-b-2 [.border-b-2]:pb-2.5">
-                        <CardTitle className="text-xl">Sign In to SilkChat</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-6">
-                        <motion.div
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="grid gap-4"
+            <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex w-full max-w-xs flex-col gap-8"
+            >
+                <AuthHeading icon={<LogoSymbol className="size-12 text-foreground" />}>
+                    Sign in to SilkChat
+                </AuthHeading>
+                <div className="grid gap-6">
+                    {search.error && (
+                        <p role="alert" className="text-center text-destructive text-sm">
+                            Sign-in didn't complete ({search.error.replaceAll("_", " ")}). Please
+                            try again.
+                        </p>
+                    )}
+                    <Button
+                        variant="outline"
+                        className="h-10 w-full gap-2"
+                        onClick={() => googleSignInMutation.mutate()}
+                        disabled={googleSignInMutation.isPending}
+                    >
+                        {googleSignInMutation.isPending ? (
+                            <Loader2 className="size-4 shrink-0 animate-spin" />
+                        ) : (
+                            <GoogleIcon className="size-4 shrink-0" />
+                        )}
+                        Continue with Google
+                    </Button>
+                    <p className="text-center text-muted-foreground text-xs">
+                        By continuing, you agree to our{" "}
+                        <Link
+                            to="/terms-of-service"
+                            className="underline underline-offset-2 hover:text-foreground"
                         >
-                            <p className="text-center text-muted-foreground text-sm">
-                                Continue with your Google account to access this workspace.
-                            </p>
-                            {search.error && (
-                                <p role="alert" className="text-center text-destructive text-sm">
-                                    Sign-in didn't complete ({search.error.replaceAll("_", " ")}).
-                                    Please try again.
-                                </p>
-                            )}
-                            <Button
-                                variant="outline"
-                                className="h-10 w-full gap-2"
-                                onClick={() => googleSignInMutation.mutate()}
-                                disabled={googleSignInMutation.isPending}
-                            >
-                                {googleSignInMutation.isPending ? (
-                                    <Loader2 className="size-4 shrink-0 animate-spin" />
-                                ) : (
-                                    <GoogleIcon className="size-4 shrink-0" />
-                                )}
-                                Continue with Google
-                            </Button>
-                        </motion.div>
-                    </CardContent>
-                </Card>
-            </div>
+                            Terms
+                        </Link>{" "}
+                        and{" "}
+                        <Link
+                            to="/privacy-policy"
+                            className="underline underline-offset-2 hover:text-foreground"
+                        >
+                            Privacy Policy
+                        </Link>
+                        .
+                    </p>
+                </div>
+            </motion.div>
         </MotionConfig>
     )
 }
@@ -130,37 +140,41 @@ function RestrictedAccountCard({
     }`
 
     return (
-        <div className="flex w-full max-w-sm flex-col gap-6 md:max-w-md">
-            <Card className="inset-shadow-sm gap-4 overflow-hidden border-2 bg-card pt-3 pb-5">
-                <CardHeader className="flex items-center justify-center gap-2 border-b-2 [.border-b-2]:pb-2.5">
-                    <ShieldAlert className="size-5 text-destructive" />
-                    <CardTitle className="text-xl">
-                        {notice.endsAt ? "Account suspended" : "Account unavailable"}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 text-sm">
-                    <p className="text-muted-foreground">
-                        {notice.endsAt
-                            ? `This account is suspended until ${new Date(notice.endsAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" })} for violating our Terms of Service.`
-                            : "This account was banned for violating our Terms of Service, so it can't sign in or be used to create a new account."}
+        <div className="flex w-full max-w-xs flex-col gap-8">
+            <AuthHeading icon={<ShieldAlert className="size-12 text-destructive" />}>
+                {notice.endsAt ? "Account suspended" : "Account unavailable"}
+            </AuthHeading>
+            <div className="grid gap-4 text-sm">
+                <p className="text-center text-muted-foreground">
+                    {notice.endsAt
+                        ? `This account is suspended until ${new Date(notice.endsAt).toLocaleString(undefined, { dateStyle: "long", timeStyle: "short" })} for violating our Terms of Service.`
+                        : "This account was banned for violating our Terms of Service, so it can't sign in or be used to create a new account."}
+                </p>
+                {notice.caseId && (
+                    <p className="text-center">
+                        Case ID: <span className="font-mono">{notice.caseId}</span>
                     </p>
-                    {notice.caseId && (
-                        <p>
-                            Case ID: <span className="font-mono">{notice.caseId}</span>
-                        </p>
-                    )}
-                    <Button variant="outline" className="w-full" onClick={onBack}>
-                        <ArrowLeft />
-                        Back to sign in
-                    </Button>
-                    <Button asChild variant="outline" className="w-full">
-                        <a href={appealHref}>
-                            <Mail />
-                            Contact support
-                        </a>
-                    </Button>
-                </CardContent>
-            </Card>
+                )}
+                <Button variant="outline" className="w-full" onClick={onBack}>
+                    <ArrowLeft />
+                    Back to sign in
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                    <a href={appealHref}>
+                        <Mail />
+                        Contact support
+                    </a>
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+function AuthHeading({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+    return (
+        <div className="flex flex-col items-center gap-4 text-center">
+            {icon}
+            <h1 className="font-semibold text-2xl tracking-tight">{children}</h1>
         </div>
     )
 }

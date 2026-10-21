@@ -15,12 +15,12 @@ function RouteComponent() {
     const resolvedMode = useResolvedThemeMode(themeState.currentMode)
 
     return (
-        <main className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+        <main className="grid h-dvh grid-cols-1 overflow-y-auto lg:grid-cols-2">
             {/* Left side - Background Image */}
             <div className="hidden bg-[url('/bg-light.jpg')] bg-center bg-cover bg-no-repeat lg:block dark:bg-[url('/bg-night.jpg')]" />
 
             {/* Right side - Auth Content */}
-            <div className="relative flex flex-col items-center justify-center gap-4 p-4 sm:p-6 md:p-8">
+            <div className="relative flex flex-col items-center justify-center gap-4 px-4 py-20 sm:px-6 md:px-8">
                 <div className="absolute top-4 left-4 sm:top-6 sm:left-6">
                     <Link to="/">
                         <Button
@@ -40,10 +40,10 @@ function RouteComponent() {
                     <AuthCard />
                 </div>
                 <div className="absolute right-4 bottom-4 left-4 flex flex-col items-center gap-2 sm:right-6 sm:bottom-6 sm:left-6">
-                    <p className="hidden px-2 text-center text-muted-foreground text-xs leading-relaxed sm:block sm:text-sm">
+                    <p className="hidden px-2 text-center text-muted-foreground text-sm leading-relaxed lg:block">
                         {resolvedMode === "dark"
                             ? "Our intern is sleeping, meanwhile check out our"
-                            : "Our intern is having his lunch, meanwhile checkout our"}{" "}
+                            : "Our intern is out taking photos, meanwhile check out our"}{" "}
                         <Link to="/privacy-policy" className="underline hover:text-primary">
                             privacy policy
                         </Link>{" "}
