@@ -4,6 +4,23 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const MOONSHOT_MODELS: SharedModel[] = [
     {
+        id: "kimi-k3.1-pro",
+        name: "Kimi K3.1 Pro",
+        addedOn: "2026-10-26",
+        shortName: "K3.1 Pro",
+        shortDescription:
+            "Moonshot's open-weight flagship, post-trained for patient, thorough multimodal work",
+        description:
+            "Kimi K3.1 Pro is Moonshot's flagship open-weight model, a post-trained successor to the K3 base with native image understanding and a million-token context. It takes its time over a problem, keeps sprawling codebases and documents in view, and is especially at home designing interfaces, building 3D scenes, and carrying large software changes through to the end.",
+        releaseOrder: 20261023,
+        adapters: openRouterTextAdapters("moonshotai/kimi-k3.1-pro"),
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        supportsDisablingReasoning: true,
+        reasoningEfforts: ["off", "low", "high"],
+        defaultReasoningEffort: "high",
+        developer: "Moonshot AI"
+    },
+    {
         id: "kimi-k3",
         name: "Kimi K3",
         addedOn: "2026-07-16",
