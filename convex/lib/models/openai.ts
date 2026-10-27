@@ -36,6 +36,23 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
     },
     {
+        id: "gpt-6.1-terra",
+        name: "GPT 6.1 Terra",
+        addedOn: "2026-10-27",
+        shortName: "6.1 Terra",
+        shortDescription:
+            "OpenAI's mid-tier GPT-6.1 model for everyday coding and writing, with a sharp eye for screenshots",
+        description:
+            "GPT 6.1 Terra is OpenAI's mid-tier GPT-6.1 model, priced for high-volume everyday work. It reads screenshots and on-screen content closely, and accepts text, images, and PDFs with tool calling and adjustable reasoning that can be turned off for simpler requests. A dependable pick for coding, writing, and interface-heavy tasks.",
+        developer: "OpenAI",
+        releaseOrder: 20261031,
+        adapters: openAiTextAdapters("gpt-6.1-terra"),
+        supportsVerbosity: true,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        supportsDisablingReasoning: true,
+        ...FREE_WITHOUT_REASONING_ACCESS
+    },
+    {
         id: "gpt-6-sol",
         name: "GPT 6 Sol",
         addedOn: "2026-09-23",
