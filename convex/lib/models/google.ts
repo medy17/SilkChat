@@ -18,6 +18,11 @@ const FREE_UP_TO_LOW_REASONING_ACCESS = {
     }
 } satisfies Pick<SharedModel, "availableToPickFor" | "availableToPickForReasoningEfforts">
 
+// Prompt caches are per provider, so keep Gemini on AI Studio and fall back to Vertex only when needed.
+const AI_STUDIO_ROUTING = {
+    preferredOpenRouterProviders: ["google-ai-studio"]
+} satisfies Pick<SharedModel, "preferredOpenRouterProviders">
+
 const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const
 
 export const GOOGLE_MODELS: SharedModel[] = [
@@ -33,6 +38,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20261013,
         adapters: googleTextAdapters("gemini-4-argon"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -88,6 +94,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260902,
         adapters: googleTextAdapters("gemini-3.8-flash"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -108,6 +115,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260813,
         adapters: googleTextAdapters("gemini-3.7-flash"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -128,6 +136,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260721,
         adapters: googleTextAdapters("gemini-3.6-flash"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -144,6 +153,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260721,
         adapters: googleTextAdapters("gemini-3.5-flash-lite"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -161,6 +171,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260519,
         adapters: googleTextAdapters("gemini-3.5-flash"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -181,6 +192,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20251217,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         ...FREE_UP_TO_LOW_REASONING_ACCESS
@@ -200,10 +212,10 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260507,
         adapters: googleTextAdapters("gemini-3.1-flash-lite"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        preferredOpenRouterProviders: ["google-ai-studio"],
         ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {
@@ -239,6 +251,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260219,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
+        ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
     },
     {
