@@ -2375,6 +2375,11 @@ async function handleChatPost(
                         streamMetrics,
                         {
                             allowReasoning: effectiveReasoningEffort !== "off",
+                            providerErrorSource:
+                                modelData.providerSource === "openrouter" ||
+                                modelData.providerSource === "custom"
+                                    ? { keySource: "byok", providerName: modelData.providerName }
+                                    : { keySource: "hosted" },
                             onPartsChanged: scheduleLiveAssistantPersist,
                             onFirstVisible: () => {
                                 shouldChargeModelReservation = true

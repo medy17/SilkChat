@@ -296,6 +296,7 @@ describe("manualStreamTransform", () => {
     })
 
     it("persists tool calls/results and forwards tool and error output", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {})
         const onToolCall = vi.fn()
         const onToolResult = vi.fn()
         const result = await collectChunks(
@@ -344,8 +345,9 @@ describe("manualStreamTransform", () => {
             {
                 type: "error",
                 error: {
-                    code: "unknown",
-                    message: "stream broke"
+                    code: "provider_error",
+                    message: "The response stopped unexpectedly. Please try again.",
+                    detail: { kind: "provider_error", category: "unknown", keySource: "hosted" }
                 }
             }
         ])
@@ -363,7 +365,7 @@ describe("manualStreamTransform", () => {
             },
             {
                 type: "error",
-                errorText: "stream broke"
+                errorText: JSON.stringify(result.parts[1].type === "error" && result.parts[1].error)
             }
         ])
     })

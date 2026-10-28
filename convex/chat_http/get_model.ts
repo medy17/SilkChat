@@ -106,6 +106,8 @@ export const getModel = async (
     let finalModel: LanguageModelV4 | undefined
     let providerSource: "internal" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
+    /** The user's provider label, for BYOK error copy. */
+    let providerName: string | undefined
 
     for (const adapter of sortedAdapters) {
         const providerIdRaw = model.customProviderId ?? getRegistryProviderId(adapter)
@@ -151,6 +153,7 @@ export const getModel = async (
                 { provider: routing }
             )
             providerSource = shouldUseInternal ? "internal" : "openrouter"
+            providerName = "OpenRouter"
             runtimeProvider = "openrouter"
             break
         }
@@ -181,6 +184,7 @@ export const getModel = async (
                 ? sdkProvider.responses(providerSpecificModelId)
                 : sdkProvider.chat(providerSpecificModelId)
         providerSource = "custom"
+        providerName = provider.name
         runtimeProvider = "custom"
         break
     }
@@ -200,6 +204,7 @@ export const getModel = async (
         modelName: model.name ?? model.id,
         providerSource,
         runtimeProvider,
+        providerName,
         routing,
         runtimeApiKey: undefined,
         availableToPickFor: model.availableToPickFor,

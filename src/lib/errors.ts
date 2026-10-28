@@ -21,11 +21,42 @@ export type SuggestedModel = {
     name: string
 }
 
+/** Whose key paid for the request: SilkChat's hosted key, or the user's own. */
+export type ProviderKeySource = "hosted" | "byok"
+
+/**
+ * What went wrong upstream. Hosted requests never carry the categories that
+ * describe SilkChat's own account (credits, key, connectivity); those collapse
+ * into `provider_unavailable` before they leave the server.
+ */
+export type ProviderErrorCategory =
+    | "insufficient_credits"
+    | "invalid_key"
+    | "moderation"
+    | "rate_limited"
+    | "timeout"
+    | "context_overflow"
+    | "invalid_request"
+    | "provider_unavailable"
+    | "network"
+    | "unknown"
+
 /**
  * Machine-readable detail attached to a chat error so the client can render a
  * specific, actionable message instead of a generic "something went wrong" block.
  */
 export type ChatErrorDetail =
+    | {
+          kind: "provider_error"
+          category: ProviderErrorCategory
+          keySource: ProviderKeySource
+          /** The user's provider on BYOK ("OpenRouter" or a custom provider's name). */
+          providerName?: string
+          statusCode?: number
+          /** Upstream wording, BYOK only: it's the user's account, so the details are theirs. */
+          providerMessage?: string
+          retryAfterSeconds?: number
+      }
     | {
           kind: "usage_limit_exceeded"
           window: "five_hour" | "monthly"

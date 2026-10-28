@@ -1,13 +1,34 @@
 import type { SharedModel } from "@/convex/lib/models"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { type ParsedChatError, type SuggestedModel, parseChatError } from "@/lib/errors"
+import {
+    type ParsedChatError,
+    type ProviderErrorCategory,
+    type SuggestedModel,
+    parseChatError
+} from "@/lib/errors"
+import { type ProviderErrorDetail, getProviderErrorCopy } from "@/lib/provider-errors"
 import { useSharedModels } from "@/lib/shared-models"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
+import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { AlertTriangle, CreditCard, Key, Lock, Pencil, RotateCcw } from "lucide-react"
-import { memo, useCallback, useEffect, useMemo } from "react"
+import {
+    AlertTriangle,
+    ChevronDown,
+    CreditCard,
+    ExternalLink,
+    Hourglass,
+    Key,
+    Lock,
+    Pencil,
+    RotateCcw,
+    ShieldAlert,
+    Unplug
+} from "lucide-react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { getProviderIcon } from "./model-selector"
+import { SPOTLIGHT_CARD_CLASS } from "./renderers/spotlight-frame"
+import { AnimatedCollapsible } from "./ui/animated-collapsible"
 import { Button } from "./ui/button"
 
 type ErrorCta = {
@@ -15,6 +36,8 @@ type ErrorCta = {
     icon?: typeof AlertTriangle
     /** Navigate to a route. Mutually exclusive with {@link ErrorCta.action}. */
     to?: string
+    /** Open an external page in a new tab, e.g. the provider's billing page. */
+    href?: string
     /** Trigger an in-app action instead of navigating to a route. */
     action?: "new_chat"
 }
@@ -23,6 +46,8 @@ type ErrorPresentation = {
     icon: typeof AlertTriangle
     title: string
     description?: string
+    /** The provider's own wording, shown on BYOK where the user owns the account. */
+    provider?: { name: string; statusCode?: number; message: string }
     /** The recommended action, rendered as the most prominent button. */
     primaryCta?: ErrorCta
     /** An optional alternative action, rendered with lower emphasis. */
@@ -42,12 +67,69 @@ const FEATURE_NOUN: Record<"chat" | "image" | "tool", string> = {
     tool: "tool"
 }
 
+const PROVIDER_ERROR_ICON: Partial<Record<ProviderErrorCategory, typeof AlertTriangle>> = {
+    insufficient_credits: CreditCard,
+    invalid_key: Key,
+    moderation: ShieldAlert,
+    rate_limited: Hourglass,
+    timeout: Hourglass,
+    network: Unplug
+}
+
+const OPENROUTER_CREDITS_URL = "https://openrouter.ai/settings/credits"
+
+const MANAGE_KEYS_CTA: ErrorCta = { label: "Manage keys", to: "/settings/providers", icon: Key }
+
+/** Only BYOK errors point at the user's account; hosted ones are ours to fix. */
+function getProviderErrorCtas(
+    detail: ProviderErrorDetail
+): Pick<ErrorPresentation, "primaryCta" | "secondaryCta"> {
+    if (detail.category === "context_overflow") {
+        return { primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil } }
+    }
+    if (detail.keySource !== "byok") return {}
+
+    if (detail.category === "insufficient_credits" && detail.providerName === "OpenRouter") {
+        return {
+            primaryCta: { label: "Add credits", href: OPENROUTER_CREDITS_URL, icon: ExternalLink },
+            secondaryCta: MANAGE_KEYS_CTA
+        }
+    }
+    if (
+        detail.category === "insufficient_credits" ||
+        detail.category === "invalid_key" ||
+        detail.category === "network"
+    ) {
+        return { primaryCta: MANAGE_KEYS_CTA }
+    }
+    return {}
+}
+
+function describeProviderError(detail: ProviderErrorDetail): ErrorPresentation {
+    const { title, description } = getProviderErrorCopy(detail)
+    return {
+        icon: PROVIDER_ERROR_ICON[detail.category] ?? AlertTriangle,
+        title,
+        description,
+        provider: detail.providerMessage
+            ? {
+                  name: detail.providerName ?? "Provider",
+                  statusCode: detail.statusCode,
+                  message: detail.providerMessage
+              }
+            : undefined,
+        ...getProviderErrorCtas(detail)
+    }
+}
+
 /**
  * Translate a parsed chat error into a specific, actionable notice. Falls back
  * to the backend-supplied cause/message, then to a generic line.
  */
 function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
     const detail = parsed?.detail
+
+    if (detail?.kind === "provider_error") return describeProviderError(detail)
 
     if (detail?.kind === "plan_required") {
         const noun = FEATURE_NOUN[detail.feature ?? "chat"]
@@ -84,8 +166,7 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             return {
                 icon: AlertTriangle,
                 title: "This thread is too long",
-                description:
-                    "This thread is too long. Edit your message, start a new chat, or switch to BYOK.",
+                description: "Edit your message, start a new chat, or switch to BYOK.",
                 primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
                 secondaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
                 suggestedModels: detail.suggestedModels
@@ -96,7 +177,7 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             icon: AlertTriangle,
             title: "This thread is too long",
             description:
-                "This thread is too long for the selected model. Edit your message, start a new chat, or pick a model that supports longer chats.",
+                "The selected model can't fit it. Edit your message, start a new chat, or pick a model that supports longer chats.",
             primaryCta: { label: "New Chat", action: "new_chat", icon: Pencil },
             suggestedModels: detail.suggestedModels
         }
@@ -135,7 +216,6 @@ export const ChatErrorNotice = memo(
     }) => {
         const parsedError = useMemo(() => parseChatError(error), [error])
         const presentation = useMemo(() => describeChatError(parsedError), [parsedError])
-        const Icon = presentation.icon
         const startNewChat = useStartNewChat()
         const isMobile = useIsMobile()
         const { models: sharedModels } = useSharedModels()
@@ -161,17 +241,34 @@ export const ChatErrorNotice = memo(
 
         const renderCta = (cta: ErrorCta, variant: "default" | "outline") => {
             const CtaIcon = cta.icon
+            // Filled buttons bring their own foreground; forcing one breaks contrast.
+            const ctaClassName = variant === "outline" ? "text-foreground" : undefined
             if (cta.action === "new_chat") {
                 return (
-                    <Button variant={variant} size="sm" onClick={startNewChat}>
+                    <Button
+                        variant={variant}
+                        size="sm"
+                        className={ctaClassName}
+                        onClick={startNewChat}
+                    >
                         {CtaIcon && <CtaIcon />}
                         {cta.label}
                     </Button>
                 )
             }
+            if (cta.href) {
+                return (
+                    <Button asChild variant={variant} size="sm" className={ctaClassName}>
+                        <a href={cta.href} target="_blank" rel="noreferrer">
+                            {CtaIcon && <CtaIcon />}
+                            {cta.label}
+                        </a>
+                    </Button>
+                )
+            }
             if (cta.to) {
                 return (
-                    <Button asChild variant={variant} size="sm" className="text-foreground">
+                    <Button asChild variant={variant} size="sm" className={ctaClassName}>
                         <Link to={cta.to}>
                             {CtaIcon && <CtaIcon />}
                             {cta.label}
@@ -182,56 +279,217 @@ export const ChatErrorNotice = memo(
             return null
         }
 
-        return (
-            <div className="flex flex-col gap-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-foreground">
-                <div className="flex items-start gap-3">
-                    <Icon className="mt-2 size-5 shrink-0 text-destructive" />
-                    <div className="flex min-w-0 flex-col gap-1">
-                        <p className="font-medium text-foreground">{presentation.title}</p>
-                        {presentation.description && (
-                            <p className="text-muted-foreground text-sm">
-                                {presentation.description}
-                            </p>
-                        )}
-                    </div>
-                </div>
+        const suggestions =
+            onSwitchModel && visibleSuggestions.length > 0
+                ? visibleSuggestions.map((model) => {
+                      const sharedModel = sharedModelsById.get(model.id)
+                      return (
+                          <Button
+                              key={model.id}
+                              variant="outline"
+                              size="sm"
+                              className="text-foreground"
+                              onClick={() => onSwitchModel(model.id)}
+                          >
+                              {sharedModel && getProviderIcon(sharedModel, false)}
+                              {model.name}
+                          </Button>
+                      )
+                  })
+                : null
 
-                <div className="flex items-center justify-end gap-2">
-                    {presentation.secondaryCta && renderCta(presentation.secondaryCta, "outline")}
+        return (
+            <div className={cn(SPOTLIGHT_CARD_CLASS, "p-5")}>
+                <ErrorHeading icon={presentation.icon} title={presentation.title} />
+                {presentation.description && (
+                    <p className="mt-1 text-muted-foreground text-sm">{presentation.description}</p>
+                )}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                     {presentation.primaryCta && renderCta(presentation.primaryCta, "default")}
+                    {presentation.secondaryCta && renderCta(presentation.secondaryCta, "outline")}
                     {onRetry && (
-                        <Button variant="destructive" size="sm" onClick={onRetry}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-foreground"
+                            onClick={onRetry}
+                        >
                             <RotateCcw />
                             Retry
                         </Button>
                     )}
                 </div>
-
-                {onSwitchModel && visibleSuggestions.length > 0 && (
-                    <div className="flex flex-col gap-2 border-destructive/30 border-t pt-3">
-                        <span className="text-muted-foreground text-sm">Or continue with:</span>
-                        <div className="flex flex-wrap gap-2">
-                            {visibleSuggestions.map((model) => {
-                                const sharedModel = sharedModelsById.get(model.id)
-                                return (
-                                    <Button
-                                        key={model.id}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-foreground"
-                                        onClick={() => onSwitchModel(model.id)}
-                                    >
-                                        {sharedModel && getProviderIcon(sharedModel, false)}
-                                        {model.name}
-                                    </Button>
-                                )
-                            })}
-                        </div>
+                {suggestions && (
+                    <div className="mt-4 flex flex-col gap-2">
+                        <span className="text-muted-foreground text-sm">Or continue with</span>
+                        <div className="flex flex-wrap gap-2">{suggestions}</div>
                     </div>
+                )}
+                {presentation.provider && (
+                    <ProviderDetails provider={presentation.provider} className="mt-4" />
                 )}
             </div>
         )
     }
 )
+
+const URL_PATTERN = /(https?:\/\/[^\s]*[^\s.,;:!?)"'])/g
+
+/** Upstream messages often embed URLs; make them clickable instead of a wall of text. */
+function linkify(message: string) {
+    return message.split(URL_PATTERN).map((segment, index) =>
+        index % 2 === 1 ? (
+            <a
+                key={`${index}-${segment}`}
+                href={segment}
+                target="_blank"
+                rel="noreferrer"
+                className="break-all underline underline-offset-2 hover:text-foreground"
+            >
+                {segment}
+            </a>
+        ) : (
+            segment
+        )
+    )
+}
+
+/** Lucide draws on a 24-unit grid with a 2-unit stroke. */
+const LUCIDE_GRID = 24
+const LUCIDE_STROKE = 2
+
+/**
+ * How far below the top of its line box an element's capitals start. The font's ascent and
+ * cap height come from the browser, so this follows the real typeface and size.
+ */
+function measureCapTop(element: Element) {
+    const style = getComputedStyle(element)
+    const lineHeight = Number.parseFloat(style.lineHeight)
+    const context = document.createElement("canvas").getContext("2d")
+    if (!context || Number.isNaN(lineHeight)) return undefined
+    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    const metrics = context.measureText("H")
+    const halfLeading =
+        (lineHeight - metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2
+    return halfLeading + metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent
+}
+
+/**
+ * The title, led by an icon whose drawn top hangs from the title's cap height. Centring the
+ * icon box on the line leaves it riding high beside ProximaVara's tall lowercase, and Lucide
+ * pads each glyph differently inside its box, so the glyph's own bounds are used.
+ */
+function ErrorHeading({ icon: Icon, title }: { icon: ErrorPresentation["icon"]; title: string }) {
+    const iconRef = useRef<SVGSVGElement>(null)
+    const titleRef = useRef<HTMLHeadingElement>(null)
+    const [iconTop, setIconTop] = useState<number>()
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a new glyph has new bounds to measure.
+    useLayoutEffect(() => {
+        let cancelled = false
+        const align = () => {
+            const icon = iconRef.current
+            const heading = titleRef.current
+            if (cancelled || !icon || !heading) return
+            const capTop = measureCapTop(heading)
+            if (capTop === undefined) return
+            const scale = icon.getBoundingClientRect().height / LUCIDE_GRID
+            const glyphTop = (icon.getBBox().y - LUCIDE_STROKE / 2) * scale
+            setIconTop(capTop - glyphTop)
+        }
+        align()
+        // The first pass can measure the fallback font; settle once ProximaVara loads.
+        void document.fonts?.ready.then(align)
+        return () => {
+            cancelled = true
+        }
+    }, [Icon])
+
+    return (
+        <div className="flex items-start gap-2">
+            <Icon
+                ref={iconRef}
+                className="size-4 shrink-0 text-destructive"
+                style={{ marginTop: iconTop }}
+            />
+            <h3
+                ref={titleRef}
+                className="min-w-0 flex-1 font-semibold text-base leading-6 tracking-tight"
+            >
+                {title}
+            </h3>
+        </div>
+    )
+}
+
+const HTTP_STATUS_TEXT: Record<number, string> = {
+    400: "Bad Request",
+    401: "Unauthorized",
+    402: "Payment Required",
+    403: "Forbidden",
+    404: "Not Found",
+    408: "Request Timeout",
+    413: "Payload Too Large",
+    422: "Unprocessable Content",
+    429: "Too Many Requests",
+    500: "Internal Server Error",
+    502: "Bad Gateway",
+    503: "Service Unavailable",
+    504: "Gateway Timeout",
+    524: "Timeout Occurred"
+}
+
+/**
+ * The provider's own account of the failure, folded away like the Details toggle on
+ * code execution steps. Only BYOK errors carry it.
+ */
+function ProviderDetails({
+    provider,
+    className
+}: {
+    provider: NonNullable<ErrorPresentation["provider"]>
+    className?: string
+}) {
+    const [open, setOpen] = useState(false)
+    const statusText = provider.statusCode ? HTTP_STATUS_TEXT[provider.statusCode] : undefined
+
+    return (
+        <section className={className}>
+            <button
+                type="button"
+                data-pause-chat-scroll-follow=""
+                className="flex items-center gap-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                onClick={() => setOpen((shown) => !shown)}
+                aria-expanded={open}
+            >
+                <ChevronDown
+                    className={cn("size-3.5 transition-transform", open && "rotate-180")}
+                />
+                Details
+            </button>
+            <AnimatedCollapsible open={open}>
+                <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
+                    <dt className="text-muted-foreground">Provider</dt>
+                    <dd className="text-foreground">{provider.name}</dd>
+                    {provider.statusCode && (
+                        <>
+                            <dt className="text-muted-foreground">Status</dt>
+                            <dd className="flex items-center gap-1.5 text-foreground">
+                                <code className="rounded-[var(--radius-sm)] bg-destructive/10 px-1.5 py-0.5 font-mono text-destructive">
+                                    {provider.statusCode}
+                                </code>
+                                {statusText}
+                            </dd>
+                        </>
+                    )}
+                    <dt className="text-muted-foreground">Response</dt>
+                    <dd className="break-words text-foreground leading-relaxed">
+                        {linkify(provider.message)}
+                    </dd>
+                </dl>
+            </AnimatedCollapsible>
+        </section>
+    )
+}
 
 ChatErrorNotice.displayName = "ChatErrorNotice"

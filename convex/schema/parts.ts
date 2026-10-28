@@ -41,15 +41,39 @@ export const ErrorUIPart = v.object({
         code: v.string(),
         message: v.string(),
         detail: v.optional(
-            v.object({
-                kind: v.literal("context_limit_exceeded"),
-                limitType: v.union(v.literal("hosted"), v.literal("model")),
-                estimatedTokens: v.number(),
-                limitTokens: v.number(),
-                modelId: v.string(),
-                canUseByok: v.optional(v.boolean()),
-                suggestedModels: v.optional(v.array(v.object({ id: v.string(), name: v.string() })))
-            })
+            v.union(
+                v.object({
+                    kind: v.literal("context_limit_exceeded"),
+                    limitType: v.union(v.literal("hosted"), v.literal("model")),
+                    estimatedTokens: v.number(),
+                    limitTokens: v.number(),
+                    modelId: v.string(),
+                    canUseByok: v.optional(v.boolean()),
+                    suggestedModels: v.optional(
+                        v.array(v.object({ id: v.string(), name: v.string() }))
+                    )
+                }),
+                v.object({
+                    kind: v.literal("provider_error"),
+                    category: v.union(
+                        v.literal("insufficient_credits"),
+                        v.literal("invalid_key"),
+                        v.literal("moderation"),
+                        v.literal("rate_limited"),
+                        v.literal("timeout"),
+                        v.literal("context_overflow"),
+                        v.literal("invalid_request"),
+                        v.literal("provider_unavailable"),
+                        v.literal("network"),
+                        v.literal("unknown")
+                    ),
+                    keySource: v.union(v.literal("hosted"), v.literal("byok")),
+                    providerName: v.optional(v.string()),
+                    statusCode: v.optional(v.number()),
+                    providerMessage: v.optional(v.string()),
+                    retryAfterSeconds: v.optional(v.number())
+                })
+            )
         )
     })
 })

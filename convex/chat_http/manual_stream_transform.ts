@@ -1,3 +1,4 @@
+import { type ProviderErrorSource, buildProviderErrorPayload } from "@/lib/provider-errors"
 import type { TextStreamPart, UIMessageChunk } from "ai"
 import type { GenericActionCtx } from "convex/server"
 import type { Infer } from "convex/values"
@@ -70,6 +71,8 @@ export const manualStreamTransform = (
             toolName: string
             succeeded: boolean
         }) => void
+        /** Whose key served the request. Defaults to hosted, which never leaks upstream wording. */
+        providerErrorSource?: ProviderErrorSource
     }
 ) => {
     let reasoningStartedAt = -1
@@ -79,6 +82,7 @@ export const manualStreamTransform = (
     const pendingToolInputs: Array<{ id: string; toolName: string }> = []
     const clientToolCallIds = new Map<string, string>()
     const allowReasoning = options?.allowReasoning ?? true
+    const providerErrorSource = options?.providerErrorSource ?? { keySource: "hosted" }
     const REDACTED_REASONING_PATTERN = /^\[REDACTED\]$/i
     const notifyPartsChanged = () => {
         options?.onPartsChanged?.()
@@ -542,24 +546,19 @@ export const manualStreamTransform = (
                     break
                 }
                 case "error": {
-                    const errorText =
-                        chunk.error instanceof Error
-                            ? chunk.error.message
-                            : typeof chunk.error === "string"
-                              ? chunk.error
-                              : "An error occurred"
-
-                    parts.push({
-                        type: "error",
-                        error: {
-                            code: "unknown",
-                            message: errorText
-                        }
+                    const payload = buildProviderErrorPayload(chunk.error, providerErrorSource)
+                    console.error("[cvx][chat][provider-error]", {
+                        category: payload.detail.category,
+                        keySource: payload.detail.keySource,
+                        error: chunk.error
                     })
+
+                    parts.push({ type: "error", error: payload })
                     notifyPartsChanged()
+                    // The client parses this back into { code, message, detail }.
                     controller.enqueue({
                         type: "error",
-                        errorText
+                        errorText: JSON.stringify(payload)
                     })
                     break
                 }
