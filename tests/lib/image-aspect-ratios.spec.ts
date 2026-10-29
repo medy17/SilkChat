@@ -2,7 +2,8 @@ import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     getCommonSelectableImageAspectRatios,
     getSelectableImageAspectRatios,
-    normalizeExactImageAspectRatio
+    normalizeExactImageAspectRatio,
+    parseImageAspectRatio
 } from "@/lib/image-aspect-ratios"
 import { describe, expect, it } from "vitest"
 import { MODELS_SHARED } from "../../convex/lib/models"
@@ -15,6 +16,25 @@ const supportedSizesFor = (modelId: string) => {
 }
 
 describe("image-aspect-ratios", () => {
+    it("accepts only positive W:H ratios and positive integer WxH sizes", () => {
+        expect(parseImageAspectRatio("2.39:1")).toEqual({ width: 2.39, height: 1 })
+        expect(parseImageAspectRatio("16:9-hd")).toEqual({ width: 16, height: 9 })
+        expect(parseImageAspectRatio("1536x1024")).toEqual({ width: 1536, height: 1024 })
+        for (const invalid of [
+            "wide",
+            "5/4",
+            "0:1",
+            "1:0",
+            "-1:1",
+            "1:2:3",
+            "1.5x1",
+            "16 : 9",
+            ""
+        ]) {
+            expect(parseImageAspectRatio(invalid), invalid).toBeNull()
+        }
+    })
+
     it("returns all selectable aspect ratios when a model does not declare supported sizes", () => {
         expect(getSelectableImageAspectRatios(undefined)).toEqual([
             ...SELECTABLE_IMAGE_ASPECT_RATIOS

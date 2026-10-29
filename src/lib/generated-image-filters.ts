@@ -1,4 +1,5 @@
 import {
+    parseImageAspectRatio,
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio
 } from "@/lib/image-aspect-ratios"
@@ -26,33 +27,8 @@ type FilterableGeneratedImage = {
     createdAt: number
 }
 
-type AspectRatioDimensions = {
-    width: number
-    height: number
-}
-
 const isDefined = <T>(value: T | null | undefined): value is T => value != null
 const isNonEmptyString = (value: string): value is string => value.length > 0
-
-const parseAspectRatioDimensions = (aspectRatio?: string): AspectRatioDimensions | null => {
-    if (!aspectRatio) return null
-
-    if (aspectRatio.includes("x")) {
-        const [width, height] = aspectRatio.split("x").map(Number)
-        if (width > 0 && height > 0) {
-            return { width, height }
-        }
-    }
-
-    if (aspectRatio.includes(":")) {
-        const [width, height] = aspectRatio.replace("-hd", "").split(":").map(Number)
-        if (width > 0 && height > 0) {
-            return { width, height }
-        }
-    }
-
-    return null
-}
 
 const normalizeValues = (values?: string[] | null) => {
     if (!values?.length) return undefined
@@ -85,7 +61,7 @@ const normalizeOrientations = (values?: GeneratedImageOrientation[] | null) => {
 }
 
 const getAspectRatioValue = (aspectRatio?: string) => {
-    const dimensions = parseAspectRatioDimensions(aspectRatio)
+    const dimensions = parseImageAspectRatio(aspectRatio)
     return dimensions ? dimensions.width / dimensions.height : null
 }
 
@@ -118,6 +94,13 @@ export const getGeneratedImageOrientation = (
     if (Math.abs(ratio - 1) < 0.001) return "square"
     return ratio > 1 ? "landscape" : "portrait"
 }
+
+// Stored on each image so filters can use exact index ranges. An unreadable
+// ratio still counts as square, matching how the filter has always treated it.
+export const getGeneratedImageFilterFields = (aspectRatio?: string) => ({
+    aspectRatioBucket: normalizeGeneratedImageAspectRatio(aspectRatio),
+    orientation: getGeneratedImageOrientation(aspectRatio) ?? ("square" as const)
+})
 
 export const normalizeGeneratedImageFilters = (
     filters?: GeneratedImageFilters | null
@@ -155,21 +138,16 @@ export const matchesGeneratedImageFilters = (
         return false
     }
 
+    const { aspectRatioBucket, orientation } = getGeneratedImageFilterFields(image.aspectRatio)
+
     if (
         normalized.aspectRatios?.length &&
-        !normalized.aspectRatios.includes(
-            normalizeGeneratedImageAspectRatio(image.aspectRatio) ?? ""
-        )
+        !normalized.aspectRatios.includes(aspectRatioBucket ?? "")
     ) {
         return false
     }
 
-    if (
-        normalized.orientations?.length &&
-        !normalized.orientations.includes(
-            getGeneratedImageOrientation(image.aspectRatio) ?? "square"
-        )
-    ) {
+    if (normalized.orientations?.length && !normalized.orientations.includes(orientation)) {
         return false
     }
 

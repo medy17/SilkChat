@@ -1,3 +1,22 @@
+const RATIO_PATTERN = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)(?:-hd)?$/
+const PIXEL_SIZE_PATTERN = /^(\d+)x(\d+)$/
+
+// The only accepted shapes: `W:H` (optionally `-hd`) with positive numbers,
+// or a `WxH` pixel size with positive integers.
+export const parseImageAspectRatio = (value?: string) => {
+    if (!value) return null
+    const match = RATIO_PATTERN.exec(value) ?? PIXEL_SIZE_PATTERN.exec(value)
+    if (!match) return null
+
+    const width = Number(match[1])
+    const height = Number(match[2])
+    return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
+        ? { width, height }
+        : null
+}
+
+// Library filters store each image's nearest bucket. Changing this list needs
+// migrations:runGeneratedImageFilterFieldsBackfill on every deployment.
 export const SELECTABLE_IMAGE_ASPECT_RATIOS = ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9"] as const
 
 export type SelectableImageAspectRatio = (typeof SELECTABLE_IMAGE_ASPECT_RATIOS)[number]

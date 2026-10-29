@@ -121,12 +121,22 @@ describe("validatePreparedImageRequest coercion", () => {
 
         const validated = validatePreparedImageRequest({
             modelId: model.id,
-            aspectRatio: "definitely-not-a-real-ratio",
+            aspectRatio: "7:3",
             referenceCount: 0
         })
 
         expect(supported).toContain(validated.aspectRatio)
     })
+
+    it.each(["definitely-not-a-real-ratio", "5/4", "0:1", "16:-9", "1.5x1"])(
+        "rejects a malformed aspect ratio %s instead of snapping it",
+        (aspectRatio) => {
+            const model = getSelectableImageModels()[0]
+            expect(() =>
+                validatePreparedImageRequest({ modelId: model.id, aspectRatio, referenceCount: 0 })
+            ).toThrow("Invalid aspect ratio.")
+        }
+    )
 
     it("applies the user default resolution when the model omits it", () => {
         const model = getModelWithMultipleResolutions()

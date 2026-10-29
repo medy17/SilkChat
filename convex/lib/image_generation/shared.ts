@@ -1,3 +1,4 @@
+import { parseImageAspectRatio } from "@/lib/image-aspect-ratios"
 import type { GenericActionCtx } from "convex/server"
 import { nanoid } from "nanoid"
 import { internal } from "../../_generated/api"
@@ -176,6 +177,10 @@ export const validatePreparedImageRequest = ({
     // this only builds a pending card the user confirms before spending credits,
     // snapping to the nearest legal value is safer than failing the card. References are
     // the exception (handled below) — silently dropping a reference would change intent.
+    // Snapping covers legal-but-unsupported values; a malformed one is a bad request.
+    if (aspectRatio && !parseImageAspectRatio(aspectRatio)) {
+        throw new Error("Invalid aspect ratio.")
+    }
     const supportedAspectRatios = getSupportedAspectRatiosForImageModel(model)
     const requestedAspectRatio = (aspectRatio || supportedAspectRatios[0] || "1:1") as ImageSize
     const aspectRatioSupported =

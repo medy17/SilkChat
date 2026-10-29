@@ -1,3 +1,4 @@
+import { getGeneratedImageFilterFields } from "@/lib/generated-image-filters"
 // Migration setup - will be implemented when ready to migrate
 import { Migrations } from "@convex-dev/migrations"
 import { components, internal } from "./_generated/api.js"
@@ -32,4 +33,22 @@ export const retireLegacySearchSettingsMigration = migrations.define({
 
 export const runLegacySearchSettingsCleanup = migrations.runner([
     internal.migrations.retireLegacySearchSettingsMigration
+])
+
+export const backfillGeneratedImageFilterFieldsMigration = migrations.define({
+    table: "generatedImages",
+    migrateOne: (_ctx, doc) => {
+        const fields = getGeneratedImageFilterFields(doc.aspectRatio)
+        if (
+            doc.aspectRatioBucket === fields.aspectRatioBucket &&
+            doc.orientation === fields.orientation
+        ) {
+            return
+        }
+        return fields
+    }
+})
+
+export const runGeneratedImageFilterFieldsBackfill = migrations.runner([
+    internal.migrations.backfillGeneratedImageFilterFieldsMigration
 ])

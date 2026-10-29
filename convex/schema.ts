@@ -293,10 +293,121 @@ export default defineSchema({
         .index("byUserId", ["userId"])
         .index("byUserIdAndCreatedAt", ["userId", "createdAt"])
         .index("byUserIdAndIsArchivedAndCreatedAt", ["userId", "isArchived", "createdAt"])
+        // One index per combination of library filter groups, so any selection
+        // reads only matching rows. Names must match getIndexName in lib/generated_image_query_plan.ts.
+        .index("byUserArchivedModelCreatedAt", ["userId", "isArchived", "modelId", "createdAt"])
+        .index("byUserArchivedResolutionCreatedAt", [
+            "userId",
+            "isArchived",
+            "resolution",
+            "createdAt"
+        ])
+        .index("byUserArchivedAspectCreatedAt", [
+            "userId",
+            "isArchived",
+            "aspectRatioBucket",
+            "createdAt"
+        ])
+        .index("byUserArchivedOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelResolutionCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "resolution",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelAspectCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "aspectRatioBucket",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedResolutionAspectCreatedAt", [
+            "userId",
+            "isArchived",
+            "resolution",
+            "aspectRatioBucket",
+            "createdAt"
+        ])
+        .index("byUserArchivedResolutionOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "resolution",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedAspectOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "aspectRatioBucket",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelResolutionAspectCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "resolution",
+            "aspectRatioBucket",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelResolutionOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "resolution",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelAspectOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "aspectRatioBucket",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedResolutionAspectOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "resolution",
+            "aspectRatioBucket",
+            "orientation",
+            "createdAt"
+        ])
+        .index("byUserArchivedModelResolutionAspectOrientationCreatedAt", [
+            "userId",
+            "isArchived",
+            "modelId",
+            "resolution",
+            "aspectRatioBucket",
+            "orientation",
+            "createdAt"
+        ])
         .index("byGenerationJobIdAndStorageKey", ["generationJobId", "storageKey"])
         .searchIndex("search_text", {
             searchField: "searchText",
-            filterFields: ["userId"]
+            filterFields: [
+                "userId",
+                "isArchived",
+                "modelId",
+                "resolution",
+                "aspectRatioBucket",
+                "orientation"
+            ]
         }),
 
     generatedImageFacets: defineTable(GeneratedImageFacets).index("byUserId", ["userId"]),

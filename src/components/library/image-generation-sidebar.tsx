@@ -42,7 +42,8 @@ import { DEFAULT_UPLOAD_POLICY, formatFileSizeLimit } from "@/lib/file_constants
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio,
-    getCommonSelectableImageAspectRatios
+    getCommonSelectableImageAspectRatios,
+    parseImageAspectRatio
 } from "@/lib/image-aspect-ratios"
 import { getReferenceImageSources } from "@/lib/generated-image-urls"
 import { getRequiredPlanToPickModel } from "@/lib/models-providers-shared"
@@ -249,6 +250,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         )
     const effectiveAspectRatio =
         overridesActive && aspectRatioOverride ? aspectRatioOverride : aspectRatio
+    const isAspectRatioOverrideInvalid =
+        Boolean(aspectRatioOverride) && !parseImageAspectRatio(aspectRatioOverride ?? undefined)
 
     const { data: session } = useSession()
     const userId = session?.user?.id
@@ -947,7 +950,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         Boolean(normalizedPrompt) &&
         !generationPanelDisabled &&
         !selectedRequiresPlanUpgrade &&
-        pendingReferences.length === 0
+        pendingReferences.length === 0 &&
+        !(overridesActive && isAspectRatioOverrideInvalid)
 
     // Reads the store directly: the stale-reference dialog may have just cleared it.
     const getSubmittableReferenceKeys = () => {
@@ -1706,6 +1710,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 <Input
                                     value={aspectRatioOverride ?? ""}
                                     placeholder="e.g. 21:9"
+                                    aria-invalid={isAspectRatioOverrideInvalid}
                                     className="h-8 rounded-[var(--radius-sm)] text-xs"
                                     onChange={(event) =>
                                         setAspectRatioOverride(

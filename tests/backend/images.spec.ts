@@ -1,176 +1,258 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { convexTest } from "convex-test"
+import { describe, expect, it } from "vitest"
+import { api, internal } from "../../convex/_generated/api"
+import {
+    MAX_GENERATED_IMAGE_INDEX_RANGES,
+    planGeneratedImageIndexScan
+} from "../../convex/lib/generated_image_query_plan"
+import schema from "../../convex/schema"
+import {
+    filterAndSortGeneratedImages,
+    type GeneratedImageFilters
+} from "@/lib/generated-image-filters"
 
-const { getUserIdentityMock } = vi.hoisted(() => ({
-    getUserIdentityMock: vi.fn()
-}))
+const modules = import.meta.glob("../../convex/**/*.ts")
 
-vi.mock("convex/values", () => {
-    const passthrough = () => ({})
-    return {
-        v: new Proxy(
-            {},
-            {
-                get: () => passthrough
-            }
-        )
-    }
-})
-
-vi.mock("convex/server", () => ({
-    paginationOptsValidator: {}
-}))
-
-vi.mock("../../convex/_generated/server", () => ({
-    internalMutation: (config: unknown) => config,
-    internalQuery: (config: unknown) => config,
-    mutation: (config: unknown) => config,
-    query: (config: unknown) => config
-}))
-
-vi.mock("../../convex/lib/identity", () => ({
-    getUserIdentity: getUserIdentityMock
-}))
-
-import { paginateGeneratedImages } from "../../convex/images"
-
-const paginateGeneratedImagesHandler = paginateGeneratedImages as unknown as {
-    handler: (ctx: any, args: any) => Promise<any>
+type SeedImage = {
+    key: string
+    createdAt: number
+    modelId?: string
+    resolution?: string
+    aspectRatio?: string
+    prompt?: string
 }
 
-const emptyPaginationResult = { page: [], continueCursor: "", isDone: true }
-
-const createCtx = (result: Record<string, unknown> = emptyPaginationResult) => {
-    const paginate = vi.fn().mockResolvedValue(result)
-    const chain: any = {
-        withIndex: vi.fn(() => chain),
-        withSearchIndex: vi.fn(() => chain),
-        order: vi.fn(() => chain),
-        filter: vi.fn(() => chain),
-        paginate
+const setup = async (images: SeedImage[]) => {
+    const t = convexTest(schema, modules)
+    const user = t.withIdentity({ subject: "user-1" })
+    const ids = new Map<string, string>()
+    for (const image of images) {
+        const { key, ...rest } = image
+        const id = await t.mutation(internal.images.insertGeneratedImage, {
+            userId: "user-1",
+            storageKey: key,
+            ...rest
+        })
+        ids.set(key, id)
     }
-    return { auth: {}, db: { query: () => chain }, chain, paginate }
-}
-
-const run = (ctx: ReturnType<typeof createCtx>, args: Record<string, unknown> = {}) =>
-    paginateGeneratedImagesHandler.handler(ctx, {
-        paginationOpts: { numItems: 20, cursor: null },
-        view: "active",
-        ...args
+    // Another user's images must never leak into these pages.
+    await t.mutation(internal.images.insertGeneratedImage, {
+        userId: "user-2",
+        storageKey: "other-user",
+        modelId: "flux",
+        resolution: "1K",
+        aspectRatio: "1:1",
+        createdAt: 1
     })
+
+    const readAll = async (
+        args: {
+            filters?: GeneratedImageFilters
+            sortBy?: "newest" | "oldest" | "relevance"
+            view?: "active" | "archived"
+            query?: string
+        },
+        numItems = 3
+    ) => {
+        const pages: string[][] = []
+        let cursor: string | null = null
+        for (let guard = 0; guard < 200; guard++) {
+            const result: {
+                page: { storageKey: string }[]
+                isDone: boolean
+                continueCursor: string
+            } = await user.query(api.images.paginateGeneratedImages, {
+                paginationOpts: { numItems, cursor },
+                view: "active",
+                ...args
+            })
+            pages.push(result.page.map((image) => image.storageKey))
+            if (result.isDone) return pages
+            cursor = result.continueCursor
+        }
+        throw new Error("Pagination did not finish")
+    }
+
+    return { t, user, ids, readAll }
+}
+
+const MODELS = ["flux", "seedream-5-lite", "gpt-image"]
+const RESOLUTIONS = ["1K", "2K", "4K", undefined]
+const ASPECT_RATIOS = ["1:1", "16:9", "9:16", "1024x1536", "1025x1024", undefined]
+
+// A varied library where every model, resolution and ratio is interleaved
+// through time, so no filter's matches sit together in one index range.
+const seedLibrary = (count: number): SeedImage[] =>
+    Array.from({ length: count }, (_, index) => ({
+        key: `image-${index}`,
+        createdAt: 1_000 + index,
+        modelId: MODELS[index % MODELS.length],
+        resolution: RESOLUTIONS[(index * 7) % RESOLUTIONS.length],
+        aspectRatio: ASPECT_RATIOS[(index * 5) % ASPECT_RATIOS.length]
+    }))
+
+const expectedKeys = (
+    images: SeedImage[],
+    filters: GeneratedImageFilters,
+    sortBy: "newest" | "oldest"
+) => filterAndSortGeneratedImages(images, { filters, sortBy }).map((image) => image.key)
+
+const choices = <T>(values: T[]) => [[], [values[0]], [values[1], values[2]]] as T[][]
 
 describe("paginateGeneratedImages", () => {
-    beforeEach(() => getUserIdentityMock.mockReset().mockResolvedValue({ id: "user-1" }))
+    it("fills every page with matches when they are spread thinly through the library", async () => {
+        const images = Array.from({ length: 60 }, (_, index) => ({
+            key: `image-${index}`,
+            createdAt: index,
+            modelId: index % 10 === 0 ? "seedream-5-lite" : "flux",
+            resolution: "1K",
+            aspectRatio: "3:4"
+        }))
+        const { readAll } = await setup(images)
 
-    it("continues from an opaque cursor with a bounded read and preserves split metadata", async () => {
-        const page = {
-            page: [{ _id: "image" }],
-            continueCursor: "opaque-next",
-            isDone: false,
-            splitCursor: "split",
-            pageStatus: "SplitRecommended"
+        expect(await readAll({ filters: { modelIds: ["seedream-5-lite"] } })).toEqual([
+            ["image-50", "image-40", "image-30"],
+            ["image-20", "image-10", "image-0"],
+            []
+        ])
+    })
+
+    it("returns exactly the reference matches, in order and in full pages, for every filter combination", async () => {
+        const images = seedLibrary(48)
+        const { readAll } = await setup(images)
+        const orientationChoices = [[], ["portrait"], ["portrait", "square"]] as const
+
+        for (const modelIds of choices(MODELS))
+            for (const resolutions of choices(["1K", "2K", "4K"]))
+                for (const aspectRatios of choices(["1:1", "16:9", "2:3"]))
+                    for (const orientations of orientationChoices) {
+                        const filters = {
+                            modelIds,
+                            resolutions,
+                            aspectRatios,
+                            orientations: [...orientations]
+                        }
+                        for (const sortBy of ["newest", "oldest"] as const) {
+                            const pages = await readAll({ filters, sortBy })
+                            const label = JSON.stringify({ filters, sortBy })
+                            expect(pages.flat(), label).toEqual(
+                                expectedKeys(images, filters, sortBy)
+                            )
+                            // Only the final page may be short.
+                            for (const page of pages.slice(0, -1)) {
+                                expect(page, label).toHaveLength(3)
+                            }
+                        }
+                    }
+    })
+
+    it("stays exact when a selection is too wide to give every value its own index range", async () => {
+        const models = Array.from({ length: 8 }, (_, index) => `model-${index}`)
+        const images = Array.from({ length: 64 }, (_, index) => ({
+            key: `image-${index}`,
+            createdAt: index,
+            modelId: models[index % models.length],
+            resolution: ["1K", "2K", "4K"][index % 3],
+            aspectRatio: ["1:1", "16:9", "9:16", "4:3"][index % 4]
+        }))
+        const filters = {
+            modelIds: models.slice(0, 7),
+            resolutions: ["1K", "2K", "4K"],
+            aspectRatios: ["1:1", "16:9", "9:16"],
+            orientations: ["portrait" as const, "square" as const]
         }
-        const ctx = createCtx(page)
-        expect(
-            await run(ctx, {
-                paginationOpts: { numItems: 20, cursor: "opaque-start", endCursor: "opaque-end" }
-            })
-        ).toEqual(page)
-        expect(ctx.paginate).toHaveBeenCalledWith(
-            expect.objectContaining({
-                cursor: "opaque-start",
-                endCursor: "opaque-end",
-                numItems: 20,
-                maximumRowsRead: 512,
-                maximumBytesRead: 2097152
-            })
+        const { readAll } = await setup(images)
+
+        expect((await readAll({ filters }, 5)).flat()).toEqual(
+            expectedKeys(images, filters, "newest")
         )
     })
 
-    it("keeps continuation available when a filtered page has no matches", async () => {
-        const ctx = createCtx({
-            page: [{ modelId: "other" }],
-            continueCursor: "next",
-            isDone: false
-        })
-        expect(await run(ctx, { filters: { modelIds: ["flux"] } })).toEqual({
-            page: [],
-            continueCursor: "next",
-            isDone: false
-        })
-    })
+    it("keeps missing and false archive flags active in one chronological order", async () => {
+        const images = seedLibrary(6)
+        const { user, ids, readAll } = await setup(images)
+        await user.mutation(api.images.archiveGeneratedImage, { id: ids.get("image-4") as never })
+        await user.mutation(api.images.archiveGeneratedImage, { id: ids.get("image-1") as never })
+        // Restored images carry `isArchived: false` while older ones have no flag.
+        await user.mutation(api.images.restoreGeneratedImage, { id: ids.get("image-1") as never })
 
-    it("paginates search in relevance order and applies computed filters only to the returned page", async () => {
-        const ctx = createCtx({
-            page: [
-                { _id: "portrait", aspectRatio: "2:3" },
-                { _id: "landscape", aspectRatio: "3:2" }
-            ],
-            continueCursor: "search-next",
-            isDone: false
-        })
-        expect(
-            await run(ctx, {
-                query: "portrait",
-                sortBy: "oldest",
-                filters: { orientations: ["portrait"] }
-            })
-        ).toEqual({
-            page: [{ _id: "portrait", aspectRatio: "2:3" }],
-            continueCursor: "search-next",
-            isDone: false
-        })
-        expect(ctx.chain.order).not.toHaveBeenCalled()
-    })
-
-    it("uses chronological ordering without collecting the full library", async () => {
-        const ctx = createCtx()
-        await run(ctx, { sortBy: "oldest" })
-        expect(ctx.chain.order).toHaveBeenCalledWith("asc")
-        expect(ctx.paginate).toHaveBeenCalledTimes(1)
-    })
-
-    it.each(["newest", "oldest"])(
-        "restricts archived %s pagination to the user's archived index range",
-        async (sortBy) => {
-            const ctx = createCtx()
-            await run(ctx, { view: "archived", sortBy })
-            const [index, range] = ctx.chain.withIndex.mock.calls[0]
-            const eq = vi.fn().mockReturnThis()
-            range({ eq })
-            expect(index).toBe("byUserIdAndIsArchivedAndCreatedAt")
-            expect(eq.mock.calls).toEqual([
-                ["userId", "user-1"],
-                ["isArchived", true]
-            ])
-            expect(ctx.chain.filter).not.toHaveBeenCalled()
-            expect(ctx.chain.order).toHaveBeenCalledWith(sortBy === "oldest" ? "asc" : "desc")
-        }
-    )
-
-    it("keeps missing and false archive flags active in their original chronological order", async () => {
-        const ctx = createCtx({
-            page: [
-                { _id: "missing-new", createdAt: 4 },
-                { _id: "false", isArchived: false, createdAt: 3 },
-                { _id: "archived", isArchived: true, createdAt: 2 },
-                { _id: "missing-old", createdAt: 1 }
-            ],
-            continueCursor: "",
-            isDone: true
-        })
-        const result = await run(ctx)
-        expect(result.page.map((image: { _id: string }) => image._id)).toEqual([
-            "missing-new",
-            "false",
-            "missing-old"
+        expect((await readAll({})).flat()).toEqual([
+            "image-5",
+            "image-3",
+            "image-2",
+            "image-1",
+            "image-0"
         ])
-        expect(ctx.chain.withIndex.mock.calls[0][0]).toBe("byUserIdAndCreatedAt")
+        expect((await readAll({ view: "archived" })).flat()).toEqual(["image-4"])
+        expect((await readAll({ filters: { modelIds: ["seedream-5-lite"] } })).flat()).toEqual([
+            "image-1"
+        ])
     })
 
-    it("returns an exhausted empty page without reading data for an unauthenticated user", async () => {
-        getUserIdentityMock.mockResolvedValue({ error: "unauthorized" })
-        const ctx = createCtx()
-        expect(await run(ctx)).toEqual(emptyPaginationResult)
-        expect(ctx.paginate).not.toHaveBeenCalled()
+    it("applies multi-value filters to search results", async () => {
+        const images = seedLibrary(12).map((image, index) => ({
+            ...image,
+            prompt: index % 2 === 0 ? "a red fox in snow" : "city skyline at night"
+        }))
+        const filters = { modelIds: ["flux", "gpt-image"], resolutions: ["1K"] }
+        const { readAll } = await setup(images)
+
+        const found = (await readAll({ query: "fox", sortBy: "relevance", filters }, 50)).flat()
+        const expected = images
+            .filter((image) => image.prompt.includes("fox"))
+            .filter((image) => filters.modelIds.includes(image.modelId ?? ""))
+            .filter((image) => image.resolution === "1K")
+            .map((image) => image.key)
+        expect(found.sort()).toEqual(expected.sort())
+    })
+
+    it("returns an exhausted empty page for an unauthenticated user", async () => {
+        const t = convexTest(schema, modules)
+        expect(
+            await t.query(api.images.paginateGeneratedImages, {
+                paginationOpts: { numItems: 20, cursor: null },
+                view: "active"
+            })
+        ).toEqual({ page: [], isDone: true, continueCursor: "" })
+    })
+})
+
+describe("planGeneratedImageIndexScan", () => {
+    const counts = {
+        modelIds: { flux: 900, "seedream-5-lite": 40, "gpt-image": 60 },
+        resolutions: { "1K": 500, "2K": 300, "4K": 200 },
+        aspectRatios: { "1:1": 400, "16:9": 300, "9:16": 300 },
+        orientations: { square: 400, landscape: 300, portrait: 300 }
+    }
+
+    it("covers every selected group with exact ranges when they fit", () => {
+        const plan = planGeneratedImageIndexScan({
+            filters: {
+                modelIds: ["seedream-5-lite", "gpt-image"],
+                resolutions: ["2K", "4K"],
+                orientations: ["portrait", "square"]
+            },
+            archiveStateCount: 2,
+            counts
+        })
+        expect(plan.indexName).toBe("byUserArchivedModelResolutionOrientationCreatedAt")
+        expect(plan.ranges).toHaveLength(8)
+        expect(plan.needsRowFilter).toBe(false)
+    })
+
+    it("leaves the least selective group to a row check when ranges would exceed the cap", () => {
+        const plan = planGeneratedImageIndexScan({
+            filters: {
+                modelIds: ["seedream-5-lite", "gpt-image"],
+                resolutions: ["1K", "2K", "4K"],
+                aspectRatios: ["1:1", "16:9", "9:16"],
+                orientations: ["portrait", "square", "landscape"]
+            },
+            archiveStateCount: 2,
+            counts
+        })
+        expect(plan.ranges.length * 2).toBeLessThanOrEqual(MAX_GENERATED_IMAGE_INDEX_RANGES)
+        expect(plan.fields).toContain("modelId")
+        expect(plan.needsRowFilter).toBe(true)
     })
 })

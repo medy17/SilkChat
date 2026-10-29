@@ -8,6 +8,11 @@ export const GeneratedImage = {
     modelId: v.optional(v.string()),
     aspectRatio: v.optional(v.string()), // Or whatever format ImageSize is
     resolution: v.optional(v.string()), // If applicable
+    // Derived from aspectRatio so library filters can use exact index ranges.
+    aspectRatioBucket: v.optional(v.string()),
+    orientation: v.optional(
+        v.union(v.literal("portrait"), v.literal("landscape"), v.literal("square"))
+    ),
     transparentBackground: v.optional(v.boolean()),
     referenceImageKeys: v.optional(v.array(v.string())),
     generationJobId: v.optional(v.id("imageGenerationJobs")),

@@ -1,12 +1,16 @@
 import {
     type GeneratedImageFilterOptionCounts,
     type GeneratedImageFilters,
+    getGeneratedImageFilterFields,
     getGeneratedImageFilterOptionsFromCounts,
     getGeneratedImageOrientation,
+    hasActiveGeneratedImageFilters,
     matchesGeneratedImageFilters,
-    normalizeGeneratedImageAspectRatio
+    normalizeGeneratedImageAspectRatio,
+    normalizeGeneratedImageFilters
 } from "@/lib/generated-image-filters"
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
+import { mergedStream, stream } from "convex-helpers/server/stream"
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import type { Doc } from "./_generated/dataModel"
@@ -21,6 +25,11 @@ import {
 import { markReferenceUploadsUsed } from "./lib/reference_uploads"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
+import {
+    getGeneratedImageSearchFilterFields,
+    planGeneratedImageIndexScan
+} from "./lib/generated_image_query_plan"
+import schema from "./schema"
 
 type ImageFacetCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">
 type GeneratedImageFacetSnapshot = ReturnType<typeof createEmptyFacetSnapshot>
@@ -49,19 +58,8 @@ const generatedImageFiltersValidator = v.optional(
 )
 const generatedImageViewValidator = v.optional(v.union(v.literal("active"), v.literal("archived")))
 const MIN_GENERATED_IMAGE_SEARCH_QUERY_LENGTH = 2
-
-const isImageVisibleInView = (
-    image: {
-        isArchived?: boolean
-    },
-    view?: "active" | "archived"
-) => {
-    if (view === "archived") {
-        return image.isArchived === true
-    }
-
-    return image.isArchived !== true
-}
+const GENERATED_IMAGE_PAGE_MAX_ROWS_READ = 2000
+const GENERATED_IMAGE_PAGE_MAX_BYTES_READ = 8 * 1024 * 1024
 
 const createEmptyFacetCounts = (): GeneratedImageFilterOptionCounts => ({
     modelIds: {},
@@ -236,6 +234,7 @@ export const insertGeneratedImage = internalMutation({
         const { createdAt, ...rest } = args
         const image = {
             ...rest,
+            ...getGeneratedImageFilterFields(rest.aspectRatio),
             searchText: buildGeneratedImageSearchText(rest),
             createdAt: createdAt ?? Date.now()
         }
@@ -324,49 +323,88 @@ export const paginateGeneratedImages = query({
             trimmedQuery && trimmedQuery.length >= MIN_GENERATED_IMAGE_SEARCH_QUERY_LENGTH
                 ? trimmedQuery
                 : undefined
-        // Preserve Convex's opaque cursor and split metadata. Never convert a
-        // requested page into a growing read from the start of the index.
-        const imagesQuery = effectiveQuery
-            ? ctx.db
-                  .query("generatedImages")
-                  .withSearchIndex("search_text", (q) =>
-                      q.search("searchText", effectiveQuery).eq("userId", user.id)
-                  )
-            : view === "archived"
-              ? ctx.db
-                    .query("generatedImages")
-                    .withIndex("byUserIdAndIsArchivedAndCreatedAt", (q) =>
-                        q.eq("userId", user.id).eq("isArchived", true)
-                    )
-                    .order(sortBy === "oldest" ? "asc" : "desc")
-              : ctx.db
-                    .query("generatedImages")
-                    .withIndex("byUserIdAndCreatedAt", (q) => q.eq("userId", user.id))
-                    .order(sortBy === "oldest" ? "asc" : "desc")
-        // Missing and false both mean active. Keep their shared chronological
-        // order rather than separating them into distinct archive-index ranges.
-        const visibleQuery =
-            effectiveQuery || view === "archived"
-                ? imagesQuery
-                : imagesQuery.filter((q) => q.neq(q.field("isArchived"), true))
-        const result = await visibleQuery.paginate({
-            ...paginationOpts,
-            numItems: Math.max(1, Math.min(50, Math.floor(paginationOpts.numItems))),
-            maximumRowsRead: 512,
-            maximumBytesRead: 2 * 1024 * 1024
+        const normalizedFilters = normalizeGeneratedImageFilters(
+            filters as GeneratedImageFilters | undefined
+        )
+        const numItems = Math.max(1, Math.min(50, Math.floor(paginationOpts.numItems)))
+        // Filters run before the page is cut, so a page only ends short when
+        // the read budget runs out. The client continues from continueCursor
+        // until the page is full or isDone.
+        const readBudget = {
+            maximumRowsRead: GENERATED_IMAGE_PAGE_MAX_ROWS_READ,
+            maximumBytesRead: GENERATED_IMAGE_PAGE_MAX_BYTES_READ
+        }
+
+        if (effectiveQuery) {
+            const filterFields = getGeneratedImageSearchFilterFields(normalizedFilters)
+            const result = await ctx.db
+                .query("generatedImages")
+                .withSearchIndex("search_text", (q) => {
+                    // biome-ignore lint/suspicious/noExplicitAny: filter fields are chosen at runtime.
+                    let search: any = q.search("searchText", effectiveQuery).eq("userId", user.id)
+                    if (view === "archived") search = search.eq("isArchived", true)
+                    for (const { field, values } of filterFields) {
+                        if (values.length === 1) search = search.eq(field, values[0])
+                    }
+                    return search
+                })
+                .filter((q) => {
+                    const conditions = filterFields
+                        .filter(({ values }) => values.length > 1)
+                        .map(({ field, values }) =>
+                            q.or(...values.map((value) => q.eq(q.field(field), value)))
+                        )
+                    // Missing and false both mean active.
+                    if (view !== "archived") {
+                        conditions.push(q.neq(q.field("isArchived"), true))
+                    }
+                    return conditions.length > 0 ? q.and(...conditions) : true
+                })
+                .paginate({ ...paginationOpts, numItems, ...readBudget })
+            return {
+                page: result.page,
+                isDone: result.isDone,
+                continueCursor: result.continueCursor
+            }
+        }
+
+        // Missing and false both mean active; merge both ranges by date.
+        const archiveStates = view === "archived" ? [true] : [undefined, false]
+        const hasFilters = hasActiveGeneratedImageFilters(normalizedFilters)
+        const facets = hasFilters ? await getGeneratedImageFacetsDoc(ctx, user.id) : null
+        const plan = planGeneratedImageIndexScan({
+            filters: normalizedFilters,
+            archiveStateCount: archiveStates.length,
+            counts: facets ? (view === "archived" ? facets.archived : facets.active) : undefined
         })
-        // Computed and multi-select filters apply to this bounded page only.
-        // An empty page is not necessarily exhaustion.
-        return {
-            ...result,
-            page: result.page.filter(
-                (image) =>
-                    isImageVisibleInView(image, view) &&
-                    matchesGeneratedImageFilters(
-                        image,
-                        filters as GeneratedImageFilters | undefined
-                    )
+        const order = sortBy === "oldest" ? "asc" : "desc"
+        const db = stream(ctx.db, schema)
+        const ranges = archiveStates.flatMap((isArchived) =>
+            plan.ranges.map((values) =>
+                db
+                    .query("generatedImages")
+                    // biome-ignore lint/suspicious/noExplicitAny: the index is chosen at runtime from the plan.
+                    .withIndex(plan.indexName as any, (q: any) => {
+                        let range = q.eq("userId", user.id).eq("isArchived", isArchived)
+                        plan.fields.forEach((field, index) => {
+                            range = range.eq(field, values[index])
+                        })
+                        return range
+                    })
+                    .order(order)
             )
+        )
+        const merged = mergedStream(ranges, ["createdAt", "_creationTime", "_id"])
+        const images = plan.needsRowFilter
+            ? merged.filterWith(async (image) =>
+                  matchesGeneratedImageFilters(image, normalizedFilters)
+              )
+            : merged
+        const result = await images.paginate({ ...paginationOpts, numItems, ...readBudget })
+        return {
+            page: result.page,
+            isDone: result.isDone,
+            continueCursor: result.continueCursor
         }
     }
 })

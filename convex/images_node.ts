@@ -2,6 +2,7 @@
 
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
 import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
+import { parseImageAspectRatio } from "@/lib/image-aspect-ratios"
 import { fal } from "@fal-ai/client"
 import type { GenericActionCtx } from "convex/server"
 import { ConvexError, v } from "convex/values"
@@ -831,6 +832,9 @@ export const generateFakeStandaloneImage = action({
             }),
             availableToPickFor: sharedModel?.availableToPickFor
         })
+        if (args.aspectRatio && !parseImageAspectRatio(args.aspectRatio)) {
+            throw new Error("Invalid aspect ratio.")
+        }
         const aspectRatio = args.aspectRatio || "1:1"
         const responseTimeSeconds = clampFakeResponseTimeSeconds(args.responseTimeSeconds)
         const prompt = args.prompt.trim()

@@ -61,6 +61,7 @@ import { useSession } from "@/hooks/auth-hooks"
 import { useMasonryLayout } from "@/hooks/use-masonry-layout"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
+import { useLibraryImagePage } from "@/hooks/use-library-image-page"
 import { useHeaderToolbarSlotStore } from "@/lib/header-toolbar-slot"
 import { getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import {
@@ -1297,7 +1298,7 @@ export function LibraryView({
         [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
     const libraryPageCacheKey = libraryCacheScope
-        ? `library-cursor-page:v2:${libraryCacheScope}:${currentCursor}`
+        ? `library-cursor-page:v3:${libraryCacheScope}:${currentCursor}`
         : "library-page:guest"
     const nextPageNumber = pageNumber + 1
     const nextLibraryCacheScope = useMemo(
@@ -1315,43 +1316,33 @@ export function LibraryView({
                 : null,
         [filters, nextPageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
-    const imagePage = useDiskCachedQuery(
-        api.images.paginateGeneratedImages,
-        {
-            key: libraryPageCacheKey,
-            default: undefined
-        },
-        session.user?.id && currentCursor !== undefined
-            ? {
-                  paginationOpts: { numItems: pageSize, cursor: currentCursor },
-                  query: searchQuery,
-                  sortBy,
-                  filters: activeFilters,
-                  view
-              }
-            : "skip"
-    )
-    const resolvedImagePage = isQueryErrorResult(imagePage) ? undefined : imagePage
+    const imagePageArgs = session.user?.id
+        ? { query: searchQuery, sortBy, filters: activeFilters, view }
+        : ("skip" as const)
+    const { page: resolvedImagePage } = useLibraryImagePage({
+        args: imagePageArgs,
+        startCursor: currentCursor,
+        pageSize,
+        cacheKey: libraryPageCacheKey
+    })
     const nextLibraryPageCacheKey = nextLibraryCacheScope
-        ? `library-cursor-page:v2:${nextLibraryCacheScope}:${resolvedImagePage?.continueCursor}`
+        ? `library-cursor-page:v3:${nextLibraryCacheScope}:${resolvedImagePage?.continueCursor}`
         : "library-page:guest"
-    const nextImagePage = useDiskCachedQuery(
-        api.images.paginateGeneratedImages,
-        {
-            key: nextLibraryPageCacheKey,
-            default: undefined
-        },
-        session.user?.id && resolvedImagePage && !resolvedImagePage.isDone
-            ? {
-                  paginationOpts: { numItems: pageSize, cursor: resolvedImagePage.continueCursor },
-                  query: searchQuery,
-                  sortBy,
-                  filters: activeFilters,
-                  view
-              }
-            : "skip"
-    )
-    const prefetchedNextImagePage = isQueryErrorResult(nextImagePage) ? undefined : nextImagePage
+    const { page: prefetchedNextImagePage, isLive: isNextImagePageLive } = useLibraryImagePage({
+        args: imagePageArgs,
+        startCursor:
+            resolvedImagePage && !resolvedImagePage.isDone
+                ? resolvedImagePage.continueCursor
+                : undefined,
+        pageSize,
+        cacheKey: nextLibraryPageCacheKey
+    })
+    // A full page can end exactly on the last match. Only offer Next once the
+    // following page is known to hold something.
+    const isNextPageEmpty =
+        isNextImagePageLive &&
+        prefetchedNextImagePage?.isDone === true &&
+        prefetchedNextImagePage.page.length === 0
     const filterOptions = useDiskCachedQuery(
         api.images.getGeneratedImageFacetOptions,
         {
@@ -1581,7 +1572,7 @@ export function LibraryView({
     )
     const libraryTitle = getLibraryViewLabel(view)
     const canGoPrevious = pageNumber > 1
-    const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone : false
+    const canGoNext = resolvedImagePage ? !resolvedImagePage.isDone && !isNextPageEmpty : false
     const isNextPagePending =
         pendingPageNumber?.scope === cursorScope && pendingPageNumber.page === nextPageNumber
     const showPendingGenerations =
@@ -1752,12 +1743,16 @@ export function LibraryView({
     }, [navigate])
 
     const handleNextPage = useCallback(() => {
-        if (!resolvedImagePage || resolvedImagePage.isDone || isNextPagePending) return
+        if (!canGoNext || isNextPagePending) return
         setPendingPageNumber({ scope: cursorScope, page: nextPageNumber })
-    }, [resolvedImagePage, isNextPagePending, nextPageNumber, cursorScope])
+    }, [canGoNext, isNextPagePending, nextPageNumber, cursorScope])
 
     useEffect(() => {
         if (!isNextPagePending || !prefetchedNextImagePage || !resolvedImagePage) return
+        if (isNextPageEmpty) {
+            setPendingPageNumber(null)
+            return
+        }
         setCursorHistory((history) =>
             rememberPageCursor(
                 history,
@@ -1770,6 +1765,7 @@ export function LibraryView({
         navigate({ search: (prev) => ({ ...prev, page: nextPageNumber }) })
     }, [
         isNextPagePending,
+        isNextPageEmpty,
         navigate,
         nextPageNumber,
         prefetchedNextImagePage,
@@ -2578,9 +2574,7 @@ export function LibraryView({
                         <>
                             {images.length === 0 && (
                                 <p className="py-12 text-center text-muted-foreground">
-                                    {resolvedImagePage.isDone
-                                        ? "No more matching images. Use Previous to return."
-                                        : "No matches on this page. Use Next to continue searching."}
+                                    No more matching images. Use Previous to return.
                                 </p>
                             )}
                             <ImageMetadataProvider
