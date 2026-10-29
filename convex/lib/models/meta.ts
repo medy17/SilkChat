@@ -94,7 +94,8 @@ export const META_MODELS: SharedModel[] = [
         reasoningEfforts: ["minimal", "low", "medium", "high"],
         defaultReasoningEffort: "medium",
         developer: "Meta",
-        customIcon: "meta"
+        customIcon: "meta",
+        replacementId: "muse-spark-1.3"
     },
     {
         id: "muse-spark-1.1",
@@ -111,7 +112,8 @@ export const META_MODELS: SharedModel[] = [
         reasoningEfforts: ["minimal", "low", "medium", "high"],
         defaultReasoningEffort: "medium",
         developer: "Meta",
-        customIcon: "meta"
+        customIcon: "meta",
+        replacementId: "muse-spark-1.2"
     },
     {
         id: "llama-4-scout-17b-16e-instruct",
@@ -125,7 +127,9 @@ export const META_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("meta-llama/llama-4-scout"),
         abilities: ["vision"],
         developer: "Meta",
-        customIcon: "meta"
+        customIcon: "meta",
+        legacy: true,
+        replacementId: "muse-spark-open"
     },
     {
         id: "llama-4-maverick-17b-128e-instruct",
@@ -140,6 +144,8 @@ export const META_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("meta-llama/llama-4-maverick"),
         abilities: ["vision"],
         developer: "Meta",
-        customIcon: "meta"
+        customIcon: "meta",
+        legacy: true,
+        replacementId: "muse-spark-open"
     }
 ]

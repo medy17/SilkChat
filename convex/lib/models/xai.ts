@@ -55,7 +55,8 @@ export const XAI_MODELS: SharedModel[] = [
         contextLength: 500_000,
         inputUsdPer1MTokens: 2,
         outputUsdPer1MTokens: 6,
-        customIcon: "xai"
+        customIcon: "xai",
+        replacementId: "grok-4.7"
     },
     {
         id: "grok-4.5",
@@ -70,7 +71,8 @@ export const XAI_MODELS: SharedModel[] = [
         useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 500_000,
-        customIcon: "xai"
+        customIcon: "xai",
+        replacementId: "grok-4.6"
     },
     {
         id: "grok-4.3",
@@ -87,7 +89,9 @@ export const XAI_MODELS: SharedModel[] = [
         useStrictCharts: true,
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],
         contextLength: 1_000_000,
-        customIcon: "xai"
+        customIcon: "xai",
+        legacy: true,
+        replacementId: "grok-4.5"
     },
     {
         id: "grok-4-1-fast",
@@ -133,6 +137,8 @@ export const XAI_MODELS: SharedModel[] = [
         useStrictCharts: true,
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,
-        customIcon: "xai"
+        customIcon: "xai",
+        legacy: true,
+        replacementId: "grok-4.3"
     }
 ]

@@ -1,4 +1,5 @@
 import { MODELS_SHARED, SHARED_MODELS_VERSION, isChatModel, isModelMode } from "@/convex/lib/models"
+import { isModelSunset } from "@/convex/lib/models/lifecycle"
 import { describe, expect, it } from "vitest"
 
 const textModels = MODELS_SHARED.filter((model) => (model.mode ?? "text") === "text")
@@ -32,8 +33,7 @@ describe("text model registry", () => {
 
             expect(model).toBeDefined()
             expect(model?.legacy).toBe(true)
-            expect(model?.sunsetOn).toBeUndefined()
-            expect(model?.replacementId).toBeUndefined()
+            expect(isModelSunset(model!, "2026-10-30")).toBe(false)
         }
     })
 })

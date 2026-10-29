@@ -133,7 +133,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
         maxTokens: 128_000,
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "claude-opus-5.5"
     },
     {
         id: "claude-fable-5",
@@ -153,7 +154,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "claude-fable-5.1"
     },
     {
         id: "claude-sonnet-5",
@@ -173,7 +175,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_000_000,
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "claude-sonnet-5.5"
     },
     {
         id: "claude-sonnet-4.6",
@@ -192,7 +195,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        legacy: true
+        legacy: true,
+        replacementId: "claude-sonnet-5"
     },
     {
         id: "claude-opus-4.6",
@@ -211,7 +215,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        legacy: true
+        legacy: true,
+        replacementId: "claude-opus-4.8"
     },
     {
         id: "claude-opus-4.8",
@@ -230,7 +235,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-opus-4-8"),
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "claude-opus-5"
     },
     {
         id: "claude-opus-4.7",
@@ -249,7 +255,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        legacy: true
+        legacy: true,
+        replacementId: "claude-opus-4.8"
     },
     {
         id: "claude-opus-4.5",
@@ -284,7 +291,8 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         adapters: anthropicTextAdapters("claude-haiku-4-5"),
         explicitPromptCaching: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "claude-haiku-5.5"
     },
     {
         id: "claude-sonnet-4.5",

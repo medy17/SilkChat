@@ -48,7 +48,8 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         supportsDisablingReasoning: true,
         reasoningEfforts: ["off", "low", "high"],
         defaultReasoningEffort: "high",
-        developer: "DeepSeek"
+        developer: "DeepSeek",
+        replacementId: "deepseek-v4.1-flash-1017"
     },
     {
         id: "deepseek-v4-pro-0813",
@@ -88,7 +89,8 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         outputUsdPer1MTokens: 0.28,
         supportsDisablingReasoning: true,
         reasoningEfforts: ["off", "low", "high"],
-        developer: "DeepSeek"
+        developer: "DeepSeek",
+        replacementId: "deepseek-v4.1-flash"
     },
     {
         id: "deepseek-v4-pro",
@@ -104,7 +106,8 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         preferredOpenRouterProviders: ["deepseek"],
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,
-        developer: "DeepSeek"
+        developer: "DeepSeek",
+        replacementId: "deepseek-v4-pro-0813"
     },
     {
         id: "deepseek-v4-flash",
@@ -120,7 +123,8 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         preferredOpenRouterProviders: ["deepseek"],
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,
-        developer: "DeepSeek"
+        developer: "DeepSeek",
+        replacementId: "deepseek-v4-flash-0731"
     },
     {
         id: "deepseek-v3.2",
@@ -137,7 +141,8 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         inputUsdPer1MTokens: 0.269,
         outputUsdPer1MTokens: 0.4,
         supportsDisablingReasoning: true,
-        developer: "DeepSeek"
+        developer: "DeepSeek",
+        replacementId: "deepseek-v4-flash"
     },
     {
         id: "deepseek-v3.1-terminus",

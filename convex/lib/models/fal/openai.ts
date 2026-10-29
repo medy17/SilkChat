@@ -105,7 +105,8 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
             roundRequestUsdUpTo: 0.01
         },
         legacy: true,
-        replacementId: "gpt-5.4-image-2"
+        replacementId: "gpt-5.4-image-2",
+        sunsetOn: "2026-12-01"
     },
     {
         id: "gpt-5-image",
@@ -136,7 +137,8 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
             }
         },
         legacy: true,
-        replacementId: "gpt-5.4-image-2"
+        replacementId: "gpt-5.4-image-2",
+        sunsetOn: "2026-12-01"
     }
 ]
 

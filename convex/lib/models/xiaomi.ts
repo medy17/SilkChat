@@ -55,7 +55,8 @@ export const XIAOMI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "function_calling"],
         contextLength: 1_048_576,
         supportsDisablingReasoning: true,
-        developer: "Xiaomi"
+        developer: "Xiaomi",
+        replacementId: "mimo-v2.6-pro"
     },
     {
         id: "mimo-v2.5",
@@ -70,7 +71,8 @@ export const XIAOMI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling"],
         contextLength: 262_144,
         supportsDisablingReasoning: true,
-        developer: "Xiaomi"
+        developer: "Xiaomi",
+        replacementId: "mimo-v2.6-flash"
     },
     {
         id: "mimo-v2-flash",

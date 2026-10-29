@@ -49,7 +49,8 @@ export const MOONSHOT_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("moonshotai/kimi-k2.6"),
         abilities: ["reasoning", "vision", "function_calling"],
         supportsDisablingReasoning: true,
-        developer: "Moonshot AI"
+        developer: "Moonshot AI",
+        replacementId: "kimi-k3"
     },
     {
         id: "kimi-k2.5",
@@ -63,7 +64,9 @@ export const MOONSHOT_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("moonshotai/kimi-k2.5"),
         abilities: ["reasoning", "vision", "function_calling"],
         supportsDisablingReasoning: true,
-        developer: "Moonshot AI"
+        developer: "Moonshot AI",
+        legacy: true,
+        replacementId: "kimi-k2.6"
     },
     {
         id: "kimi-k2-0905",
@@ -77,6 +80,8 @@ export const MOONSHOT_MODELS: SharedModel[] = [
         releaseOrder: 20250904,
         adapters: openRouterTextAdapters("moonshotai/kimi-k2-0905"),
         abilities: ["function_calling"],
-        developer: "Moonshot AI"
+        developer: "Moonshot AI",
+        legacy: true,
+        replacementId: "kimi-k2.5"
     }
 ]

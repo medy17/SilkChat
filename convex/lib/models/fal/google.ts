@@ -64,7 +64,8 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
             source: "fal",
             kind: "fixed",
             usdPerImageByResolution: { "1K": 0.08, "2K": 0.12, "4K": 0.16 }
-        }
+        },
+        replacementId: "gemini-nano-banana-2.1"
     },
     {
         id: "gemini-nano-banana-2.1",

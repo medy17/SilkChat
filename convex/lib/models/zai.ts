@@ -54,7 +54,8 @@ export const ZAI_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("z-ai/glm-5.2"),
         abilities: ["reasoning", "function_calling", "effort_control"],
         supportsDisablingReasoning: true,
-        developer: "Z.ai"
+        developer: "Z.ai",
+        replacementId: "glm-5.3"
     },
     {
         id: "glm-5.1",
@@ -68,7 +69,8 @@ export const ZAI_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("z-ai/glm-5.1"),
         abilities: ["reasoning", "function_calling", "effort_control"],
         supportsDisablingReasoning: true,
-        developer: "Z.ai"
+        developer: "Z.ai",
+        replacementId: "glm-5.2"
     },
     {
         id: "glm-5v-turbo",
@@ -97,6 +99,8 @@ export const ZAI_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("z-ai/glm-5"),
         abilities: ["reasoning", "function_calling"],
         supportsDisablingReasoning: true,
-        developer: "Z.ai"
+        developer: "Z.ai",
+        legacy: true,
+        replacementId: "glm-5.1"
     }
 ]

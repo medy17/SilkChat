@@ -66,7 +66,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-6-sol"),
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "gpt-6.1-sol"
     },
     {
         id: "gpt-6-luna",
@@ -116,7 +117,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-5.6-sol"),
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
-        supportsDisablingReasoning: true
+        supportsDisablingReasoning: true,
+        replacementId: "gpt-6-sol"
     },
     {
         id: "gpt-5.6-terra",
@@ -136,7 +138,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        replacementId: "gpt-6.1-terra"
     },
     {
         id: "gpt-5.6-luna",
@@ -181,7 +184,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        legacy: true,
+        replacementId: "gpt-5.6-sol"
     },
     {
         id: "gpt-5.4-nano",
@@ -201,7 +206,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-04-01",
+        replacementId: "gpt-6-luna"
     },
     {
         id: "gpt-5.4-mini",
@@ -221,7 +228,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true
+        legacy: true,
+        replacementId: "gpt-5.6-terra"
     },
     {
         id: "gpt-5.4",
@@ -241,7 +249,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true
+        legacy: true,
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5.3",
@@ -274,7 +283,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true
+        legacy: true,
+        replacementId: "gpt-5.5"
     },
     {
         id: "gpt-5.1",
@@ -289,7 +299,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
         ...FREE_WITHOUT_REASONING_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-04-01",
+        replacementId: "gpt-6-sol"
     },
     {
         id: "gpt-5",
@@ -351,7 +363,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         releaseOrder: 20261011,
         adapters: openAiTextAdapters("o4-mini-high"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf"],
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-10-23",
+        replacementId: "gpt-5.4-mini"
     },
     {
         id: "o3",
@@ -393,7 +407,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-4.1"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-01-14",
+        replacementId: "gpt-6-luna"
     },
     {
         id: "gpt-4.1-mini",
@@ -407,7 +423,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-4.1-mini"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-01-14",
+        replacementId: "gpt-6-luna"
     },
     {
         id: "gpt-4.1-nano",
@@ -450,7 +468,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         releaseOrder: 20261004,
         adapters: openAiTextAdapters("o3-mini-high"),
         abilities: ["reasoning", "function_calling"],
-        legacy: true
+        legacy: true,
+        sunsetOn: "2026-10-23",
+        replacementId: "gpt-5.5"
     },
     {
         id: "o3-mini",
@@ -478,7 +498,9 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-4o"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-01-14",
+        replacementId: "gpt-6-luna"
     },
     {
         id: "gpt-4o-mini",
@@ -492,6 +514,8 @@ export const OPENAI_MODELS: SharedModel[] = [
         adapters: openAiTextAdapters("gpt-4o-mini"),
         abilities: ["vision", "function_calling", "native_pdf"],
         ...FREE_ACCESS,
-        legacy: true
+        legacy: true,
+        sunsetOn: "2027-01-14",
+        replacementId: "gpt-6-luna"
     }
 ]

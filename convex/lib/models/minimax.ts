@@ -30,6 +30,7 @@ export const MINIMAX_MODELS: SharedModel[] = [
         adapters: openRouterTextAdapters("minimax/minimax-m2.7"),
         abilities: ["reasoning", "function_calling"],
         contextLength: 196_608,
-        developer: "MiniMax"
+        developer: "MiniMax",
+        replacementId: "minimax-m3"
     }
 ]

@@ -129,7 +129,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         outputUsdPer1MTokens: 1.875,
         reasoningEfforts: ["low", "medium", "high"],
         defaultReasoningEffort: "medium",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        sunsetOn: "2027-01-28",
+        replacementId: "gemini-3.8-flash"
     },
     {
         id: "gemini-3.6-flash",
@@ -146,7 +148,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        replacementId: "gemini-3.8-flash"
     },
     {
         id: "gemini-3.5-flash-lite",
@@ -181,7 +184,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        legacy: true,
+        replacementId: "gemini-3.6-flash"
     },
     {
         id: "gemini-3-flash-preview",
@@ -201,7 +206,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         ...AI_STUDIO_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        legacy: true,
+        replacementId: "gemini-3.6-flash"
     },
     {
         id: "gemini-3.1-flash-lite",
@@ -222,7 +229,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        sunsetOn: "2027-05-07",
+        replacementId: "gemini-3.5-flash-lite"
     },
     {
         id: "gemini-3.1-flash-lite-preview",
@@ -258,7 +267,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         releaseOrder: 20260219,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
         ...AI_STUDIO_ROUTING,
-        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        replacementId: "gemini-4-argon"
     },
     {
         id: "gemini-2.5-flash",
