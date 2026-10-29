@@ -19,6 +19,15 @@ const FREE_WITHOUT_REASONING_ACCESS = {
     }
 } satisfies Pick<SharedModel, "availableToPickFor" | "availableToPickForReasoningEfforts">
 
+// Luna is cheap enough to give free users low reasoning.
+const FREE_UP_TO_LOW_REASONING_ACCESS = {
+    availableToPickFor: "free",
+    availableToPickForReasoningEfforts: {
+        medium: "pro",
+        high: "pro"
+    }
+} satisfies Pick<SharedModel, "availableToPickFor" | "availableToPickForReasoningEfforts">
+
 export const OPENAI_MODELS: SharedModel[] = [
     {
         id: "gpt-6.1-sol",
@@ -84,7 +93,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS
     },
     {
         id: "gpt-6-astra",
@@ -159,7 +168,7 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS,
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
         replacementId: "gpt-6-luna",
         nudgeToReplacement: true,
         nudgeMessages: [
