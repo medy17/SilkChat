@@ -5,11 +5,11 @@ export const FAVORITES_SECTION_ID = "favorites"
 
 export const DEFAULT_FAVORITE_MODEL_IDS = [
     "deepseek-v4-pro-0813",
-    "grok-4.6",
-    "gemini-3.5-flash",
-    "claude-sonnet-5",
-    "gpt-5.6-sol",
-    "gpt-5.6-luna"
+    "grok-4.7",
+    "gemini-3.8-flash",
+    "gpt-6.1-sol",
+    "claude-sonnet-5.5",
+    "gpt-6-luna"
 ] as const
 
 export const getModelFavoritesStorageKey = (userId: string) => `model-selector-favorites:${userId}`

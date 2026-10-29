@@ -13,11 +13,11 @@ describe("model favorites", () => {
     it("seeds a varied default set when no preference has been saved", () => {
         expect(resolveFavoriteModelIds(null)).toEqual(DEFAULT_FAVORITE_MODEL_IDS)
         expect(getFavoriteModelIdsByRecentlyAdded(DEFAULT_FAVORITE_MODEL_IDS)).toEqual([
-            "gpt-5.6-luna",
-            "gpt-5.6-sol",
-            "claude-sonnet-5",
-            "gemini-3.5-flash",
-            "grok-4.6",
+            "gpt-6-luna",
+            "claude-sonnet-5.5",
+            "gpt-6.1-sol",
+            "gemini-3.8-flash",
+            "grok-4.7",
             "deepseek-v4-pro-0813"
         ])
     })
