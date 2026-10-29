@@ -168,6 +168,10 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     legacy?: boolean
     sunsetOn?: string
     replacementId?: string
+    /** Prompt users on this model to switch to `replacementId` before any sunset. */
+    nudgeToReplacement?: boolean
+    /** Model-specific nudge lines, shown before the generic ones. Supports `{from}` and `{to}`. */
+    nudgeMessages?: string[]
 }
 
 export const MODEL_MODES = [

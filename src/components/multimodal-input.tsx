@@ -20,6 +20,10 @@ import {
 } from "./composer/toolbar"
 import { DraftAttachmentTile } from "./composer/draft-attachment-tile"
 import { UploadingAttachmentTile } from "./composer/uploading-attachment-tile"
+import { ModelNudgeBanner } from "./composer/model-nudge-banner"
+import { useModelNudge } from "@/hooks/use-model-nudge"
+import { useAvailableModels } from "@/lib/models-providers-shared"
+import { useSharedModels } from "@/lib/shared-models"
 import {
     AttachmentPreviewDialog,
     type AttachmentPreview
@@ -185,6 +189,7 @@ export const MultimodalInput = forwardRef<
     const isMobile = useIsMobile()
     const composerToolbar = useComposerToolbarState()
     const {
+        creditPlan,
         userSettings,
         selectedSharedModel,
         modelSupportsFunctionCalling,
@@ -196,6 +201,15 @@ export const MultimodalInput = forwardRef<
     } = composerToolbar
 
     const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
+    const { models: sharedModels } = useSharedModels()
+    const { availableModels } = useAvailableModels(userSettings)
+    const modelNudge = useModelNudge({
+        selectedModel,
+        setSelectedModel,
+        sharedModels,
+        availableModels,
+        creditPlan
+    })
     const { chatWidthState } = useChatWidthStore()
 
     const isLoading = status === "streaming"
@@ -816,6 +830,10 @@ export const MultimodalInput = forwardRef<
                 }}
                 className="@container w-full px-1"
             >
+                <ModelNudgeBanner
+                    nudge={isExpanded ? null : modelNudge}
+                    className={getChatWidthClass(chatWidthState.chatWidth)}
+                />
                 <PromptInput
                     ref={promptRootRef}
                     onSubmit={handleSubmit}

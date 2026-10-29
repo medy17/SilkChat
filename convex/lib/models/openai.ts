@@ -156,7 +156,12 @@ export const OPENAI_MODELS: SharedModel[] = [
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
-        ...FREE_WITHOUT_REASONING_ACCESS
+        ...FREE_WITHOUT_REASONING_ACCESS,
+        replacementId: "gpt-6-luna",
+        nudgeToReplacement: true,
+        nudgeMessages: [
+            "{to} is OpenAI's newer, smarter Luna, built for the same fast, everyday chats."
+        ]
     },
     {
         id: "gpt-5.5",

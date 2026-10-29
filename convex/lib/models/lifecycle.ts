@@ -33,12 +33,23 @@ export const isModelSunset = (
     date: Date | string = new Date()
 ) => Boolean(model.sunsetOn && model.sunsetOn <= getModelDateKey(date))
 
+export const isModelNudged = (model: Pick<SharedModel, "nudgeToReplacement" | "replacementId">) =>
+    Boolean(model.nudgeToReplacement && model.replacementId)
+
+/**
+ * Walks the `replacementId` chain to the furthest model the caller can use.
+ *
+ * Sunset models always move on. Nudged models are skipped once a sunset move is under way, so a
+ * forced migration never lands somewhere that would immediately nudge again. `followNudges`
+ * also moves off a nudged starting model; without it a live nudged model resolves to itself.
+ */
 export const resolveModelReplacement = (
     modelId: string,
     models: readonly SharedModel[],
     options?: {
         date?: Date | string
         isCandidateAllowed?: (model: SharedModel) => boolean
+        followNudges?: boolean
     }
 ): ModelReplacementResolution => {
     const modelsById = new Map(models.map((model) => [model.id, model]))
@@ -54,21 +65,24 @@ export const resolveModelReplacement = (
     }
 
     const date = options?.date ?? new Date()
+    const isUsable = (model: SharedModel) =>
+        !isModelSunset(model, date) && (options?.isCandidateAllowed?.(model) ?? true)
+
     const chain: string[] = []
     const visited = new Set<string>()
     let currentId = modelId
     let sunsetModel: SharedModel | undefined
+    // The furthest usable model so far; a dead end later in the chain falls back to it.
+    let restingModel: SharedModel | undefined
+    let failure: Exclude<ModelReplacementResolution["reason"], "active" | "replaced"> =
+        "depth_exceeded"
+    let blockedModel: SharedModel | undefined
 
     for (let depth = 0; depth < MAX_REPLACEMENT_DEPTH; depth++) {
         if (visited.has(currentId)) {
-            return {
-                originalId: modelId,
-                resolvedId: null,
-                chain: [...chain, currentId],
-                originalModel,
-                sunsetModel,
-                reason: "cycle"
-            }
+            chain.push(currentId)
+            failure = "cycle"
+            break
         }
 
         visited.add(currentId)
@@ -76,54 +90,44 @@ export const resolveModelReplacement = (
 
         const currentModel = modelsById.get(currentId)
         if (!currentModel) {
-            return {
-                originalId: modelId,
-                resolvedId: null,
-                chain,
-                originalModel,
-                sunsetModel,
-                reason: currentId === modelId ? "missing_original" : "missing_replacement"
-            }
+            failure = "missing_replacement"
+            break
         }
 
-        if (!isModelSunset(currentModel, date)) {
-            if (options?.isCandidateAllowed && !options.isCandidateAllowed(currentModel)) {
-                return {
-                    originalId: modelId,
-                    resolvedId: null,
-                    chain,
-                    originalModel,
-                    resolvedModel: currentModel,
-                    sunsetModel,
-                    reason: "not_allowed"
-                }
-            }
+        if (isUsable(currentModel)) restingModel = currentModel
 
-            return {
-                originalId: modelId,
-                resolvedId: currentModel.id,
-                chain,
-                originalModel,
-                resolvedModel: currentModel,
-                sunsetModel,
-                reason: currentModel.id === modelId ? "active" : "replaced"
+        const sunset = isModelSunset(currentModel, date)
+        if (sunset) sunsetModel ??= currentModel
+
+        const advances =
+            sunset || (isModelNudged(currentModel) && (depth > 0 || options?.followNudges === true))
+
+        if (!advances) {
+            if (restingModel !== currentModel) {
+                failure = "not_allowed"
+                blockedModel = currentModel
             }
+            break
         }
-
-        sunsetModel ??= currentModel
 
         if (!currentModel.replacementId) {
-            return {
-                originalId: modelId,
-                resolvedId: null,
-                chain,
-                originalModel,
-                sunsetModel,
-                reason: "missing_replacement"
-            }
+            failure = "missing_replacement"
+            break
         }
 
         currentId = currentModel.replacementId
+    }
+
+    if (restingModel) {
+        return {
+            originalId: modelId,
+            resolvedId: restingModel.id,
+            chain,
+            originalModel,
+            resolvedModel: restingModel,
+            sunsetModel,
+            reason: restingModel.id === modelId ? "active" : "replaced"
+        }
     }
 
     return {
@@ -131,7 +135,8 @@ export const resolveModelReplacement = (
         resolvedId: null,
         chain,
         originalModel,
+        resolvedModel: blockedModel,
         sunsetModel,
-        reason: "depth_exceeded"
+        reason: failure
     }
 }

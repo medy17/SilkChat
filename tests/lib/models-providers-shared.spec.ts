@@ -408,8 +408,55 @@ describe("models-providers-shared OpenRouter visibility", () => {
         })
     })
 
-    it("defaults to GPT 5.6 Luna", () => {
-        expect(getDefaultModelId(MODELS_SHARED)).toBe("gpt-5.6-luna")
+    it("moves off a nudged model only when asked to follow nudges", () => {
+        const models = [
+            createModel({ id: "old", replacementId: "new", nudgeToReplacement: true }),
+            createModel({ id: "new" })
+        ]
+
+        expect(resolveModelReplacement("old", models)).toMatchObject({
+            resolvedId: "old",
+            reason: "active"
+        })
+        expect(resolveModelReplacement("old", models, { followNudges: true })).toMatchObject({
+            resolvedId: "new",
+            chain: ["old", "new"],
+            reason: "replaced"
+        })
+    })
+
+    it("carries a sunset migration past nudged models", () => {
+        const models = [
+            createModel({ id: "old", sunsetOn: "2026-01-01", replacementId: "middle" }),
+            createModel({ id: "middle", replacementId: "new", nudgeToReplacement: true }),
+            createModel({ id: "new" })
+        ]
+
+        expect(resolveModelReplacement("old", models, { date: "2026-03-01" })).toMatchObject({
+            resolvedId: "new",
+            chain: ["old", "middle", "new"]
+        })
+    })
+
+    it("rests on the furthest model the caller can use", () => {
+        const models = [
+            createModel({ id: "old", replacementId: "middle", nudgeToReplacement: true }),
+            createModel({ id: "middle", replacementId: "new", nudgeToReplacement: true }),
+            createModel({ id: "new" })
+        ]
+        const resolve = (allowed: string[]) =>
+            resolveModelReplacement("old", models, {
+                followNudges: true,
+                isCandidateAllowed: (model) => allowed.includes(model.id)
+            }).resolvedId
+
+        expect(resolve(["old", "new"])).toBe("new")
+        expect(resolve(["old", "middle"])).toBe("middle")
+        expect(resolve(["old"])).toBe("old")
+    })
+
+    it("defaults to GPT 6 Luna by following the GPT 5.6 Luna nudge", () => {
+        expect(getDefaultModelId(MODELS_SHARED)).toBe("gpt-6-luna")
     })
 
     it("uses an active replacement when the preferred default is sunset", () => {

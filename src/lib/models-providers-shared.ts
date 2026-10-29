@@ -352,8 +352,10 @@ export const getDefaultModelId = (sharedModels: SharedModel[]) => {
                 (adapter.startsWith("openrouter:") && enabledProviderEntries.has("openrouter"))
         )
 
+    // New users start where a nudge would send them, not on the model being nudged away from.
     const preferredResolution = resolveModelReplacement("gpt-5.6-luna", sharedModels, {
-        isCandidateAllowed: (model) => !isModelSunset(model) && hasInternalProvider(model)
+        isCandidateAllowed: (model) => !isModelSunset(model) && hasInternalProvider(model),
+        followNudges: true
     })
 
     return (
