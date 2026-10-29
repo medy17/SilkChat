@@ -1008,6 +1008,7 @@ const ModelCard = React.memo(function ModelCard({
     disabled,
     disabledReason,
     isFavorite,
+    canAddFavorite,
     onToggleFavorite,
     isNewRelease,
     badgeLabel,
@@ -1025,6 +1026,7 @@ const ModelCard = React.memo(function ModelCard({
     disabled?: boolean
     disabledReason?: string
     isFavorite: boolean
+    canAddFavorite: boolean
     onToggleFavorite: (modelId: string) => void
     isNewRelease: boolean
     badgeLabel?: string
@@ -1194,20 +1196,24 @@ const ModelCard = React.memo(function ModelCard({
                 </div>
             )}
             <div className="absolute right-3 bottom-3 z-10 hidden items-center gap-1 sm:flex">
-                <FavoriteToggle
-                    model={model}
-                    isFavorite={isFavorite}
-                    onToggleFavorite={onToggleFavorite}
-                />
+                {(isFavorite || canAddFavorite) && (
+                    <FavoriteToggle
+                        model={model}
+                        isFavorite={isFavorite}
+                        onToggleFavorite={onToggleFavorite}
+                    />
+                )}
                 <ModelInfoFlyout model={model} currentProviders={currentProviders} />
             </div>
             <div className="absolute right-3 bottom-3 z-10 flex items-center gap-1 sm:hidden">
-                <FavoriteToggle
-                    model={model}
-                    isFavorite={isFavorite}
-                    onToggleFavorite={onToggleFavorite}
-                    useToastConfirmation
-                />
+                {(isFavorite || canAddFavorite) && (
+                    <FavoriteToggle
+                        model={model}
+                        isFavorite={isFavorite}
+                        onToggleFavorite={onToggleFavorite}
+                        useToastConfirmation
+                    />
+                )}
                 <ModelInfoFlyout model={model} currentProviders={currentProviders} />
             </div>
         </div>
@@ -1362,7 +1368,7 @@ export function ModelSelector({
             ),
         [availableModels, newModelReferenceTime]
     )
-    const { favoriteModelIds, toggleFavorite } = useModelFavorites(
+    const { favoriteModelIds, canAddFavorite, toggleFavorite } = useModelFavorites(
         session.user?.id,
         availableModels,
         sharedModels
@@ -1652,6 +1658,7 @@ export function ModelSelector({
                         disabled={isModelDisabled(model)}
                         disabledReason={getModelDisabledReason(model)}
                         isFavorite={favoriteModelIds.includes(model.id)}
+                        canAddFavorite={canAddFavorite}
                         onToggleFavorite={toggleFavorite}
                         isNewRelease={newModelIds.has(model.id)}
                         showProviderIcon={visibleSection.id === FAVORITES_SECTION_ID}

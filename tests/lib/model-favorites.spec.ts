@@ -4,14 +4,12 @@ import {
     getFavoriteModelIdsByRecentlyAdded,
     getFavoriteToggleAction,
     getModelFavoritesStorageKey,
-    reconcileFavoriteModelIds,
-    resolveFavoriteModelIds
+    resolveFavoriteModelId
 } from "@/lib/model-favorites"
 import { describe, expect, it } from "vitest"
 
 describe("model favorites", () => {
     it("seeds a varied default set when no preference has been saved", () => {
-        expect(resolveFavoriteModelIds(null)).toEqual(DEFAULT_FAVORITE_MODEL_IDS)
         expect(getFavoriteModelIdsByRecentlyAdded(DEFAULT_FAVORITE_MODEL_IDS)).toEqual([
             "gpt-6-luna",
             "claude-sonnet-5.5",
@@ -22,19 +20,7 @@ describe("model favorites", () => {
         ])
     })
 
-    it("preserves an intentionally empty favorites list", () => {
-        expect(resolveFavoriteModelIds("[]")).toEqual([])
-    })
-
-    it("deduplicates saved model ids and recovers from invalid data", () => {
-        expect(resolveFavoriteModelIds('["model-a","model-a","model-b"]')).toEqual([
-            "model-a",
-            "model-b"
-        ])
-        expect(resolveFavoriteModelIds("not-json")).toEqual(DEFAULT_FAVORITE_MODEL_IDS)
-    })
-
-    it("scopes favorites to the signed-in user", () => {
+    it("scopes legacy local favorites to the signed-in user", () => {
         expect(getModelFavoritesStorageKey("user-123")).toBe("model-selector-favorites:user-123")
     })
 
@@ -76,21 +62,21 @@ describe("model favorites", () => {
         ] as SharedModel[]
 
         expect(
-            reconcileFavoriteModelIds({
-                favoriteModelIds: ["sunset-model"],
+            resolveFavoriteModelId({
+                modelId: "sunset-model",
                 sharedModels,
                 availableModelIds: new Set(["replacement-model"])
             })
-        ).toEqual(["replacement-model"])
+        ).toBe("replacement-model")
     })
 
-    it("prunes removed custom models and models from removed providers", () => {
+    it("drops removed custom models and models from removed providers", () => {
+        const availableModelIds = new Set(["available-model"])
+
         expect(
-            reconcileFavoriteModelIds({
-                favoriteModelIds: ["available-model", "removed-custom", "removed-provider-model"],
-                sharedModels: [],
-                availableModelIds: new Set(["available-model"])
-            })
-        ).toEqual(["available-model"])
+            ["available-model", "removed-custom", "removed-provider-model"].map((modelId) =>
+                resolveFavoriteModelId({ modelId, sharedModels: [], availableModelIds })
+            )
+        ).toEqual(["available-model", null, null])
     })
 })

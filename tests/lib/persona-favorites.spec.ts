@@ -2,15 +2,12 @@ import {
     DEFAULT_FAVORITE_PERSONA_KEYS,
     getDefaultFavoritePersonaKeys,
     getFavoritePersonaKeysByRecentlyAdded,
-    getPersonaFavoritesStorageKey,
-    reconcileFavoritePersonaKeys,
-    resolveFavoritePersonaKeys
+    getPersonaFavoritesStorageKey
 } from "@/lib/persona-favorites"
 import { describe, expect, it } from "vitest"
 
 describe("persona favorites", () => {
     it("seeds a varied default set when no preference has been saved", () => {
-        expect(resolveFavoritePersonaKeys(null)).toEqual(DEFAULT_FAVORITE_PERSONA_KEYS)
         expect(getFavoritePersonaKeysByRecentlyAdded(DEFAULT_FAVORITE_PERSONA_KEYS)).toEqual([
             "builtin:elara-adventurer",
             "builtin:brooding-stranger",
@@ -37,14 +34,9 @@ describe("persona favorites", () => {
             "builtin:brooding-stranger",
             "builtin:monday"
         ])
-        expect(resolveFavoritePersonaKeys(null, defaults)).toEqual(defaults)
     })
 
-    it("preserves an intentionally empty favorites list", () => {
-        expect(resolveFavoritePersonaKeys("[]")).toEqual([])
-    })
-
-    it("scopes favorites to the signed-in user and preserves recent ordering", () => {
+    it("scopes legacy local favorites to the signed-in user and preserves recent ordering", () => {
         expect(getPersonaFavoritesStorageKey("user-123")).toBe(
             "persona-selector-favorites:user-123"
         )
@@ -52,21 +44,5 @@ describe("persona favorites", () => {
             "user:newer",
             "builtin:older"
         ])
-    })
-
-    it("deduplicates valid saved keys and recovers safely from invalid data", () => {
-        expect(
-            resolveFavoritePersonaKeys('["builtin:ada","builtin:ada","user:persona-1"]')
-        ).toEqual(["builtin:ada", "user:persona-1"])
-        expect(resolveFavoritePersonaKeys("not-json")).toEqual(DEFAULT_FAVORITE_PERSONA_KEYS)
-    })
-
-    it("prunes personas that are no longer available", () => {
-        expect(
-            reconcileFavoritePersonaKeys({
-                favoritePersonaKeys: ["builtin:ada", "user:deleted"],
-                availablePersonaKeys: new Set(["builtin:ada"])
-            })
-        ).toEqual(["builtin:ada"])
     })
 })

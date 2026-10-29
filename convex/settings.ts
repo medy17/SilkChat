@@ -1,6 +1,13 @@
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { ChatError } from "@/lib/errors"
 import { MAX_IMPORTED_THEMES } from "@/lib/imported-theme-limits"
+import {
+    FAVORITE_SETTINGS_FIELDS,
+    MAX_FAVORITES,
+    assertFavoritePayload,
+    getNextFavoriteIds,
+    mergeImportedFavoriteIds
+} from "@/lib/synced-favorites"
 import { getBuiltInThemeUrl, normalizeThemeImportUrl } from "@/lib/theme-utils"
 import { type Infer, v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
@@ -510,6 +517,9 @@ export const updateUserSettings = mutation({
         const newSettings: Infer<typeof UserSettings> = {
             ...normalizeSettingsCustomModels(args.baseSettings),
             customThemes,
+            // Favorites change through their own mutations; a stale settings form must not revert them.
+            favoriteModelIds: settings.favoriteModelIds,
+            favoritePersonaKeys: settings.favoritePersonaKeys,
             telemetryEnabled: args.baseSettings.telemetryEnabled ?? settings.telemetryEnabled,
             modelRouting: args.baseSettings.modelRouting ?? settings.modelRouting,
             coreAIProviders: {},
@@ -606,6 +616,68 @@ export const deleteUserTheme = mutation({
             customThemes: updatedThemes
         }
 
+        if (settings._id) {
+            await ctx.db.patch(settings._id, newSettings)
+        } else {
+            await ctx.db.insert("settings", newSettings)
+        }
+    }
+})
+
+const FavoriteKindSchema = v.union(v.literal("model"), v.literal("persona"))
+
+export const setFavorite = mutation({
+    args: {
+        kind: FavoriteKindSchema,
+        id: v.string(),
+        isFavorite: v.boolean(),
+        seed: v.array(v.string()),
+        replacements: v.array(v.object({ from: v.string(), to: v.union(v.string(), v.null()) }))
+    },
+    handler: async (ctx, args) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("Unauthorized")
+        await assertAccountNotDeleting(ctx, user.id)
+        assertFavoritePayload([args.id, ...args.seed])
+        assertFavoritePayload(args.replacements.flatMap(({ from, to }) => [from, to ?? from]))
+
+        const settings = await getSettings(ctx, user.id)
+        const field = FAVORITE_SETTINGS_FIELDS[args.kind]
+        const nextIds = getNextFavoriteIds({ ...args, storedIds: settings[field] })
+        if (!nextIds) {
+            throw new Error(
+                `You can favorite up to ${MAX_FAVORITES[args.kind]} ${args.kind}s. Remove one to add another.`
+            )
+        }
+
+        const newSettings: Infer<typeof UserSettings> = { ...settings, [field]: nextIds }
+        if (settings._id) {
+            await ctx.db.patch(settings._id, newSettings)
+        } else {
+            await ctx.db.insert("settings", newSettings)
+        }
+    }
+})
+
+/** One-time merge of a browser's pre-sync localStorage favorites into the synced list. */
+export const importLocalFavorites = mutation({
+    args: {
+        kind: FavoriteKindSchema,
+        ids: v.array(v.string())
+    },
+    handler: async (ctx, args) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new Error("Unauthorized")
+        await assertAccountNotDeleting(ctx, user.id)
+        assertFavoritePayload(args.ids)
+
+        const settings = await getSettings(ctx, user.id)
+        const field = FAVORITE_SETTINGS_FIELDS[args.kind]
+        const storedIds = settings[field]
+        const mergedIds = mergeImportedFavoriteIds(storedIds, args.ids)
+        if (storedIds && mergedIds.length === storedIds.length) return
+
+        const newSettings: Infer<typeof UserSettings> = { ...settings, [field]: mergedIds }
         if (settings._id) {
             await ctx.db.patch(settings._id, newSettings)
         } else {

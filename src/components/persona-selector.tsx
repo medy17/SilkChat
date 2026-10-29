@@ -18,6 +18,7 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useAvatarAccent } from "@/hooks/use-avatar-accent"
+import { useSyncedFavorites } from "@/hooks/use-synced-favorites"
 import {
     notifyModelReplacement,
     resolveAvailableModelReplacement
@@ -33,9 +34,7 @@ import {
     PERSONA_FAVORITES_SECTION_ID,
     getDefaultFavoritePersonaKeys,
     getFavoritePersonaKeysByRecentlyAdded,
-    getPersonaFavoritesStorageKey,
-    reconcileFavoritePersonaKeys,
-    resolveFavoritePersonaKeys
+    getPersonaFavoritesStorageKey
 } from "@/lib/persona-favorites"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
@@ -104,6 +103,7 @@ function PersonaPickerCard({
     modelName,
     selected,
     isFavorite,
+    canAddFavorite,
     onToggleFavorite,
     onSelect
 }: {
@@ -111,6 +111,7 @@ function PersonaPickerCard({
     modelName: string
     selected: boolean
     isFavorite: boolean
+    canAddFavorite: boolean
     onToggleFavorite: (personaKey: string) => void
     onSelect: () => void
 }) {
@@ -189,12 +190,14 @@ function PersonaPickerCard({
             </button>
             {selected && <CheckCircle className="absolute top-3 right-3 size-4 text-primary" />}
             <div className="absolute right-3 bottom-3 z-20 flex items-center gap-1">
-                <PersonaFavoriteToggle
-                    persona={persona}
-                    isFavorite={isFavorite}
-                    onToggleFavorite={onToggleFavorite}
-                    useToastConfirmation={isMobile}
-                />
+                {(isFavorite || canAddFavorite) && (
+                    <PersonaFavoriteToggle
+                        persona={persona}
+                        isFavorite={isFavorite}
+                        onToggleFavorite={onToggleFavorite}
+                        useToastConfirmation={isMobile}
+                    />
+                )}
                 <PersonaInfoFlyout persona={persona} modelName={modelName} />
             </div>
         </div>
@@ -598,6 +601,7 @@ function PersonaPickerSection({
     personas,
     selectedValue,
     favoritePersonaKeys,
+    canAddFavorite,
     modelNamesById,
     onToggleFavorite,
     onSelect
@@ -605,6 +609,7 @@ function PersonaPickerSection({
     personas: PersonaOption[]
     selectedValue: string
     favoritePersonaKeys: string[]
+    canAddFavorite: boolean
     modelNamesById: Map<string, string>
     onToggleFavorite: (personaKey: string) => void
     onSelect: (persona: PersonaOption) => void
@@ -622,6 +627,7 @@ function PersonaPickerSection({
                         }
                         selected={selectedValue === personaKey}
                         isFavorite={favoritePersonaKeys.includes(personaKey)}
+                        canAddFavorite={canAddFavorite}
                         onToggleFavorite={onToggleFavorite}
                         onSelect={() => onSelect(persona)}
                     />
@@ -722,8 +728,6 @@ export function PersonaSelector({
     const shortLabelMeasureRef = useRef<HTMLSpanElement>(null)
     const [desktopAlignOffset, setDesktopAlignOffset] = useState(0)
     const [desktopPopoverWidth, setDesktopPopoverWidth] = useState<number | null>(null)
-    const [favoritePersonaKeys, setFavoritePersonaKeys] = useState<string[]>([])
-    const [loadedFavoritesKey, setLoadedFavoritesKey] = useState<string | null>(null)
     const [activeSection, setActiveSection] = useState<"favorites" | "builtin" | "user">(
         "favorites"
     )
@@ -785,73 +789,24 @@ export function PersonaSelector({
             ),
         [resolvedPickerOptions]
     )
-    const favoritesStorageKey = session.user?.id
-        ? getPersonaFavoritesStorageKey(session.user.id)
-        : null
-
-    useEffect(() => {
-        if (!favoritesStorageKey) {
-            setFavoritePersonaKeys([])
-            setLoadedFavoritesKey(null)
-            return
-        }
-
-        let storedValue: string | null = null
-        try {
-            storedValue = window.localStorage.getItem(favoritesStorageKey)
-        } catch {}
-
-        setFavoritePersonaKeys(resolveFavoritePersonaKeys(storedValue, defaultFavoritePersonaKeys))
-        setLoadedFavoritesKey(favoritesStorageKey)
-    }, [defaultFavoritePersonaKeys, favoritesStorageKey])
-
-    useEffect(() => {
-        if (
-            !favoritesStorageKey ||
-            loadedFavoritesKey !== favoritesStorageKey ||
-            allOptions.length === 0
-        ) {
-            return
-        }
-
+    const resolvePersonaFavoriteKey = useMemo(() => {
+        if (allOptions.length === 0) return undefined
         const availablePersonaKeys = new Set(
             allOptions.map((persona) => getSelectValue(persona.source, persona.id))
         )
-        setFavoritePersonaKeys((currentKeys) => {
-            const reconciledKeys = reconcileFavoritePersonaKeys({
-                favoritePersonaKeys: currentKeys,
-                availablePersonaKeys
-            })
-            const unchanged =
-                reconciledKeys.length === currentKeys.length &&
-                reconciledKeys.every((key, index) => key === currentKeys[index])
-            if (unchanged) return currentKeys
-
-            try {
-                window.localStorage.setItem(favoritesStorageKey, JSON.stringify(reconciledKeys))
-            } catch {}
-            return reconciledKeys
-        })
-    }, [allOptions, favoritesStorageKey, loadedFavoritesKey])
-
-    const toggleFavorite = useCallback(
-        (personaKey: string) => {
-            setFavoritePersonaKeys((currentKeys) => {
-                const nextKeys = currentKeys.includes(personaKey)
-                    ? currentKeys.filter((key) => key !== personaKey)
-                    : [...currentKeys, personaKey]
-
-                if (favoritesStorageKey) {
-                    try {
-                        window.localStorage.setItem(favoritesStorageKey, JSON.stringify(nextKeys))
-                    } catch {}
-                }
-
-                return nextKeys
-            })
-        },
-        [favoritesStorageKey]
-    )
+        return (personaKey: string) => (availablePersonaKeys.has(personaKey) ? personaKey : null)
+    }, [allOptions])
+    const {
+        favoriteIds: favoritePersonaKeys,
+        canAddFavorite,
+        toggleFavorite
+    } = useSyncedFavorites({
+        kind: "persona",
+        userId: session.user?.id,
+        legacyStorageKey: session.user?.id ? getPersonaFavoritesStorageKey(session.user.id) : null,
+        defaultIds: defaultFavoritePersonaKeys,
+        resolveId: resolvePersonaFavoriteKey
+    })
 
     const modelNamesById = useMemo(() => {
         const models = [...sharedModels, ...availableModels]
@@ -1099,6 +1054,7 @@ export function PersonaSelector({
                     personas={visibleOptions}
                     selectedValue={selectedValue}
                     favoritePersonaKeys={favoritePersonaKeys}
+                    canAddFavorite={canAddFavorite}
                     modelNamesById={modelNamesById}
                     onToggleFavorite={toggleFavorite}
                     onSelect={(persona) => {

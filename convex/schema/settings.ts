@@ -116,6 +116,9 @@ export const NonSensitiveUserSettings = v.object({
     titleGenerationModel: v.string(),
     toolCallLimitPerTurn: v.optional(v.number()),
     customThemes: v.optional(v.array(v.string())),
+    // Undefined until the user first changes the list; pickers show defaults until then.
+    favoriteModelIds: v.optional(v.array(v.string())),
+    favoritePersonaKeys: v.optional(v.array(v.string())),
     invertSendNewlineBehavior: v.optional(v.boolean()),
     telemetryEnabled: v.optional(v.boolean()),
     modelRouting: v.optional(ModelRoutingMode),

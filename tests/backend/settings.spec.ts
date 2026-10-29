@@ -121,6 +121,8 @@ import {
     deleteUserTheme,
     getSharedModels,
     getUserRegistryInternal,
+    importLocalFavorites,
+    setFavorite,
     updateUserSettings,
     updateUserSettingsPartial
 } from "../../convex/settings"
@@ -141,6 +143,13 @@ const addUserThemeHandler = addUserTheme as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 const deleteUserThemeHandler = deleteUserTheme as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+
+const setFavoriteHandler = setFavorite as unknown as {
+    handler: (ctx: any, args: any) => Promise<any>
+}
+const importLocalFavoritesHandler = importLocalFavorites as unknown as {
     handler: (ctx: any, args: any) => Promise<any>
 }
 
@@ -945,6 +954,110 @@ describe("settings", () => {
             expect.objectContaining({
                 customThemes: ["https://tweakcn.com/themes/two"]
             })
+        )
+    })
+
+    it("seeds synced favorites from the shown defaults on the first change", async () => {
+        const ctx = createCtx({ _id: "settings-id", userId: "user-1", customModels: {} })
+
+        await setFavoriteHandler.handler(ctx, {
+            kind: "persona",
+            id: "builtin:new",
+            isFavorite: true,
+            seed: ["builtin:default"],
+            replacements: []
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ favoritePersonaKeys: ["builtin:default", "builtin:new"] })
+        )
+    })
+
+    it("rejects a favorite past the cap unless a stale entry frees a slot", async () => {
+        const favoriteModelIds = Array.from({ length: 20 }, (_, index) => `model-${index}`)
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            favoriteModelIds
+        })
+        const change = { kind: "model", id: "extra", isFavorite: true, seed: [] }
+
+        await expect(
+            setFavoriteHandler.handler(ctx, { ...change, replacements: [] })
+        ).rejects.toThrow("You can favorite up to 20 models")
+        expect(ctx.db.patch).not.toHaveBeenCalled()
+
+        await setFavoriteHandler.handler(ctx, {
+            ...change,
+            replacements: [{ from: "model-0", to: null }]
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ favoriteModelIds: [...favoriteModelIds.slice(1), "extra"] })
+        )
+    })
+
+    it("merges each browser's local favorites into the synced list", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            favoriteModelIds: ["model-a", "model-b"]
+        })
+
+        await importLocalFavoritesHandler.handler(ctx, {
+            kind: "model",
+            ids: ["model-b", "model-c"]
+        })
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ favoriteModelIds: ["model-a", "model-b", "model-c"] })
+        )
+
+        vi.mocked(ctx.db.patch).mockClear()
+        await importLocalFavoritesHandler.handler(ctx, { kind: "model", ids: ["model-a"] })
+        expect(ctx.db.patch).not.toHaveBeenCalled()
+    })
+
+    it("keeps an emptied local favorites list instead of falling back to defaults", async () => {
+        const ctx = createCtx({ _id: "settings-id", userId: "user-1", customModels: {} })
+
+        await importLocalFavoritesHandler.handler(ctx, { kind: "persona", ids: [] })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ favoritePersonaKeys: [] })
+        )
+    })
+
+    it("keeps synced favorites when a full settings save carries a stale copy", async () => {
+        const ctx = createCtx({
+            _id: "settings-id",
+            userId: "user-1",
+            customModels: {},
+            coreAIProviders: {},
+            customAIProviders: {},
+            generalProviders: {},
+            favoriteModelIds: ["model-new"]
+        })
+
+        await updateUserSettingsHandler.handler(ctx, {
+            userId: "user-1",
+            baseSettings: {
+                userId: "user-1",
+                customModels: {},
+                titleGenerationModel: "shared-text",
+                favoriteModelIds: ["model-old"]
+            },
+            coreProviders: {},
+            customProviders: {}
+        })
+
+        expect(ctx.db.patch).toHaveBeenCalledWith(
+            "settings-id",
+            expect.objectContaining({ favoriteModelIds: ["model-new"] })
         )
     })
 })

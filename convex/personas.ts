@@ -1,4 +1,5 @@
 import { ChatError } from "@/lib/errors"
+import { getUserPersonaFavoriteKey } from "@/lib/persona-favorites"
 import {
     BUILT_IN_PERSONAS,
     MAX_PERSONA_AVATAR_BYTES,
@@ -538,6 +539,19 @@ export const deleteUserPersona = mutation({
 
         await ctx.db.delete(personaId)
         await deleteUnreferencedAssets(ctx, user.id, findAssetReferences(persona), personaId)
+
+        const settings = await ctx.db
+            .query("settings")
+            .withIndex("byUser", (q) => q.eq("userId", user.id))
+            .first()
+        const favoriteKey = getUserPersonaFavoriteKey(personaId)
+        if (settings?.favoritePersonaKeys?.includes(favoriteKey)) {
+            await ctx.db.patch(settings._id, {
+                favoritePersonaKeys: settings.favoritePersonaKeys.filter(
+                    (key) => key !== favoriteKey
+                )
+            })
+        }
     }
 })
 

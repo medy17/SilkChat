@@ -12,6 +12,20 @@ export const DEFAULT_FAVORITE_MODEL_IDS = [
     "gpt-6-luna"
 ] as const
 
+// Earlier defaults that browsers may have saved locally without the user choosing them.
+export const PREVIOUS_DEFAULT_FAVORITE_MODEL_ID_LISTS = [
+    ["gpt-5.6-sol", "claude-sonnet-5", "gemini-3.5-flash", "grok-4.5", "deepseek-v4-pro"],
+    [
+        "deepseek-v4-pro-0813",
+        "grok-4.6",
+        "gemini-3.5-flash",
+        "claude-sonnet-5",
+        "gpt-5.6-sol",
+        "gpt-5.6-luna"
+    ]
+] as const
+
+/** Pre-sync localStorage key, read once per browser to import into synced settings. */
 export const getModelFavoritesStorageKey = (userId: string) => `model-selector-favorites:${userId}`
 
 export const getFavoriteModelIdsByRecentlyAdded = (favoriteModelIds: readonly string[]) =>
@@ -28,45 +42,20 @@ export const getFavoriteToggleAction = ({
     return isRemovalArmed ? "remove" : "arm-removal"
 }
 
-export const resolveFavoriteModelIds = (storedValue: string | null): string[] => {
-    if (storedValue === null) return [...DEFAULT_FAVORITE_MODEL_IDS]
-
-    try {
-        const parsed = JSON.parse(storedValue)
-        if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === "string")) {
-            return [...DEFAULT_FAVORITE_MODEL_IDS]
-        }
-
-        return [...new Set(parsed)]
-    } catch {
-        return [...DEFAULT_FAVORITE_MODEL_IDS]
-    }
-}
-
-export const reconcileFavoriteModelIds = ({
-    favoriteModelIds,
+/** Returns the available model a favorite now points at, or null when it should be dropped. */
+export const resolveFavoriteModelId = ({
+    modelId,
     sharedModels,
     availableModelIds
 }: {
-    favoriteModelIds: readonly string[]
+    modelId: string
     sharedModels: readonly SharedModel[]
     availableModelIds: ReadonlySet<string>
 }) => {
-    const reconciledIds: string[] = []
+    if (availableModelIds.has(modelId)) return modelId
+    if (!sharedModels.some((model) => model.id === modelId)) return null
 
-    for (const modelId of favoriteModelIds) {
-        let resolvedId = availableModelIds.has(modelId) ? modelId : null
-
-        if (!resolvedId && sharedModels.some((model) => model.id === modelId)) {
-            resolvedId = resolveModelReplacement(modelId, sharedModels, {
-                isCandidateAllowed: (model) => availableModelIds.has(model.id)
-            }).resolvedId
-        }
-
-        if (resolvedId && !reconciledIds.includes(resolvedId)) {
-            reconciledIds.push(resolvedId)
-        }
-    }
-
-    return reconciledIds
+    return resolveModelReplacement(modelId, sharedModels, {
+        isCandidateAllowed: (model) => availableModelIds.has(model.id)
+    }).resolvedId
 }

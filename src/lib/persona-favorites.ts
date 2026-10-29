@@ -17,34 +17,11 @@ export const getDefaultFavoritePersonaKeys = (userPersonaKeys: readonly string[]
 
 export const DEFAULT_FAVORITE_PERSONA_KEYS = getDefaultFavoritePersonaKeys([])
 
+export const getUserPersonaFavoriteKey = (personaId: string) => `user:${personaId}`
+
+/** Pre-sync localStorage key, read once per browser to import into synced settings. */
 export const getPersonaFavoritesStorageKey = (userId: string) =>
     `persona-selector-favorites:${userId}`
 
 export const getFavoritePersonaKeysByRecentlyAdded = (favoritePersonaKeys: readonly string[]) =>
     [...favoritePersonaKeys].reverse()
-
-export const resolveFavoritePersonaKeys = (
-    storedValue: string | null,
-    defaultFavoritePersonaKeys: readonly string[] = DEFAULT_FAVORITE_PERSONA_KEYS
-): string[] => {
-    if (storedValue === null) return [...defaultFavoritePersonaKeys]
-
-    try {
-        const parsed = JSON.parse(storedValue)
-        if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === "string")) {
-            return [...defaultFavoritePersonaKeys]
-        }
-
-        return [...new Set(parsed)]
-    } catch {
-        return [...defaultFavoritePersonaKeys]
-    }
-}
-
-export const reconcileFavoritePersonaKeys = ({
-    favoritePersonaKeys,
-    availablePersonaKeys
-}: {
-    favoritePersonaKeys: readonly string[]
-    availablePersonaKeys: ReadonlySet<string>
-}) => favoritePersonaKeys.filter((key) => availablePersonaKeys.has(key))
