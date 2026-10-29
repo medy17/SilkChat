@@ -42,6 +42,12 @@ crons.interval(
     internal.model_provider_metadata_node.syncOpenRouterModelMetadata
 )
 
+crons.daily(
+    "sweep stale unused reference uploads",
+    { hourUTC: 4, minuteUTC: 0 },
+    internal.reference_uploads.sweepStaleReferenceUploads
+)
+
 crons.weekly(
     "queue inactive account notices",
     { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 0 },

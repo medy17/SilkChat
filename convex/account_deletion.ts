@@ -836,6 +836,18 @@ export const purgeAccountData = internalMutation({
         )
         if (imageGenerationJobs) return imageGenerationJobs
 
+        const referenceUploads = await deleteUserBatch(
+            "purging_reference_uploads",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("referenceUploads")
+                    .withIndex("byUserIdAndUsedAt", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (referenceUploads) return referenceUploads
+
         const settings = await deleteUserBatch(
             "purging_settings",
             deleteBatch(

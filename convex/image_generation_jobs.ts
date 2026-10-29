@@ -6,6 +6,7 @@ import { saveFalImages } from "./lib/image_generation/save_fal_images"
 import { assertAccountNotDeletingForAction } from "./lib/account_deletion_gate"
 import { getUserIdentity } from "./lib/identity"
 import { getVariantIndexFromClientRequestId } from "./lib/image_generation/shared"
+import { markReferenceUploadsUsed } from "./lib/reference_uploads"
 import { ImageGenerationJobAsset, ImageGenerationJobStatus } from "./schema/image_generation_job"
 
 const TERMINAL_JOB_STATUSES = new Set(["completed", "partial", "refunded", "failed", "unknown"])
@@ -99,6 +100,7 @@ export const createImageGenerationJob = internalMutation({
     },
     handler: async (ctx, args) => {
         const now = Date.now()
+        await markReferenceUploadsUsed(ctx, args.userId, args.referenceImageKeys)
         return await ctx.db.insert("imageGenerationJobs", {
             ...args,
             status: "submitting",

@@ -18,6 +18,7 @@ import {
     mutation,
     query
 } from "./_generated/server"
+import { markReferenceUploadsUsed } from "./lib/reference_uploads"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { getUserIdentity } from "./lib/identity"
 
@@ -227,6 +228,10 @@ export const insertGeneratedImage = internalMutation({
                 .first()
             if (existing) return existing._id
         }
+
+        // Real generations already marked these when their job was created; dev fake
+        // generations only come through here.
+        await markReferenceUploadsUsed(ctx, args.userId, args.referenceImageKeys)
 
         const { createdAt, ...rest } = args
         const image = {

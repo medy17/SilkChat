@@ -816,6 +816,8 @@ export const generateFakeStandaloneImage = action({
         responseTimeSeconds: v.optional(v.number())
     },
     handler: async (ctx, args): Promise<Id<"generatedImages">[]> => {
+        // Dev tooling only: it writes images and marks references used without spending credits.
+        if (process.env.DEV_CREDIT_LAB_ENABLED !== "1") throw new Error("unauthorized:chat")
         const user = await getUserIdentity(ctx.auth, { allowAnons: false })
         if ("error" in user) throw new Error("unauthorized:chat")
         await assertAccountNotDeletingForAction(ctx, user.id)

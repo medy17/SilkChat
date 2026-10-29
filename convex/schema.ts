@@ -306,6 +306,15 @@ export default defineSchema({
         .index("byUserIdStatusAndCreatedAt", ["userId", "status", "createdAt"])
         .index("byFalRequestId", ["falRequestId"]),
 
+    referenceUploads: defineTable({
+        userId: v.string(),
+        key: v.string(),
+        usedAt: v.optional(v.number())
+    })
+        .index("byKey", ["key"])
+        .index("byUserIdAndUsedAt", ["userId", "usedAt"])
+        .index("byUsedAt", ["usedAt"]),
+
     persistentSandboxes: defineTable(PersistentSandbox)
         .index("byUserIdAndUpdatedAt", ["userId", "updatedAt"])
         .index("bySourceCardId", ["sourceCardId"])

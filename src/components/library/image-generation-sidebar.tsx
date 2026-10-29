@@ -1,16 +1,27 @@
+import { AttachmentTile } from "@/components/attachment-tile"
+import { AttachmentAction } from "@/components/composer/attachment-actions"
 import { ImageCostIndicator } from "@/components/image-cost-indicator"
 import { useCreditAccess } from "@/components/credits/credit-access-runtime"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { api } from "@/convex/_generated/api"
 import type { ImageQuality, SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
-import { useToken } from "@/hooks/auth-hooks"
+import { useSession, useToken } from "@/hooks/auth-hooks"
 import {
     notifyModelReplacement,
     resolveAvailableModelReplacement
@@ -33,15 +44,21 @@ import {
     type SelectableImageAspectRatio,
     getCommonSelectableImageAspectRatios
 } from "@/lib/image-aspect-ratios"
+import { getReferenceImageSources } from "@/lib/generated-image-urls"
 import { getRequiredPlanToPickModel } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
 import { cn } from "@/lib/utils"
-import { useAction } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import { ConvexError } from "convex/values"
-import { AlertCircle, Archive, Loader2, Minus, Plus, Sparkles, X } from "lucide-react"
+import { Archive, Loader2, Minus, Plus, Sparkles } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useGenerationStore } from "./generation-store"
+import {
+    type LibraryReference,
+    areReferencesStale,
+    useLibraryReferencesStore
+} from "./reference-store"
 
 const DEFAULT_VARIANTS_PER_MODEL = 1
 const MAX_TOTAL_GENERATIONS_PER_RUN = 10
@@ -132,22 +149,18 @@ const areModelCountsEqual = (left: Record<string, number>, right: Record<string,
     return leftKeys.length === rightKeys.length && leftKeys.every((key) => left[key] === right[key])
 }
 
-type ReferenceFile = {
-    file: File
-    preview: string
-    hash?: string
-    storageKey?: string
-    error?: string
+type PendingReference = {
+    // Re-adding an image mid-upload reuses its hash, so each attempt gets its own id.
+    uploadId: string
+    sourceHash: string
+    progress: number
+    status: "uploading" | "success" | "ready"
 }
 
-class ReferencePreparationError extends Error {}
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+const NO_REFERENCES: LibraryReference[] = []
 const REFERENCE_INPUT_LIMIT_LABEL = formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxFileSize)
-const REFERENCE_PREPARATION_ERROR = `Reference could not be optimized to ${DEFAULT_UPLOAD_POLICY.maxImageDimension}px and under ${formatFileSizeLimit(DEFAULT_UPLOAD_POLICY.maxImageFileSize)}.`
-const getReferenceInputError = (file: File) =>
-    file.size > DEFAULT_UPLOAD_POLICY.maxFileSize
-        ? `References must be <${REFERENCE_INPUT_LIMIT_LABEL}.`
-        : undefined
 
 const getFileSha256 = async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -237,7 +250,18 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const effectiveAspectRatio =
         overridesActive && aspectRatioOverride ? aspectRatioOverride : aspectRatio
 
-    const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
+    const { data: session } = useSession()
+    const userId = session?.user?.id
+    const referencesOwnerId = useLibraryReferencesStore((state) => state.ownerId)
+    const storedReferences = useLibraryReferencesStore((state) => state.references)
+    const references = userId && referencesOwnerId === userId ? storedReferences : NO_REFERENCES
+    // References still being optimized and uploaded; these never persist.
+    const [pendingReferences, setPendingReferencesState] = useState<PendingReference[]>([])
+    const pendingReferencesRef = useRef(pendingReferences)
+    // Local previews for references added in this tab, so tiles don't refetch once uploaded.
+    const [referencePreviews, setReferencePreviews] = useState<Record<string, string>>({})
+    const referenceCount = references.length + pendingReferences.length
+    const [staleReferencesRun, setStaleReferencesRun] = useState<(() => Promise<void>) | null>(null)
     const [showGradient, setShowGradient] = useState(false)
     const [fakeResponseTimeSeconds, setFakeResponseTimeSeconds] = useState(15)
     const canSelectImageQuality = isDevMode || isStaff
@@ -255,7 +279,6 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         startHeight: number
         maxHeight: number
     } | null>(null)
-    const referenceFilesRef = useRef(referenceFiles)
     const seenLegacyMigrationKeysRef = useRef<Set<string>>(new Set())
     const sessionRevealedLegacyModelIdsRef = useRef<Set<string>>(new Set())
 
@@ -347,9 +370,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         return Math.min(...limits)
     }, [selectedModels, overridesActive, imageReferenceMaxOverride])
 
+    // Saved references belong to one account; another sign-in on this browser drops them.
     useEffect(() => {
-        referenceFilesRef.current = referenceFiles
-    }, [referenceFiles])
+        if (userId) useLibraryReferencesStore.getState().claimReferences(userId)
+    }, [userId])
 
     useEffect(() => {
         setSelectedModelIds((prev) => {
@@ -549,64 +573,156 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
 
     const generateImage = useAction(api.images_node.generateStandaloneImage)
     const generateFakeImage = useAction(api.images_node.generateFakeStandaloneImage)
+    const releaseReferenceUpload = useMutation(api.reference_uploads.releaseReferenceUpload)
+    // The server only deletes references no generation has used yet.
+    const releaseReferenceUploads = (keys: string[]) => {
+        for (const key of keys) {
+            releaseReferenceUpload({ key }).catch((error) =>
+                console.error("Failed to release reference upload:", error)
+            )
+        }
+    }
     const [generationMode, setGenerationMode] = useState<"real" | "fake" | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const isGenerating = generationMode !== null
 
+    const referencePreviewsRef = useRef(referencePreviews)
+    useEffect(() => {
+        referencePreviewsRef.current = referencePreviews
+    }, [referencePreviews])
+
     useEffect(() => {
         return () => {
-            for (const ref of referenceFilesRef.current) {
-                URL.revokeObjectURL(ref.preview)
+            for (const preview of Object.values(referencePreviewsRef.current)) {
+                URL.revokeObjectURL(preview)
             }
         }
     }, [])
 
-    const getAllowedReferenceFiles = (files: File[]) => {
-        if (typeof selectedReferenceLimit !== "number") return files
-
-        const remainingSlots = Math.max(0, selectedReferenceLimit - referenceFiles.length)
-        if (files.length <= remainingSlots) return files
-
-        toast.error(
-            `The selected model set supports up to ${selectedReferenceLimit} reference images. Deselect limited models to add more.`
+    const setPendingReferences = (update: (pending: PendingReference[]) => PendingReference[]) => {
+        pendingReferencesRef.current = update(pendingReferencesRef.current)
+        setPendingReferencesState(pendingReferencesRef.current)
+    }
+    const dropPendingReference = (sourceHash: string) =>
+        setPendingReferences((pending) =>
+            pending.filter((reference) => reference.sourceHash !== sourceHash)
         )
-        return files.slice(0, remainingSlots)
+
+    const dropReferencePreview = (sourceHash: string) =>
+        setReferencePreviews((previews) => {
+            if (!previews[sourceHash]) return previews
+            URL.revokeObjectURL(previews[sourceHash])
+            const { [sourceHash]: _dropped, ...rest } = previews
+            return rest
+        })
+
+    // Optimize and upload as soon as a reference is added, so Generate only sends keys.
+    const uploadReference = async (file: File, sourceHash: string, uploadId: string) => {
+        const startedAt = Date.now()
+        const updatePendingReference = (patch: Partial<PendingReference>) =>
+            setPendingReferences((pending) =>
+                pending.map((reference) =>
+                    reference.uploadId === uploadId ? { ...reference, ...patch } : reference
+                )
+            )
+        const dropOwnPendingReference = () =>
+            setPendingReferences((pending) =>
+                pending.filter((reference) => reference.uploadId !== uploadId)
+            )
+        try {
+            const preparedFile = await prepareChatAttachmentForUpload(file, undefined, {
+                skipImageCompression: overridesActive && disableImageCompression
+            })
+            const jwt = await resolveJwtToken(token)
+            if (!jwt) {
+                throw new Error("Authentication token unavailable")
+            }
+            const uploaded = await uploadFileDirect({
+                file: preparedFile,
+                jwt,
+                uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
+                purpose: "reference",
+                onProgress: (progress) => updatePendingReference({ progress })
+            })
+            // Same tick-then-fade as composer uploads before the tile settles.
+            updatePendingReference({ progress: 100, status: "success" })
+            await delay(Math.max(0, 500 - (Date.now() - startedAt)) + 500)
+            updatePendingReference({ status: "ready" })
+            await delay(200)
+            // Skip references the user removed while they were uploading. Leave pending
+            // before landing in the store so the tile never renders twice.
+            const stillWanted = pendingReferencesRef.current.some(
+                (reference) => reference.uploadId === uploadId
+            )
+            dropOwnPendingReference()
+            if (stillWanted) {
+                useLibraryReferencesStore
+                    .getState()
+                    .addReference({ sourceHash, storageKey: uploaded.key })
+            } else {
+                releaseReferenceUploads([uploaded.key])
+            }
+        } catch (error) {
+            console.error("Failed to upload reference image:", error)
+            toast.error(error instanceof Error ? error.message : "Reference could not be uploaded")
+            dropOwnPendingReference()
+            if (
+                !pendingReferencesRef.current.some(
+                    (reference) => reference.sourceHash === sourceHash
+                )
+            ) {
+                dropReferencePreview(sourceHash)
+            }
+        }
+    }
+
+    const addReferenceFiles = async (files: File[]) => {
+        if (generationPanelDisabled || selectedRequiresPlanUpgrade || files.length === 0) return
+        if (!supportsReferenceImagesForSelection) {
+            toast.error("Reference images are not supported for the selected model set")
+            return
+        }
+
+        const acceptedFiles = files.filter((file) => file.size <= DEFAULT_UPLOAD_POLICY.maxFileSize)
+        if (acceptedFiles.length < files.length) {
+            toast.error(`Reference images must be smaller than ${REFERENCE_INPUT_LIMIT_LABEL}.`)
+        }
+
+        const knownHashes = new Set([
+            ...useLibraryReferencesStore.getState().references.map((ref) => ref.sourceHash),
+            ...pendingReferencesRef.current.map((reference) => reference.sourceHash)
+        ])
+        for (const file of acceptedFiles) {
+            // Hash the original: re-encoding one source can produce different bytes each time.
+            const sourceHash = await getFileSha256(file)
+            if (knownHashes.has(sourceHash)) continue
+            if (
+                typeof selectedReferenceLimit === "number" &&
+                knownHashes.size >= selectedReferenceLimit
+            ) {
+                toast.error(
+                    `The selected model set supports up to ${selectedReferenceLimit} reference images. Deselect limited models to add more.`
+                )
+                return
+            }
+
+            knownHashes.add(sourceHash)
+            setReferencePreviews((previews) => ({
+                ...previews,
+                [sourceHash]: URL.createObjectURL(file)
+            }))
+            const uploadId = crypto.randomUUID()
+            setPendingReferences((pending) => [
+                ...pending,
+                { uploadId, sourceHash, progress: 0, status: "uploading" }
+            ])
+            void uploadReference(file, sourceHash, uploadId)
+        }
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (generationPanelDisabled || selectedRequiresPlanUpgrade) {
-            if (fileInputRef.current) {
-                fileInputRef.current.value = ""
-            }
-            return
-        }
-
-        if (!supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
-            if (fileInputRef.current) {
-                fileInputRef.current.value = ""
-            }
-            return
-        }
-
-        const files = Array.from(e.target.files || [])
-        const allowedFiles = getAllowedReferenceFiles(files)
-        if (allowedFiles.length > 0) {
-            const newRefs = allowedFiles.map((file) => ({
-                file,
-                preview: URL.createObjectURL(file),
-                error: getReferenceInputError(file)
-            }))
-            setReferenceFiles((prev) => [...prev, ...newRefs])
-            if (newRefs.some((reference) => reference.error)) {
-                toast.error(
-                    `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
-                )
-            }
-        }
-        if (fileInputRef.current) {
-            fileInputRef.current.value = ""
-        }
+        void addReferenceFiles(Array.from(e.target.files || []))
+        e.target.value = ""
     }
 
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -615,42 +731,30 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             return
         }
 
-        const items = Array.from(e.clipboardData.items)
-        const imageItems = items.filter((item) => item.type.startsWith("image/"))
+        const files = Array.from(e.clipboardData.items)
+            .filter((item) => item.type.startsWith("image/"))
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => file !== null)
+        if (files.length === 0) return
 
-        if (imageItems.length > 0) {
-            if (!supportsReferenceImagesForSelection) {
-                e.preventDefault()
-                toast.error("Reference images are not supported for the selected model set")
-                return
-            }
-
-            e.preventDefault()
-            const files = imageItems
-                .map((item) => item.getAsFile())
-                .filter((f): f is File => f !== null)
-            const allowedFiles = getAllowedReferenceFiles(files)
-            const newRefs = allowedFiles.map((file) => ({
-                file,
-                preview: URL.createObjectURL(file),
-                error: getReferenceInputError(file)
-            }))
-            setReferenceFiles((prev) => [...prev, ...newRefs])
-            if (newRefs.some((reference) => reference.error)) {
-                toast.error(
-                    `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
-                )
-            }
-        }
+        e.preventDefault()
+        void addReferenceFiles(files)
     }
 
-    const removeReferenceImage = (index: number) => {
-        setReferenceFiles((prev) => {
-            const newArray = [...prev]
-            URL.revokeObjectURL(newArray[index].preview)
-            newArray.splice(index, 1)
-            return newArray
-        })
+    const getReferencePreviewSrc = (reference: { sourceHash: string; storageKey?: string }) =>
+        referencePreviews[reference.sourceHash] ??
+        (reference.storageKey ? getReferenceImageSources(reference.storageKey).src : undefined)
+
+    const removeReference = (sourceHash: string) => {
+        dropPendingReference(sourceHash)
+        const store = useLibraryReferencesStore.getState()
+        releaseReferenceUploads(
+            store.references
+                .filter((reference) => reference.sourceHash === sourceHash)
+                .map((reference) => reference.storageKey)
+        )
+        store.removeReference(sourceHash)
+        dropReferencePreview(sourceHash)
     }
 
     const toggleModel = (modelId: string) => {
@@ -665,7 +769,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         if (
             !isSelected &&
             typeof selectedModelReferenceLimit === "number" &&
-            referenceFiles.length > selectedModelReferenceLimit
+            referenceCount > selectedModelReferenceLimit
         ) {
             toast.error(
                 `This model supports up to ${selectedModelReferenceLimit} reference images. Remove references to select it.`
@@ -831,10 +935,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         [selectedModels]
     )
     const hasSingleReferenceXaiEdit = useMemo(
-        () =>
-            referenceFiles.length === 1 &&
-            selectedModels.some((model) => model.customIcon === "xai"),
-        [referenceFiles.length, selectedModels]
+        () => referenceCount === 1 && selectedModels.some((model) => model.customIcon === "xai"),
+        [referenceCount, selectedModels]
     )
 
     const canGenerateBase =
@@ -844,116 +946,46 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         canGenerateBase &&
         Boolean(normalizedPrompt) &&
         !generationPanelDisabled &&
-        !selectedRequiresPlanUpgrade
+        !selectedRequiresPlanUpgrade &&
+        pendingReferences.length === 0
 
-    const uploadReferenceKeys = async () => {
-        const currentReferences = referenceFilesRef.current
-        if (currentReferences.length === 0) {
-            return []
+    // Reads the store directly: the stale-reference dialog may have just cleared it.
+    const getSubmittableReferenceKeys = () => {
+        const keys = useLibraryReferencesStore
+            .getState()
+            .references.map((reference) => reference.storageKey)
+        if (keys.length > 0 && !supportsReferenceImagesForSelection) {
+            toast.error("Reference images are not supported for the selected model set")
+            return null
         }
-
-        setReferenceFiles((prev) => prev.map((reference) => ({ ...reference, error: undefined })))
-
-        const oversizedReferences = currentReferences.filter((reference) =>
-            getReferenceInputError(reference.file)
-        )
-        if (oversizedReferences.length > 0) {
-            const oversizedPreviews = new Set(
-                oversizedReferences.map((reference) => reference.preview)
+        if (typeof selectedReferenceLimit === "number" && keys.length > selectedReferenceLimit) {
+            toast.error(
+                `The selected model set supports up to ${selectedReferenceLimit} reference images. Remove references to generate.`
             )
-            setReferenceFiles((prev) =>
-                prev.map((reference) =>
-                    oversizedPreviews.has(reference.preview)
-                        ? { ...reference, error: getReferenceInputError(reference.file) }
-                        : reference
-                )
-            )
-            throw new ReferencePreparationError(
-                `One or more reference images are larger than ${REFERENCE_INPUT_LIMIT_LABEL}. Choose a smaller image.`
-            )
+            return null
         }
+        return keys
+    }
 
-        const hashToStorageKey = new Map<string, string>()
-        for (const reference of currentReferences) {
-            if (reference.hash && reference.storageKey) {
-                hashToStorageKey.set(reference.hash, reference.storageKey)
-            }
+    // A reference set nobody has touched for a day is likely a leftover; confirm before
+    // spending credits on it.
+    const confirmReferencesThenRun = (run: () => Promise<void>) => {
+        const { references: currentReferences, touchedAt } = useLibraryReferencesStore.getState()
+        if (currentReferences.length > 0 && areReferencesStale(touchedAt)) {
+            setStaleReferencesRun(() => run)
+            return
         }
-
-        const uploadedKeys: string[] = []
-
-        for (const reference of currentReferences) {
-            let preparedFile: File
-            try {
-                preparedFile = await prepareChatAttachmentForUpload(reference.file, undefined, {
-                    skipImageCompression: overridesActive && disableImageCompression
-                })
-            } catch {
-                setReferenceFiles((prev) =>
-                    prev.map((item) =>
-                        item.preview === reference.preview
-                            ? { ...item, error: REFERENCE_PREPARATION_ERROR }
-                            : item
-                    )
-                )
-                throw new ReferencePreparationError(
-                    "One or more references could not be optimized. Try a smaller image."
-                )
-            }
-            const hash = reference.hash ?? (await getFileSha256(preparedFile))
-            const existingKey = reference.storageKey ?? hashToStorageKey.get(hash)
-
-            if (existingKey) {
-                hashToStorageKey.set(hash, existingKey)
-                uploadedKeys.push(existingKey)
-                setReferenceFiles((prev) =>
-                    prev.map((item) =>
-                        item.preview === reference.preview
-                            ? { ...item, hash, storageKey: existingKey }
-                            : item
-                    )
-                )
-                continue
-            }
-
-            const jwt = await resolveJwtToken(token)
-            if (!jwt) {
-                throw new Error("Authentication token unavailable")
-            }
-
-            const uploaded = await uploadFileDirect({
-                file: preparedFile,
-                jwt,
-                uploadBaseUrl: `${browserEnv("VITE_CONVEX_API_URL")}/upload`,
-                purpose: "reference"
-            })
-
-            hashToStorageKey.set(hash, uploaded.key)
-            uploadedKeys.push(uploaded.key)
-            setReferenceFiles((prev) =>
-                prev.map((item) =>
-                    item.preview === reference.preview
-                        ? { ...item, hash, storageKey: uploaded.key }
-                        : item
-                )
-            )
-        }
-
-        return uploadedKeys
+        void run()
     }
 
     const handleGenerate = async () => {
         if (generationPanelDisabled || selectedRequiresPlanUpgrade) return
         if (!normalizedPrompt || selectedModelIds.length === 0) return
-        if (referenceFiles.length > 0 && !supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
-            return
-        }
+        const referenceImageIds = getSubmittableReferenceKeys()
+        if (!referenceImageIds) return
 
         setGenerationMode("real")
         try {
-            const uploadedReferenceKeys = await uploadReferenceKeys()
-
             const results = await Promise.allSettled(
                 selectedModelIds
                     .flatMap((modelId) => {
@@ -970,7 +1002,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 modelId,
                                 clientRequestId: id,
                                 aspectRatio: effectiveAspectRatio,
-                                referenceImageIds: uploadedReferenceKeys,
+                                referenceImageIds,
                                 ...(canSelectImageQuality && model?.supportedImageQualities?.length
                                     ? { quality: getImageQualityOverride(model) }
                                     : {}),
@@ -984,6 +1016,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     })
                     .map((runGeneration) => runGeneration())
             )
+            if (referenceImageIds.length > 0) {
+                useLibraryReferencesStore.getState().touchReferences()
+            }
 
             const failedResult = results.find(
                 (result): result is PromiseRejectedResult => result.status === "rejected"
@@ -1001,11 +1036,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             await new Promise((resolve) => window.setTimeout(resolve, postSubmissionHoldMs))
         } catch (error) {
             console.error("Failed to generate image:", error)
-            toast.error(
-                error instanceof ReferencePreparationError
-                    ? error.message
-                    : getGenerationErrorMessage(error, "Failed to generate image")
-            )
+            toast.error(getGenerationErrorMessage(error, "Failed to generate image"))
         } finally {
             setGenerationMode(null)
         }
@@ -1014,14 +1045,11 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
     const handleFakeGenerate = async () => {
         if (generationPanelDisabled || selectedRequiresPlanUpgrade) return
         if (!isDevMode || !normalizedPrompt || selectedModelIds.length === 0) return
-        if (referenceFiles.length > 0 && !supportsReferenceImagesForSelection) {
-            toast.error("Reference images are not supported for the selected model set")
-            return
-        }
+        const referenceImageIds = getSubmittableReferenceKeys()
+        if (!referenceImageIds) return
 
         setGenerationMode("fake")
         try {
-            const uploadedReferenceKeys = await uploadReferenceKeys()
             const results = await Promise.allSettled(
                 selectedModelIds
                     .flatMap((modelId) => {
@@ -1041,7 +1069,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                     modelId,
                                     aspectRatio: effectiveAspectRatio,
                                     variantIndex: index + 1,
-                                    referenceImageIds: uploadedReferenceKeys,
+                                    referenceImageIds,
                                     responseTimeSeconds: fakeResponseTimeSeconds,
                                     ...(supportsResolution ? { resolution } : {})
                                 })
@@ -1052,6 +1080,9 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     })
                     .map((runGeneration) => runGeneration())
             )
+            if (referenceImageIds.length > 0) {
+                useLibraryReferencesStore.getState().touchReferences()
+            }
 
             const failedResult = results.find(
                 (result): result is PromiseRejectedResult => result.status === "rejected"
@@ -1061,11 +1092,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             }
         } catch (error) {
             console.error("Failed to run fake image generation:", error)
-            toast.error(
-                error instanceof ReferencePreparationError
-                    ? error.message
-                    : getGenerationErrorMessage(error, "Failed to run fake image generation")
-            )
+            toast.error(getGenerationErrorMessage(error, "Failed to run fake image generation"))
         } finally {
             setGenerationMode(null)
         }
@@ -1151,47 +1178,37 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                         </p>
                     )}
 
-                    {referenceFiles.length > 0 && (
-                        <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-1">
-                            {referenceFiles.map((ref, index) => (
-                                <div
-                                    key={index}
-                                    className={cn(
-                                        "relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-background",
-                                        ref.error && "ring-2 ring-destructive/70"
-                                    )}
-                                >
-                                    <img
-                                        src={ref.preview}
-                                        className="h-full w-full object-cover"
-                                        alt="ref"
+                    {referenceCount > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {references.map((reference) => (
+                                <div key={reference.sourceHash} className="group relative shrink-0">
+                                    <AttachmentTile
+                                        fileName="Reference image"
+                                        nativeTitle={false}
+                                        previewUrl={getReferencePreviewSrc(reference)}
                                     />
-                                    {ref.error && (
-                                        <Tooltip delayDuration={150}>
-                                            <TooltipTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="absolute bottom-1 left-1 rounded-[var(--radius-sm)] border border-destructive/40 bg-background/90 p-0.5 text-destructive"
-                                                    aria-label={ref.error}
-                                                >
-                                                    <AlertCircle
-                                                        className="h-3.5 w-3.5"
-                                                        aria-hidden="true"
-                                                    />
-                                                </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom">
-                                                {ref.error}
-                                            </TooltipContent>
-                                        </Tooltip>
+                                    {/* An in-flight generation still reads this reference. */}
+                                    {!isGenerating && (
+                                        <AttachmentAction
+                                            label="Remove reference"
+                                            onClick={() => removeReference(reference.sourceHash)}
+                                        />
                                     )}
-                                    <button
-                                        type="button"
-                                        className="absolute top-1 right-1 rounded-full bg-background/50 p-0.5 text-foreground transition-colors hover:bg-background/80"
-                                        onClick={() => removeReferenceImage(index)}
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
+                                </div>
+                            ))}
+                            {pendingReferences.map((reference) => (
+                                <div key={reference.sourceHash} className="group relative shrink-0">
+                                    <AttachmentTile
+                                        fileName="Reference image"
+                                        nativeTitle={false}
+                                        status={reference.status}
+                                        progress={reference.progress}
+                                        previewUrl={getReferencePreviewSrc(reference)}
+                                    />
+                                    <AttachmentAction
+                                        label="Cancel upload"
+                                        onClick={() => removeReference(reference.sourceHash)}
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -1238,7 +1255,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                     const modelReferenceLocked =
                                         !isSelected &&
                                         typeof modelReferenceLimit === "number" &&
-                                        referenceFiles.length > modelReferenceLimit
+                                        referenceCount > modelReferenceLimit
                                     const modelDisabled = modelPlanLocked || modelReferenceLocked
                                     const isLegacyModel = isLegacyImageModel(model)
                                     const startsExpandedLegacyModels =
@@ -1292,7 +1309,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                     : undefined
                                                             }
                                                             variants={modelCount}
-                                                            referenceCount={referenceFiles.length}
+                                                            referenceCount={referenceCount}
                                                         />
                                                     </div>
                                                     <span className="mt-0.5 text-[0.625rem] opacity-70">
@@ -1741,7 +1758,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     )}
                     {isDevMode && (
                         <Button
-                            onClick={handleFakeGenerate}
+                            onClick={() => confirmReferencesThenRun(handleFakeGenerate)}
                             disabled={!canSubmitGeneration}
                             variant="outline"
                             className="mb-2 flex h-11 w-full items-center justify-center gap-2 rounded-md border-border border-dashed bg-background font-medium hover:bg-muted/50"
@@ -1762,7 +1779,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                         </Button>
                     )}
                     <Button
-                        onClick={handleGenerate}
+                        onClick={() => confirmReferencesThenRun(handleGenerate)}
                         disabled={disabled || !canSubmitGeneration}
                         className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary font-medium text-secondary-foreground hover:bg-secondary/80"
                     >
@@ -1802,6 +1819,56 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                     </p>
                 </div>
             </div>
+            <AlertDialog
+                open={staleReferencesRun !== null}
+                onOpenChange={(open) => {
+                    if (!open) setStaleReferencesRun(null)
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Still using these references?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            These references haven't been used in over a day. Remove them if they're
+                            left over from an earlier session.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="flex flex-wrap gap-2">
+                        {references.map((reference) => (
+                            <AttachmentTile
+                                key={reference.sourceHash}
+                                fileName="Reference image"
+                                nativeTitle={false}
+                                previewUrl={getReferencePreviewSrc(reference)}
+                            />
+                        ))}
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            onClick={() => {
+                                const run = staleReferencesRun
+                                const store = useLibraryReferencesStore.getState()
+                                releaseReferenceUploads(
+                                    store.references.map((reference) => reference.storageKey)
+                                )
+                                store.clearReferences()
+                                if (run) void run()
+                            }}
+                        >
+                            Remove and generate
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                const run = staleReferencesRun
+                                useLibraryReferencesStore.getState().touchReferences()
+                                if (run) void run()
+                            }}
+                        >
+                            Generate with references
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

@@ -65,9 +65,11 @@ An HTTP-successful webhook is not automatically a billable success. Descriptor p
 
 ## Reference Images
 
-Reference uploads use `POST /upload/reference` and store image-only objects under `references/{userId}/...`.
+Reference uploads use the direct upload flow (`/upload/create`, presigned PUT, `/upload/complete`) with purpose `reference`, and store image-only objects under `references/{userId}/...`.
 
-The sidebar computes SHA-256 hashes for references selected in the client session. It reuses an uploaded key on repeated generation and for duplicate selected items, but it does not scan R2 objects or database rows for matching hashes.
+The sidebar uploads a reference as soon as it is added and dedupes by the SHA-256 hash of the original file. Attached references persist per account in localStorage (`library-references:v1`); Generate asks for confirmation when they have been idle for over 24 hours. Removing one only detaches it from the next request.
+
+`convex/reference_uploads.ts` tracks each upload in `referenceUploads`. Generation marks a reference used, and used references are never deleted because generated images link to them. Unused ones are deleted when removed, capped at 20 per user (oldest evicted), and swept daily after 30 days.
 
 Generated image and job records retain `referenceImageKeys` for provenance. Reference support and count limits must come from model metadata/descriptors; models without a compatible edit endpoint must reject references.
 

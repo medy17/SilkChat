@@ -255,6 +255,13 @@ export const completeDirectUpload = httpAction(async (ctx, request) => {
             return jsonResponse({ error: "Upload could not be finalized" }, 400)
         }
 
+        if (key.startsWith("references/")) {
+            await ctx.runMutation(internal.reference_uploads.recordReferenceUpload, {
+                userId: user.id,
+                key
+            })
+        }
+
         if (getFileTypeInfo(key, metadata.contentType).isPdf) {
             await ctx.runAction(internal.pdf_validation_node.validateStored, {
                 storageKey: key,
