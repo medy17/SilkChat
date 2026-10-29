@@ -1196,7 +1196,36 @@ export function PersonaSelector({
                                             className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-secondary/60 px-3 font-medium text-foreground text-sm transition-colors hover:bg-secondary/80"
                                             onClick={() => {
                                                 setIsPickerOpen(false)
-                                                void navigate({ to: "/settings/personas" })
+
+                                                let didNavigate = false
+                                                let fallbackTimeoutId: number | null = null
+                                                const doNavigate = () => {
+                                                    if (didNavigate) return
+                                                    didNavigate = true
+                                                    window.removeEventListener(
+                                                        "popstate",
+                                                        doNavigate
+                                                    )
+                                                    if (fallbackTimeoutId !== null) {
+                                                        window.clearTimeout(fallbackTimeoutId)
+                                                        fallbackTimeoutId = null
+                                                    }
+                                                    void navigate({ to: "/settings/personas" })
+                                                }
+
+                                                if (isMobile) {
+                                                    window.addEventListener(
+                                                        "popstate",
+                                                        doNavigate,
+                                                        { once: true }
+                                                    )
+                                                    fallbackTimeoutId = window.setTimeout(
+                                                        doNavigate,
+                                                        150
+                                                    )
+                                                } else {
+                                                    doNavigate()
+                                                }
                                             }}
                                         >
                                             <Plus className="size-4" />
