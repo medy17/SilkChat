@@ -51,8 +51,12 @@ export const useModelNudge = ({
     availableModels: readonly { id: string }[]
     creditPlan: "free" | "pro" | null | undefined
 }) => {
-    // Bumped after each write so the stored state is read again.
-    const [storageVersion, setStorageVersion] = useState(0)
+    // The last write, held in state so the tab updates without re-reading storage. A version
+    // counter in the memo deps doesn't work: React Compiler drops deps the body never reads.
+    const [lastWrite, setLastWrite] = useState<{
+        key: string
+        state: ModelNudgeState | null
+    } | null>(null)
 
     const nudge = useMemo(() => {
         if (!selectedModel) return null
@@ -68,23 +72,23 @@ export const useModelNudge = ({
     }, [availableModels, creditPlan, selectedModel, sharedModels])
 
     const storageKey = nudge ? getStorageKey(nudge) : null
-    // biome-ignore lint/correctness/useExhaustiveDependencies: storageVersion forces a re-read after writes
-    const storedState = useMemo(
-        () => (storageKey ? readNudgeState(storageKey) : null),
-        [storageKey, storageVersion]
-    )
+    const storedState = useMemo(() => {
+        if (!storageKey) return null
+        return lastWrite?.key === storageKey ? lastWrite.state : readNudgeState(storageKey)
+    }, [lastWrite, storageKey])
 
     const accept = useCallback(() => {
         if (!nudge || !storageKey) return
         setSelectedModel(nudge.replacement.id)
         writeNudgeState(storageKey, null)
-        setStorageVersion((version) => version + 1)
+        setLastWrite({ key: storageKey, state: null })
     }, [nudge, setSelectedModel, storageKey])
 
     const dismiss = useCallback(() => {
         if (!storageKey) return
-        writeNudgeState(storageKey, snoozeModelNudge(storedState, Date.now()))
-        setStorageVersion((version) => version + 1)
+        const state = snoozeModelNudge(storedState, Date.now())
+        writeNudgeState(storageKey, state)
+        setLastWrite({ key: storageKey, state })
     }, [storageKey, storedState])
 
     if (!nudge || isModelNudgeSnoozed(storedState, Date.now())) return null
