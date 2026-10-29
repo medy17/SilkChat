@@ -18,9 +18,8 @@ Provider-specific arrays live in `convex/lib/models/*.ts`, and fal image descrip
 - `name` and optional `shortName`
 - `adapters`: provider identity and runtime targets like `i3-openai:gpt-4o`, `openai:gpt-4o`, `openrouter:openai/gpt-4o`, or `fal:fal-ai/...`
 - optional `preferredOpenRouterProviders`: ordered inference provider preferences used only by the "Let SilkChat choose" routing mode; other providers remain eligible fallbacks
-- `legacy`: keeps a callable model behind the legacy-model UI affordance
-- `sunsetOn`: a `YYYY-MM-DD` date when the model stops being selectable and executable
-- `replacementId`: the model id to use when a sunset model should migrate to a newer replacement
+- `legacy`, `sunsetOn`, `replacementId`, `nudgeToReplacement`, and `nudgeMessages`: lifecycle
+  fields. See [Model Lifecycle](#model-lifecycle) for what each does and when to set it.
 - `abilities`: feature flags used by the runtime and UI
 - optional `mode`: `text`, `image`, `speech-to-text`, `text-to-speech`, or `decision`
 - speech-to-text models declare `transcription.preferredFormat` and `transcription.acceptedFormats`; browser normalization and backend validation must consume this shared capability instead of embedding provider formats in either layer
@@ -146,6 +145,14 @@ If the provider is new, also update:
 - `src/components/model-selector.tsx`
 - `src/lib/models-providers-shared.ts`
 
+### 5. Update the older models in the same line
+
+- Set `replacementId` on the model this one succeeds.
+- Mark older entries in the line `legacy` if this release leaves them three releases behind.
+- Consider a nudge if the predecessor now costs users more for the same or worse results.
+
+See [Model Lifecycle](#model-lifecycle).
+
 ## How To Add A New Provider
 
 For built-in chat/text providers, preserve provider identity in the registry and add OpenRouter runtime routing when the provider should be available in production. You usually need to touch:
@@ -155,6 +162,79 @@ For built-in chat/text providers, preserve provider identity in the registry and
 3. provider icons in the UI
 
 Only change `convex/lib/provider_factory.ts` or `convex/chat_http/get_model.ts` if the provider changes the supported chat runtime transports. Image generation uses the shared fal job system from the library and chat tool.
+
+## Model Lifecycle
+
+Four fields move users off older models. From mildest to strongest:
+
+| Field | Effect |
+| --- | --- |
+| `replacementId` | Names the next model in the same line. Does nothing alone; the fields below follow it. |
+| `legacy` | Moves the model behind the picker's legacy affordance. It stays selectable and callable. |
+| `nudgeToReplacement` | Shows a dismissible tab on the composer offering the replacement. Never switches by itself. |
+| `sunsetOn` | From this `YYYY-MM-DD` date (inclusive) the model can't be selected or called. Saved selections, persona defaults, favorites, and assistant configs move to the replacement. Switching a selection shows a one-time toast. |
+
+Resolution lives in `convex/lib/models/lifecycle.ts` (`resolveModelReplacement`). Registry changes
+are served from Convex, so run `bun run cloud:dev:push` to see them in dev.
+
+### Replacement chains
+
+- Point at the next model in the same line and tier, not the newest: `gpt-5.5` → `gpt-5.6-sol` →
+  `gpt-6-sol` → `gpt-6.1-sol`. Resolution cascades, so a later sunset only needs a date.
+- Sunset models always move on. Once a sunset move is under way, nudged models are skipped too, so a
+  forced migration never lands on a model that would nudge again.
+- Resolution stops at the furthest model in the chain the user can pick, given their providers and
+  plan. When none qualifies, a sunset falls back to the surface's default model where it has one,
+  and a nudge stays hidden.
+- Leave `replacementId` off when there's no same-tier successor. Don't cross tiers (Plus to Max,
+  Lite to Pro) to fill the gap.
+- Every target must exist in the registry, and chains must not loop.
+
+### Sunset dates
+
+- Use the shutdown date the lab publishes, for the provider we actually route to. Gemini's dates
+  differ between AI Studio and Vertex, and partner platforms such as Bedrock set their own.
+  - [OpenAI deprecations](https://developers.openai.com/api/docs/deprecations)
+  - [Anthropic model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations)
+  - [Gemini API deprecations](https://ai.google.dev/gemini-api/docs/deprecations) and
+    [Vertex AI model versions](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions)
+  - [xAI models](https://docs.x.ai/docs/models)
+  - [Mistral models](https://docs.mistral.ai/getting-started/models/)
+  - [OpenRouter models API](https://openrouter.ai/api/v1/models): check `expiration_date`
+- "Not sooner than" or "or later" dates are guarantees, not shutdowns. Don't use them.
+- Open-weight models served through OpenRouter by third-party hosts get no date. A model with no
+  providers drops out of the picker on its own, and a lab retiring its own API doesn't matter while
+  other hosts still serve the model.
+- Variants built on a base model, such as `o4-mini-high`, share the base model's date.
+- Don't move a sunset date that has already passed. A later date brings the model back.
+- Watch for silent rerouting. A provider can keep accepting a model id while answering with its
+  successor: AI Studio serves `gemini-3.5-flash` as 3.6 Flash. Either route to a provider that
+  still serves the real model with `preferredOpenRouterProviders`, or sunset it.
+
+### Legacy
+
+- Mark a model `legacy` once its line has three or more newer releases in the registry. Grok 4.20
+  sits behind 4.3, 4.5, 4.6, and 4.7. One or two releases behind stays visible, because users need
+  a comparison point.
+- Dated checkpoints of the same release, such as `deepseek-v4-flash-0731`, don't count as newer
+  releases.
+- Never remove `legacy` from an existing entry.
+
+### Nudges
+
+Nudge when the older model still works but costs users: it's more expensive for similar or worse
+output, or it handles the SilkChat harness (tools, long chats) poorly.
+
+- Needs `replacementId`. The nudge follows the chain like a sunset does.
+- `nudgeMessages` holds one or two lines specific to the model, giving the concrete reason.
+  `{from}` and `{to}` become the model names. Keep each to one line at desktop width, and claim only
+  what the lab or the registry supports. The generic lines in `src/lib/model-nudge.ts` follow,
+  softest to bluntest.
+- Dismissing hides the tab for two days (`MODEL_NUDGE_SNOOZE_MS`) and shows the next line next
+  time. Switching clears it.
+- When the nudged model is the preferred default in `getDefaultModelId`, new users start on the
+  replacement instead.
+- A nudge and a sunset combine: nudge now, then add `sunsetOn` when the lab announces a date.
 
 ## Provider-Specific Notes
 
@@ -316,6 +396,8 @@ Before pushing model/provider changes:
 - image model added without a matching fal endpoint adapter
 - reasoning model added without `effort_control`, so the UI/runtime never sends reasoning settings
 - OpenRouter-backed model added but omitted from `VITE_ENABLED_INTERNAL_PROVIDERS` or the relevant `openrouter-*` visibility alias
+- new model added without setting `replacementId` on its predecessor, so a later sunset has nowhere to send users
+- `sunsetOn` set without a `replacementId` that resolves to a model the user can pick, so the selection falls back to the default model
 
 
 ## Writing Model Descriptions for a Model Picker
