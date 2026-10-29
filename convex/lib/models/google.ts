@@ -23,6 +23,12 @@ const AI_STUDIO_ROUTING = {
     preferredOpenRouterProviders: ["google-ai-studio"]
 } satisfies Pick<SharedModel, "preferredOpenRouterProviders">
 
+// AI Studio silently serves a superseded Flash checkpoint as its successor; Vertex still serves the
+// checkpoint itself.
+const VERTEX_ROUTING = {
+    preferredOpenRouterProviders: ["google-vertex"]
+} satisfies Pick<SharedModel, "preferredOpenRouterProviders">
+
 const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as const
 
 export const GOOGLE_MODELS: SharedModel[] = [
@@ -115,7 +121,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260813,
         adapters: googleTextAdapters("gemini-3.7-flash"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -171,7 +177,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260519,
         adapters: googleTextAdapters("gemini-3.5-flash"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
