@@ -1,3 +1,4 @@
+import { bluePersona } from "./blue"
 import { broodingStrangerPersona } from "./brooding-stranger"
 import { elaraAdventurerPersona } from "./elara-adventurer"
 import { essayColumnistPersona } from "./essay-columnist"
@@ -28,6 +29,7 @@ export {
 } from "./types"
 
 export const BUILT_IN_PERSONAS = [
+    bluePersona,
     broodingStrangerPersona,
     elaraAdventurerPersona,
     essayColumnistPersona,
