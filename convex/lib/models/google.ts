@@ -18,13 +18,9 @@ const FREE_UP_TO_LOW_REASONING_ACCESS = {
     }
 } satisfies Pick<SharedModel, "availableToPickFor" | "availableToPickForReasoningEfforts">
 
-// Prompt caches are per provider, so keep Gemini on AI Studio and fall back to Vertex only when needed.
-const AI_STUDIO_ROUTING = {
-    preferredOpenRouterProviders: ["google-ai-studio"]
-} satisfies Pick<SharedModel, "preferredOpenRouterProviders">
-
-// AI Studio silently serves a superseded Flash checkpoint as its successor; Vertex still serves the
-// checkpoint itself.
+// Prompt caches are per provider, so keep Gemini on Vertex (GCP credits) and fall back to AI Studio
+// only when needed. Vertex also keeps serving superseded Flash checkpoints that AI Studio silently
+// answers with their successor.
 const VERTEX_ROUTING = {
     preferredOpenRouterProviders: ["google-vertex"]
 } satisfies Pick<SharedModel, "preferredOpenRouterProviders">
@@ -44,7 +40,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20261013,
         adapters: googleTextAdapters("gemini-4-argon"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -100,7 +96,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260902,
         adapters: googleTextAdapters("gemini-3.8-flash"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,
         maxTokens: 65_536,
@@ -144,7 +140,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260721,
         adapters: googleTextAdapters("gemini-3.6-flash"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -162,7 +158,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         developer: "Google",
         releaseOrder: 20260721,
         adapters: googleTextAdapters("gemini-3.5-flash-lite"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -203,7 +199,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20251217,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
@@ -225,7 +221,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260507,
         adapters: googleTextAdapters("gemini-3.1-flash-lite"),
-        ...AI_STUDIO_ROUTING,
+        // Titles run on this model and Vertex once stalled them for ~10s; see docs/THREAD_TITLES.md.
+        preferredOpenRouterProviders: ["google-ai-studio"],
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
@@ -266,7 +263,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         },
         releaseOrder: 20260219,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
-        ...AI_STUDIO_ROUTING,
+        ...VERTEX_ROUTING,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         replacementId: "gemini-4-argon"
     },
