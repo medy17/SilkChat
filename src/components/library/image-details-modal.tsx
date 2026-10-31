@@ -48,6 +48,16 @@ import {
     getTransparentBackdropClassName
 } from "@/lib/transparent-backdrop"
 import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
+import {
+    LIGHTBOX_DESKTOP_BREAKPOINT,
+    LIGHTBOX_DESKTOP_GAP,
+    LIGHTBOX_DESKTOP_INFO_PANEL_WIDTH,
+    LIGHTBOX_LONG_EDGES,
+    LIGHTBOX_MOBILE_HORIZONTAL_CHROME,
+    getLightboxImageBox,
+    getLightboxLongEdge,
+    getWindowLightboxViewport
+} from "@/lib/lightbox-image-size"
 import { matchesNextImageShortcut, matchesPreviousImageShortcut } from "@/lib/keyboard-shortcuts"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
@@ -91,17 +101,12 @@ interface ImageDetailsModalProps {
     onRestoreStart?: (id: Id<"generatedImages">) => void
 }
 
-const DESKTOP_BREAKPOINT = 1100
-const DESKTOP_GAP = 24
-// Must leave room on each side for the flyout close/nav buttons (4.5rem offset + margin).
-const DESKTOP_HORIZONTAL_CHROME = 176
-const DESKTOP_VERTICAL_CHROME = 96
-const DESKTOP_INFO_PANEL_WIDTH = 420
+const DESKTOP_BREAKPOINT = LIGHTBOX_DESKTOP_BREAKPOINT
+const DESKTOP_GAP = LIGHTBOX_DESKTOP_GAP
+const DESKTOP_INFO_PANEL_WIDTH = LIGHTBOX_DESKTOP_INFO_PANEL_WIDTH
 // Keeps the info panel usable when an ultra-wide image renders very short.
 const DESKTOP_INFO_PANEL_MIN_HEIGHT = 480
-const DESKTOP_MAX_IMAGE_HEIGHT = 920
-const MOBILE_HORIZONTAL_CHROME = 32
-const MOBILE_FULLSCREEN_IMAGE_CHROME = 136
+const MOBILE_HORIZONTAL_CHROME = LIGHTBOX_MOBILE_HORIZONTAL_CHROME
 const MOBILE_PREVIEW_TOP_GAP = 8
 const MOBILE_PREVIEW_GAP_ABOVE_DRAWER = 24
 const MOBILE_PREVIEW_MIN_HEIGHT = 180
@@ -193,6 +198,9 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
     const [imageRecoveryPhase, setImageRecoveryPhase] = useState<"primary" | "fallback">("primary")
+    const [devicePixelRatio, setDevicePixelRatio] = useState(
+        () => getWindowLightboxViewport().devicePixelRatio
+    )
     const [viewportSize, setViewportSize] = useState(() =>
         typeof window === "undefined"
             ? { width: 1440, height: 900 }
@@ -238,12 +246,51 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     }, [aspectRatio])
 
     const aspectRatioValue = useMemo(() => getImageAspectRatioValue(aspectRatio), [aspectRatio])
-    const optimizedImageUrl = localImage
-        ? getExpandedImageUrl({
-              storageKey: localImage.storageKey,
-              aspectRatio: localImage.aspectRatio
-          })
-        : ""
+    // Sized from the computed image box × devicePixelRatio. When only a smaller copy
+    // has loaded (the window grew), it stays on screen while the sharper one loads
+    // in the background, so the viewer never drops back to its loading blur.
+    const [, setSharperImageLoadCount] = useState(0)
+    const getImageUrlAtLongEdge = (longEdge: number) =>
+        localImage
+            ? getExpandedImageUrl({
+                  storageKey: localImage.storageKey,
+                  aspectRatio: localImage.aspectRatio,
+                  longEdge
+              })
+            : ""
+    const targetLongEdge = getLightboxLongEdge({
+        viewport: viewportSize,
+        aspectRatio,
+        devicePixelRatio
+    })
+    const loadedLongEdges = LIGHTBOX_LONG_EDGES.filter((longEdge) =>
+        loadedDetailImageUrls.has(getImageUrlAtLongEdge(longEdge))
+    )
+    const displayedLongEdge =
+        loadedLongEdges.find((longEdge) => longEdge >= targetLongEdge) ??
+        loadedLongEdges.at(-1) ??
+        targetLongEdge
+    const optimizedImageUrl = getImageUrlAtLongEdge(displayedLongEdge)
+    const pendingSharperImageUrl =
+        displayedLongEdge < targetLongEdge ? getImageUrlAtLongEdge(targetLongEdge) : null
+
+    useEffect(() => {
+        if (!isOpen || !pendingSharperImageUrl) return
+
+        const sharperImage = new window.Image()
+        sharperImage.decoding = "async"
+        sharperImage.onload = () => {
+            loadedDetailImageUrls.add(pendingSharperImageUrl)
+            setSharperImageLoadCount((count) => count + 1)
+        }
+        sharperImage.src = pendingSharperImageUrl
+
+        return () => {
+            sharperImage.onload = null
+            // Abort the download if the target changed before it finished (window drags).
+            sharperImage.src = ""
+        }
+    }, [isOpen, pendingSharperImageUrl])
     const directImageUrl = localImage ? getGeneratedImageDirectUrl(localImage.storageKey) : ""
     const renderedImageSource = resolveGeneratedImageRenderSource({
         phase: imageRecoveryPhase,
@@ -281,13 +328,29 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                 width: window.innerWidth,
                 height: window.innerHeight
             })
+            setDevicePixelRatio(window.devicePixelRatio || 1)
+        }
+
+        // Moving the window to a screen with another pixel ratio fires no resize
+        // event, so watch a query pinned to the current ratio and re-pin on change.
+        let pixelRatioQuery: MediaQueryList | null = null
+        const watchPixelRatio = () => {
+            pixelRatioQuery?.removeEventListener("change", handlePixelRatioChange)
+            pixelRatioQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+            pixelRatioQuery.addEventListener("change", handlePixelRatioChange)
+        }
+        const handlePixelRatioChange = () => {
+            updateViewportSize()
+            watchPixelRatio()
         }
 
         updateViewportSize()
+        watchPixelRatio()
         window.addEventListener("resize", updateViewportSize)
 
         return () => {
             window.removeEventListener("resize", updateViewportSize)
+            pixelRatioQuery?.removeEventListener("change", handlePixelRatioChange)
         }
     }, [isOpen])
 
@@ -317,22 +380,10 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
     }, [isOpen, prefetchImageUrls])
 
     const layout = useMemo(() => {
-        const isDesktop = viewportSize.width >= DESKTOP_BREAKPOINT
+        const box = getLightboxImageBox({ viewport: viewportSize, aspectRatioValue })
 
-        if (isDesktop) {
-            const maxImageHeight = Math.max(
-                320,
-                Math.min(DESKTOP_MAX_IMAGE_HEIGHT, viewportSize.height - DESKTOP_VERTICAL_CHROME)
-            )
-            const maxImageWidth = Math.max(
-                320,
-                viewportSize.width -
-                    DESKTOP_INFO_PANEL_WIDTH -
-                    DESKTOP_GAP -
-                    DESKTOP_HORIZONTAL_CHROME
-            )
-            const imageHeight = Math.min(maxImageHeight, maxImageWidth / aspectRatioValue)
-            const imageWidth = imageHeight * aspectRatioValue
+        if (box.isDesktop) {
+            const { width: imageWidth, height: imageHeight, maxImageHeight } = box
             const infoHeight = Math.max(
                 imageHeight,
                 Math.min(maxImageHeight, DESKTOP_INFO_PANEL_MIN_HEIGHT)
@@ -350,11 +401,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             }
         }
 
-        const fullscreenImage = fitImageAspectRatioBox({
-            aspectRatioValue,
-            maxWidth: Math.max(280, viewportSize.width - MOBILE_HORIZONTAL_CHROME),
-            maxHeight: Math.max(240, viewportSize.height - MOBILE_FULLSCREEN_IMAGE_CHROME)
-        })
+        const fullscreenImage = { width: box.width, height: box.height }
         const mobileDetailsMaxHeight = Math.min(
             MOBILE_DETAILS_DRAWER_MAX_HEIGHT,
             viewportSize.height * 0.54
@@ -370,7 +417,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
             infoWidth: fullscreenImage.width,
             shellWidth: fullscreenImage.width
         }
-    }, [aspectRatioValue, viewportSize.height, viewportSize.width])
+    }, [aspectRatioValue, viewportSize])
 
     // With details open, the image shrinks into the space between the close
     // button and the drawer. It is expressed as a transform from the fullscreen

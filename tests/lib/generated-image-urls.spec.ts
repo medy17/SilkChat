@@ -40,6 +40,7 @@ import {
     getOptimizedGeneratedImageUrl,
     resetPrivateBlurFormatCacheForTests
 } from "@/lib/generated-image-urls"
+import { DEFAULT_LIBRARY_GRID_SIZES } from "@/lib/library-grid-sizes"
 
 describe("generated-image-urls", () => {
     beforeEach(() => {
@@ -177,12 +178,13 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=432,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 432w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 540w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=480,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 480w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 768w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=1152,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 1152w"
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            sizes: DEFAULT_LIBRARY_GRID_SIZES,
             useCssBlurFallback: false
         })
 
@@ -234,12 +236,13 @@ describe("generated-image-urls", () => {
                 aspectRatio: "3:4"
             })
         ).toEqual({
-            src: "/_silkchat/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
+            src: "/_silkchat/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3",
             srcSet: [
-                "/_silkchat/image/fit=scale-down,width=432,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 432w",
-                "/_silkchat/image/fit=scale-down,width=540,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 540w"
+                "/_silkchat/image/fit=scale-down,width=480,quality=80,format=auto/https://r2.silkchat.dev/generated/key-3 480w",
+                "/_silkchat/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 768w",
+                "/_silkchat/image/fit=scale-down,width=1152,quality=76,format=auto/https://r2.silkchat.dev/generated/key-3 1152w"
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            sizes: DEFAULT_LIBRARY_GRID_SIZES,
             useCssBlurFallback: false
         })
     })
@@ -263,12 +266,13 @@ describe("generated-image-urls", () => {
                 hidden: true
             })
         ).toEqual({
-            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4",
+            src: "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4",
             srcSet: [
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=576,quality=80,format=auto/https://r2.silkchat.dev/generated/key-4 576w",
-                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=720,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4 720w"
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=480,quality=80,format=auto/https://r2.silkchat.dev/generated/key-4 480w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=768,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4 768w",
+                "https://img.silkchat.dev/cdn-cgi/image/fit=scale-down,width=1152,quality=76,format=auto/https://r2.silkchat.dev/generated/key-4 1152w"
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            sizes: DEFAULT_LIBRARY_GRID_SIZES,
             useCssBlurFallback: true
         })
     })
@@ -298,10 +302,11 @@ describe("generated-image-urls", () => {
         ).toEqual({
             src: "https://r2.silkchat.dev/generated/key-5",
             srcSet: [
-                "https://r2.silkchat.dev/generated/key-5 432w",
-                "https://r2.silkchat.dev/generated/key-5 540w"
+                "https://r2.silkchat.dev/generated/key-5 480w",
+                "https://r2.silkchat.dev/generated/key-5 768w",
+                "https://r2.silkchat.dev/generated/key-5 1152w"
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            sizes: DEFAULT_LIBRARY_GRID_SIZES,
             useCssBlurFallback: true
         })
     })

@@ -3,6 +3,7 @@ import {
     buildLocalImageOptimizerUrl,
     isLocalImageOptimizerEnabled
 } from "@/lib/local-image-optimizer"
+import { DEFAULT_LIBRARY_GRID_SIZES } from "@/lib/library-grid-sizes"
 import { type PrivateBlurFormat, getConstrainedWidth } from "@/lib/private-blur-variants"
 import {
     getPublicR2AssetUrl,
@@ -121,9 +122,23 @@ export const getOptimizedGeneratedImageUrl = ({
     aspectRatio?: string
     longEdge: number
     quality?: number
+}) =>
+    getOptimizedGeneratedImageUrlAtWidth({
+        storageKey,
+        width: getConstrainedWidth(aspectRatio, longEdge),
+        quality
+    })
+
+const getOptimizedGeneratedImageUrlAtWidth = ({
+    storageKey,
+    width,
+    quality
+}: {
+    storageKey: string
+    width: number
+    quality: number
 }) => {
     const sourceUrl = getGeneratedImageTransformSourceUrl(storageKey)
-    const width = getConstrainedWidth(aspectRatio, longEdge)
 
     if (isLocalImageOptimizerEnabled()) {
         return buildLocalImageOptimizerUrl({
@@ -168,19 +183,33 @@ export const getPrivateBlurImageUrl = ({
     return `${apiBase}/private-blur?${params.toString()}`
 }
 
+// Grid tiles are column-width boxes whatever the image's shape, so candidates are
+// widths, not long edges. 768 clears 4K-class tiles (~690–750px), 1152 covers 5K/6K
+// displays at 2x. Sources narrower than a candidate are capped by fit=scale-down.
+const LIBRARY_IMAGE_CANDIDATES = [
+    { width: 480, quality: 80 },
+    { width: 768, quality: 76 },
+    { width: 1152, quality: 76 }
+] as const
+const LIBRARY_IMAGE_FALLBACK_CANDIDATE = LIBRARY_IMAGE_CANDIDATES[1]
+
 export const getLibraryImageSources = ({
     storageKey,
     aspectRatio,
-    hidden = false
+    hidden = false,
+    sizes = DEFAULT_LIBRARY_GRID_SIZES
 }: {
     storageKey: string
     aspectRatio?: string
     hidden?: boolean
+    sizes?: string
 }) => {
     const smallWidth = getConstrainedWidth(aspectRatio, 576)
     const largeWidth = getConstrainedWidth(aspectRatio, 720)
     const preferredBlurFormat = hidden ? getPreferredPrivateBlurFormat() : null
 
+    // Blurred variants keep their stored long-edge widths: extra resolution is
+    // invisible under the blur and new widths would orphan existing R2 objects.
     if (hidden && preferredBlurFormat) {
         return {
             src: getPrivateBlurImageUrl({
@@ -203,33 +232,21 @@ export const getLibraryImageSources = ({
                     format: preferredBlurFormat
                 })} ${largeWidth}w`
             ].join(", "),
-            sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+            sizes,
             useCssBlurFallback: false
         }
     }
 
     return {
-        src: getOptimizedGeneratedImageUrl({
+        src: getOptimizedGeneratedImageUrlAtWidth({
             storageKey,
-            aspectRatio,
-            longEdge: 720,
-            quality: 76
+            ...LIBRARY_IMAGE_FALLBACK_CANDIDATE
         }),
-        srcSet: [
-            `${getOptimizedGeneratedImageUrl({
-                storageKey,
-                aspectRatio,
-                longEdge: 576,
-                quality: 80
-            })} ${smallWidth}w`,
-            `${getOptimizedGeneratedImageUrl({
-                storageKey,
-                aspectRatio,
-                longEdge: 720,
-                quality: 76
-            })} ${largeWidth}w`
-        ].join(", "),
-        sizes: "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw",
+        srcSet: LIBRARY_IMAGE_CANDIDATES.map(
+            (candidate) =>
+                `${getOptimizedGeneratedImageUrlAtWidth({ storageKey, ...candidate })} ${candidate.width}w`
+        ).join(", "),
+        sizes,
         useCssBlurFallback: hidden
     }
 }
@@ -321,14 +338,16 @@ export const getChatImageCardSources = ({
 
 export const getExpandedImageUrl = ({
     storageKey,
-    aspectRatio
+    aspectRatio,
+    longEdge = 1080
 }: {
     storageKey: string
     aspectRatio?: string
+    longEdge?: number
 }) =>
     getOptimizedGeneratedImageUrl({
         storageKey,
         aspectRatio,
-        longEdge: 1080,
+        longEdge,
         quality: 84
     })

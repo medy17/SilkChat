@@ -3,13 +3,17 @@
 
 export type MasonryBox = { left: number; top: number; width: number; height: number }
 
-// Matches the grid's previous container breakpoints (@2xl, @4xl, @6xl).
-export const getMasonryColumnCount = (width: number) => {
-    if (width >= 1152) return 5
-    if (width >= 896) return 4
-    if (width >= 672) return 3
-    return 2
-}
+// Matches the grid's previous container breakpoints (@2xl, @4xl, @6xl), widest first.
+export const MASONRY_COLUMN_BREAKPOINTS = [
+    { minWidth: 1152, columns: 5 },
+    { minWidth: 896, columns: 4 },
+    { minWidth: 672, columns: 3 }
+] as const
+export const MASONRY_MIN_COLUMNS = 2
+
+export const getMasonryColumnCount = (width: number) =>
+    MASONRY_COLUMN_BREAKPOINTS.find((breakpoint) => width >= breakpoint.minWidth)?.columns ??
+    MASONRY_MIN_COLUMNS
 
 // Gap in column-width units, used only for column assignment.
 const ASSIGNMENT_GAP = 0.05

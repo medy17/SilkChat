@@ -59,6 +59,13 @@ import { api } from "@/convex/_generated/api"
 import type { Doc, Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useMasonryLayout } from "@/hooks/use-masonry-layout"
+import { useSidebar } from "@/components/ui/sidebar"
+import {
+    DEFAULT_LIBRARY_GRID_SIZES,
+    getLibraryGridSizes,
+    parseSidebarWidthPx
+} from "@/lib/library-grid-sizes"
+import { getLightboxLongEdge, getWindowLightboxViewport } from "@/lib/lightbox-image-size"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { useLibraryImagePage } from "@/hooks/use-library-image-page"
@@ -478,6 +485,20 @@ const DesktopModelFilter = ({
     )
 }
 
+// The sidebar context changes every frame while its rail is dragged. Reading it in
+// this leaf keeps those updates out of the grid; only the settled width (or null
+// when collapsed) is forwarded once the drag ends.
+const SidebarWidthBridge = ({ onChange }: { onChange: (sidebarWidth: number | null) => void }) => {
+    const { state, width, isDraggingRail } = useSidebar()
+    const sidebarWidth = state === "expanded" ? parseSidebarWidthPx(width) : null
+
+    useEffect(() => {
+        if (!isDraggingRail) onChange(sidebarWidth)
+    }, [isDraggingRail, onChange, sidebarWidth])
+
+    return null
+}
+
 const GalleryImageSkeleton = memo(() => (
     <div className="relative h-full w-full overflow-hidden rounded-[var(--radius-xl)] bg-muted/40">
         <Skeleton className="absolute inset-0 h-full w-full rounded-[var(--radius-xl)] bg-muted/60" />
@@ -565,6 +586,7 @@ PendingImageItem.displayName = "PendingImageItem"
 const GeneratedImageItem = memo(
     ({
         image,
+        imageSizes,
         onClick,
         placeholder = "skeleton",
         onImageSettled,
@@ -586,6 +608,7 @@ const GeneratedImageItem = memo(
         onRestore
     }: {
         image: Doc<"generatedImages">
+        imageSizes: string
         onClick: () => void
         placeholder?: ImageLoadPlaceholder
         onImageSettled?: () => void
@@ -623,13 +646,15 @@ const GeneratedImageItem = memo(
         const visibleImageSources = getLibraryImageSources({
             storageKey: image.storageKey,
             aspectRatio: image.aspectRatio,
-            hidden: false
+            hidden: false,
+            sizes: imageSizes
         })
 
         const hiddenImageSources = getLibraryImageSources({
             storageKey: image.storageKey,
             aspectRatio: image.aspectRatio,
-            hidden: true
+            hidden: true,
+            sizes: imageSizes
         })
         const retriedHiddenImageSources = useMemo(
             () => ({
@@ -1222,6 +1247,34 @@ export function LibraryView({
     const libraryHeaderRef = useRef<HTMLDivElement>(null)
     const lastHeaderScrollTopRef = useRef(0)
     const [isLibraryHeaderHidden, setIsLibraryHeaderHidden] = useState(false)
+    // undefined until SidebarWidthBridge reports; null while collapsed.
+    const [sidebarWidth, setSidebarWidth] = useState<number | null | undefined>(undefined)
+    const [scrollbarWidth, setScrollbarWidth] = useState(0)
+    const imageSizes = useMemo(
+        () =>
+            sidebarWidth === undefined
+                ? DEFAULT_LIBRARY_GRID_SIZES
+                : getLibraryGridSizes({ sidebarWidth, scrollbarWidth }),
+        [scrollbarWidth, sidebarWidth]
+    )
+    const hasGallery = Boolean(session.user?.id)
+
+    // Classic (Windows) scrollbars narrow the grid but not `100vw`. Overlay
+    // scrollbars measure 0. Re-measured when the scrollbar appears or goes.
+    useEffect(() => {
+        const gallery = galleryRef.current
+        if (!hasGallery || !gallery) return
+
+        const measure = () => {
+            // A hidden pane (content-visibility) reports 0; keep the last value.
+            if (gallery.offsetWidth === 0) return
+            setScrollbarWidth(gallery.offsetWidth - gallery.clientWidth)
+        }
+        measure()
+        const observer = new ResizeObserver(measure)
+        observer.observe(gallery)
+        return () => observer.disconnect()
+    }, [hasGallery])
     const previousDraftQueryRef = useRef(search.query)
     const previousDraftQueryChangeAtRef = useRef<number | null>(null)
     const searchQuery = search.query
@@ -1524,10 +1577,17 @@ export function LibraryView({
             selectedImageIndex + 2
         ].filter((index) => index >= 0 && index < images.length)
 
+        // Same size pick as the lightbox, so a prefetched neighbour opens from cache.
+        const { viewport, devicePixelRatio } = getWindowLightboxViewport()
         return nearbyIndices.map((index) =>
             getExpandedImageUrl({
                 storageKey: images[index].storageKey,
-                aspectRatio: images[index].aspectRatio
+                aspectRatio: images[index].aspectRatio,
+                longEdge: getLightboxLongEdge({
+                    viewport,
+                    aspectRatio: images[index].aspectRatio,
+                    devicePixelRatio
+                })
             })
         )
     }, [images, selectedImageIndex])
@@ -2341,6 +2401,7 @@ export function LibraryView({
                 layoutScroll
             >
                 <h1 className="sr-only">{libraryTitle}</h1>
+                <SidebarWidthBridge onChange={setSidebarWidth} />
                 {desktopToolbar}
 
                 {isMobile ? (
@@ -2642,6 +2703,7 @@ export function LibraryView({
                                                 >
                                                     <GeneratedImageItem
                                                         image={image}
+                                                        imageSizes={imageSizes}
                                                         placeholder={
                                                             animatedImageIds.includes(image._id)
                                                                 ? "tiles"
