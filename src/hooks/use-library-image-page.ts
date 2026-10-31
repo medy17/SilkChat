@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api"
+import { removeDiskCacheKeys, writeDiskCache } from "@/lib/convex-cached-query"
 import {
     assemblePageChunks,
     getPageChunkRequestKey,
@@ -18,6 +19,27 @@ const isSameRequestList = (left: PageChunkRequest[], right: PageChunkRequest[]) 
     left.every(
         (request, index) => getPageChunkRequestKey(request) === getPageChunkRequestKey(right[index])
     )
+
+const LIBRARY_PAGE_CACHE_PREFIX = "CVX_DISK_CACHE:library-cursor-page:v3:"
+// Library cache formats replaced by LIBRARY_PAGE_CACHE_PREFIX.
+const LEGACY_LIBRARY_CACHE_PREFIXES = [
+    "CVX_DISK_CACHE:library-page:",
+    "CVX_DISK_CACHE:library-cursor-page",
+    "CVX_DISK_CACHE:library-count:"
+]
+let hasSweptLegacyLibraryCache = false
+
+export const sweepLegacyLibraryCache = () => {
+    if (hasSweptLegacyLibraryCache || typeof window === "undefined") return
+    hasSweptLegacyLibraryCache = true
+    try {
+        removeDiskCacheKeys(
+            (key) =>
+                !key.startsWith(LIBRARY_PAGE_CACHE_PREFIX) &&
+                LEGACY_LIBRARY_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix))
+        )
+    } catch {}
+}
 
 const readDiskCache = (storageKey: string): LibraryImagePage | undefined => {
     if (typeof window === "undefined") return undefined
@@ -39,12 +61,12 @@ export const useLibraryImagePage = ({
     args,
     startCursor,
     pageSize,
-    cacheKey
+    cacheScope
 }: {
     args: LibraryPageArgs | "skip"
     startCursor: string | null | undefined
     pageSize: number
-    cacheKey: string
+    cacheScope: string
 }) => {
     const enabled = args !== "skip" && startCursor !== undefined
     const scope = JSON.stringify([args, startCursor, pageSize])
@@ -98,7 +120,10 @@ export const useLibraryImagePage = ({
         setRequestState({ scope, requests: assembled.requests })
     }, [assembled, requests, scope])
 
-    const storageKey = `CVX_DISK_CACHE:${cacheKey}`
+    // A page's start cursor moves whenever newer images land, so each scope
+    // keeps only its latest cursor's copy.
+    const scopePrefix = `${LIBRARY_PAGE_CACHE_PREFIX}${cacheScope}:`
+    const storageKey = `${scopePrefix}${startCursor}`
     const diskCache = useMemo(() => readDiskCache(storageKey), [storageKey])
     const livePage = assembled?.page
     const lastCompleteRef = useRef<{ storageKey: string; page: LibraryImagePage } | null>(null)
@@ -107,13 +132,15 @@ export const useLibraryImagePage = ({
     }
     const lastSerializedRef = useRef<string | null>(null)
 
+    useEffect(sweepLegacyLibraryCache, [])
+
     useEffect(() => {
         if (!livePage || typeof window === "undefined") return
         const serialized = JSON.stringify(livePage)
         if (lastSerializedRef.current === `${storageKey}\n${serialized}`) return
         lastSerializedRef.current = `${storageKey}\n${serialized}`
-        localStorage.setItem(storageKey, serialized)
-    }, [livePage, storageKey])
+        writeDiskCache(storageKey, serialized, { replacePrefix: scopePrefix })
+    }, [livePage, scopePrefix, storageKey])
 
     const page = !enabled
         ? undefined

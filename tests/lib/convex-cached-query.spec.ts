@@ -19,7 +19,8 @@ vi.mock("convex/react", () => ({
 import {
     clearDiskCache,
     useDiskCachedPaginatedQuery,
-    useDiskCachedQuery
+    useDiskCachedQuery,
+    writeDiskCache
 } from "@/lib/convex-cached-query"
 import { useCurrentUserSettings } from "@/hooks/use-current-user-settings"
 import { DefaultSettings } from "@/lib/default-user-settings"
@@ -222,6 +223,46 @@ describe("convex-cached-query", () => {
             vi.advanceTimersByTime(1)
         })
         expect(result.current.results).toEqual([])
+    })
+
+    it("replaces superseded cursor entries for the same page scope", () => {
+        localStorage.setItem("CVX_DISK_CACHE:page-2:old-cursor", "[1]")
+        localStorage.setItem("CVX_DISK_CACHE:page-3:cursor", "[3]")
+
+        writeDiskCache("CVX_DISK_CACHE:page-2:new-cursor", "[2]", {
+            replacePrefix: "CVX_DISK_CACHE:page-2:"
+        })
+
+        expect(localStorage.getItem("CVX_DISK_CACHE:page-2:old-cursor")).toBeNull()
+        expect(localStorage.getItem("CVX_DISK_CACHE:page-2:new-cursor")).toBe("[2]")
+        expect(localStorage.getItem("CVX_DISK_CACHE:page-3:cursor")).toBe("[3]")
+    })
+
+    it("evicts other disk cache entries instead of throwing when storage is full", () => {
+        localStorage.setItem("CVX_DISK_CACHE:stale", "stale")
+        localStorage.setItem("unrelated", "kept")
+        const setItem = Storage.prototype.setItem
+        const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+            this: Storage,
+            key: string,
+            value: string
+        ) {
+            if (key === "CVX_DISK_CACHE:fresh" && localStorage.getItem("CVX_DISK_CACHE:stale")) {
+                throw new DOMException("full", "QuotaExceededError")
+            }
+            setItem.call(this, key, value)
+        })
+
+        expect(() => writeDiskCache("CVX_DISK_CACHE:fresh", "fresh")).not.toThrow()
+        expect(localStorage.getItem("CVX_DISK_CACHE:fresh")).toBe("fresh")
+        expect(localStorage.getItem("CVX_DISK_CACHE:stale")).toBeNull()
+        expect(localStorage.getItem("unrelated")).toBe("kept")
+
+        setItemSpy.mockImplementation(() => {
+            throw new DOMException("full", "QuotaExceededError")
+        })
+        expect(() => writeDiskCache("CVX_DISK_CACHE:fresh", "again")).not.toThrow()
+        setItemSpy.mockRestore()
     })
 
     it("clears only the disk cache keys owned by the helper", () => {

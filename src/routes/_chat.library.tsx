@@ -1297,9 +1297,8 @@ export function LibraryView({
                 : null,
         [filters, pageNumber, pageSize, searchQuery, session.user?.id, sortBy, view]
     )
-    const libraryPageCacheKey = libraryCacheScope
-        ? `library-cursor-page:v3:${libraryCacheScope}:${currentCursor}`
-        : "library-page:guest"
+    const libraryPageCacheScope = libraryCacheScope ?? "guest"
+    const libraryPageCacheKey = `${libraryPageCacheScope}:${currentCursor}`
     const nextPageNumber = pageNumber + 1
     const nextLibraryCacheScope = useMemo(
         () =>
@@ -1323,11 +1322,9 @@ export function LibraryView({
         args: imagePageArgs,
         startCursor: currentCursor,
         pageSize,
-        cacheKey: libraryPageCacheKey
+        cacheScope: libraryPageCacheScope
     })
-    const nextLibraryPageCacheKey = nextLibraryCacheScope
-        ? `library-cursor-page:v3:${nextLibraryCacheScope}:${resolvedImagePage?.continueCursor}`
-        : "library-page:guest"
+    const nextLibraryPageCacheScope = nextLibraryCacheScope ?? "guest"
     const { page: prefetchedNextImagePage, isLive: isNextImagePageLive } = useLibraryImagePage({
         args: imagePageArgs,
         startCursor:
@@ -1335,7 +1332,7 @@ export function LibraryView({
                 ? resolvedImagePage.continueCursor
                 : undefined,
         pageSize,
-        cacheKey: nextLibraryPageCacheKey
+        cacheScope: nextLibraryPageCacheScope
     })
     // A full page can end exactly on the last match. Only offer Next once the
     // following page is known to hold something.

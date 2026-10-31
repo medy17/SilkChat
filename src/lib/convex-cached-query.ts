@@ -9,6 +9,38 @@ import type { FunctionReference } from "convex/server"
 import { useEffect, useMemo, useRef, useState } from "react"
 type IsArrayType<T> = T extends readonly unknown[] ? true : false
 
+const DISK_CACHE_PREFIX = "CVX_DISK_CACHE:"
+
+export const removeDiskCacheKeys = (shouldRemove: (key: string) => boolean) => {
+    for (const key of Object.keys(localStorage)) {
+        if (key.startsWith(DISK_CACHE_PREFIX) && shouldRemove(key)) localStorage.removeItem(key)
+    }
+}
+
+/**
+ * Best-effort cache write. `replacePrefix` drops sibling entries that the new
+ * value supersedes. When storage is full, the other disk cache entries are
+ * evicted and the write retried once; a cache miss beats a crashed render.
+ */
+export const writeDiskCache = (
+    storageKey: string,
+    serialized: string,
+    options?: { replacePrefix?: string }
+) => {
+    try {
+        const replacePrefix = options?.replacePrefix
+        if (replacePrefix) {
+            removeDiskCacheKeys((key) => key !== storageKey && key.startsWith(replacePrefix))
+        }
+        localStorage.setItem(storageKey, serialized)
+    } catch {
+        try {
+            removeDiskCacheKeys((key) => key !== storageKey)
+            localStorage.setItem(storageKey, serialized)
+        } catch {}
+    }
+}
+
 const isQueryErrorResult = (value: unknown): value is { error: unknown } =>
     typeof value === "object" && value !== null && "error" in value
 
@@ -84,9 +116,9 @@ export const useDiskCachedQuery = <
     useEffect(() => {
         if (result === undefined || isQueryErrorResult(result)) return
         if (cacheOptions.maxItems && Array.isArray(result)) {
-            localStorage.setItem(storageKey, JSON.stringify(result.slice(0, cacheOptions.maxItems)))
+            writeDiskCache(storageKey, JSON.stringify(result.slice(0, cacheOptions.maxItems)))
         } else {
-            localStorage.setItem(storageKey, JSON.stringify(result))
+            writeDiskCache(storageKey, JSON.stringify(result))
         }
     }, [result, cacheOptions.maxItems, storageKey])
 
@@ -135,22 +167,16 @@ export const useDiskCachedPaginatedQuery = <
     useEffect(() => {
         if (!results || status === "LoadingFirstPage") return
         if (cacheOptions.maxItems && Array.isArray(results)) {
-            localStorage.setItem(
+            writeDiskCache(
                 `CVX_DISK_CACHE:${cacheOptions.key}`,
                 JSON.stringify(results.slice(0, cacheOptions.maxItems))
             )
         } else {
-            localStorage.setItem(`CVX_DISK_CACHE:${cacheOptions.key}`, JSON.stringify(results))
+            writeDiskCache(`CVX_DISK_CACHE:${cacheOptions.key}`, JSON.stringify(results))
         }
     }, [results, status, cacheOptions.key, cacheOptions.maxItems])
 
     return { results: output, loadMore, status }
 }
 
-export const clearDiskCache = () => {
-    Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith("CVX_DISK_CACHE:")) {
-            localStorage.removeItem(key)
-        }
-    })
-}
+export const clearDiskCache = () => removeDiskCacheKeys(() => true)
