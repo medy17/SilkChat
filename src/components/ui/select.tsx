@@ -42,16 +42,68 @@ function SelectTrigger({
     )
 }
 
+/**
+ * Radix Select closes on `pointerdown` outside and turns `pointer-events` back on
+ * right away. The rest of that press then lands on whatever is under the cursor.
+ * Inside a Popover that is often an element behind the popover, because Radix sets
+ * the popover's `pointer-events` to none while the Select is open. That causes two bugs:
+ * - the `click` activates the element behind (e.g. opens a lightbox)
+ * - the `mousedown` focuses the element behind, and the Popover closes because
+ *   focus left it (e.g. when clicking the Select trigger again to close it)
+ * Drop both so an outside press only closes the Select, like a native <select>.
+ */
+function swallowOutsidePress() {
+    let timeoutId: number | undefined
+
+    const cleanup = () => {
+        window.clearTimeout(timeoutId)
+        window.removeEventListener("mousedown", handleMouseDown, true)
+        window.removeEventListener("click", handleClick, true)
+        window.removeEventListener("pointerup", handlePointerUp, true)
+    }
+
+    // Cancelling mousedown stops the focus change (and text selection) for this press.
+    const handleMouseDown = (event: MouseEvent) => {
+        event.preventDefault()
+        event.stopPropagation()
+    }
+
+    const handleClick = (event: MouseEvent) => {
+        event.preventDefault()
+        event.stopPropagation()
+        cleanup()
+    }
+
+    // If the press ends without a click (e.g. drag), remove the guard once the
+    // browser has had its chance to send the click, so later clicks still work.
+    const handlePointerUp = () => {
+        timeoutId = window.setTimeout(cleanup, 0)
+    }
+
+    window.addEventListener("mousedown", handleMouseDown, true)
+    window.addEventListener("click", handleClick, true)
+    window.addEventListener("pointerup", handlePointerUp, true)
+}
+
 function SelectContent({
     className,
     children,
     position = "popper",
+    onPointerDownOutside,
     ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
     return (
         <SelectPrimitive.Portal>
             <SelectPrimitive.Content
                 data-slot="select-content"
+                onPointerDownOutside={(event) => {
+                    onPointerDownOutside?.(event)
+                    if (event.defaultPrevented) return
+                    // On touch, Radix fires this from the click handler itself, so the
+                    // click has already been sent. Nothing left to stop.
+                    if (event.detail.originalEvent.pointerType === "touch") return
+                    swallowOutsidePress()
+                }}
                 className={cn(
                     "glass-popover data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-y-auto overflow-x-hidden rounded-md border text-popover-foreground data-[state=closed]:animate-out data-[state=open]:animate-in",
                     position === "popper" &&
