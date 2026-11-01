@@ -22,6 +22,7 @@ vi.mock("convex/values", () => ({
 }))
 
 vi.mock("../../convex/_generated/server", () => ({
+    action: (config: unknown) => config,
     internalAction: (config: unknown) => config,
     internalMutation: (config: unknown) => config,
     internalQuery: (config: unknown) => config,

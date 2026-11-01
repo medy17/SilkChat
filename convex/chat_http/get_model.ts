@@ -4,10 +4,16 @@ import { ChatError } from "@/lib/errors"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { createOpenAI } from "@ai-sdk/openai"
 import type { LanguageModelV4 } from "@ai-sdk/provider"
+import { wrapLanguageModel } from "ai"
+// The browser build talks to Ollama over fetch; the default entry pulls in Node built-ins,
+// which the V8 runtime behind the chat route can't load.
+import { type OllamaChatSettings, createOllama } from "ai-sdk-ollama/browser"
 import { internal } from "../_generated/api"
 import type { ActionCtx } from "../_generated/server"
 import { getUserIdentity } from "../lib/identity"
 import { type CoreProvider, MODELS_SHARED } from "../lib/models"
+import { resolveReasoningEffortForModel } from "../lib/models/reasoning"
+import { normalizeOllamaBaseUrl, resolveOllamaThink } from "../lib/ollama"
 import { createProvider } from "../lib/provider_factory"
 import {
     applyModelRouting,
@@ -27,6 +33,9 @@ const getOpenRouterModelId = (modelId: string) =>
             adapter.startsWith("openrouter:")
         ) ?? ""
     ) || undefined
+
+type TextModel = LanguageModelV4 & { modelType: "text" }
+const asTextModel = (model: LanguageModelV4) => Object.assign(model, { modelType: "text" as const })
 
 export const getModel = async (
     ctx: ActionCtx,
@@ -104,6 +113,8 @@ export const getModel = async (
 
     console.log("[getModel] model", model, "sortedAdapters", sortedAdapters)
     let finalModel: LanguageModelV4 | undefined
+    /** Rebuilds the model for a resolved reasoning level, for providers that take it per model. */
+    let withReasoningEffort: ((effort: ReasoningEffort) => TextModel) | undefined
     let providerSource: "internal" | "openrouter" | "custom" | "unknown" = "unknown"
     let runtimeProvider: CoreProvider | "openrouter" | "custom" | "unknown" = "unknown"
     /** The user's provider label, for BYOK error copy. */
@@ -174,6 +185,41 @@ export const getModel = async (
             continue
         }
 
+        if (provider.apiMode === "ollama") {
+            const ollama = createOllama({
+                baseURL: normalizeOllamaBaseUrl(provider.endpoint),
+                apiKey: provider.key || undefined
+            })
+            const createOllamaModel = (effort: ReasoningEffort | null | undefined) =>
+                asTextModel(
+                    wrapLanguageModel({
+                        model: ollama.chat(providerSpecificModelId, {
+                            // The client types only low/medium/high, but the server takes any
+                            // level a model declares, and only server-reported levels are stored.
+                            think: resolveOllamaThink(model, effort) as OllamaChatSettings["think"],
+                            // The window SilkChat budgets for, so the server never truncates
+                            // a prompt SilkChat thinks fits.
+                            options: model.contextLength ? { num_ctx: model.contextLength } : {},
+                            reliableToolCalling: false
+                        }),
+                        middleware: {
+                            specificationVersion: "v4",
+                            // Ollama only takes inline image data, so the SDK must download
+                            // every URL rather than pass it through.
+                            overrideSupportedUrls: () => ({})
+                        }
+                    })
+                )
+            finalModel = createOllamaModel(
+                resolveReasoningEffortForModel(model, options?.reasoningEffort)
+            )
+            withReasoningEffort = createOllamaModel
+            providerSource = "custom"
+            providerName = provider.name
+            runtimeProvider = "custom"
+            break
+        }
+
         const sdkProvider = createOpenAI({
             baseURL: provider.endpoint,
             apiKey: provider.key,
@@ -191,12 +237,9 @@ export const getModel = async (
 
     if (!finalModel) return new ChatError("bad_model:api")
 
-    Object.assign(finalModel, {
-        modelType: "text"
-    })
-
     return {
-        model: finalModel as LanguageModelV4 & { modelType: "text" },
+        model: asTextModel(finalModel),
+        withReasoningEffort,
         abilities: model.abilities,
         useStrictCharts: model.useStrictCharts,
         registry,

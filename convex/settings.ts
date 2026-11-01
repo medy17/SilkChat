@@ -36,6 +36,8 @@ import { applyModelRouting } from "./lib/model_routing"
 import { compactRoutingMetadata } from "./lib/model_routing_metadata"
 import { ModelRoutingMode } from "./schema/model_routing"
 import {
+    type CustomProviderApiMode,
+    CustomProviderApiModeSchema,
     ImageGenerationDefaults,
     NonSensitiveUserSettings,
     ReasoningEffortTierSchema,
@@ -52,7 +54,7 @@ export type UserRegistry = {
         {
             key: string
             endpoint?: string
-            apiMode?: "chat" | "responses"
+            apiMode?: CustomProviderApiMode
             name?: string
             usageMode?: CoreProviderUsageMode
             authMode?: "ai-studio" | "vertex"
@@ -406,7 +408,7 @@ export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<Us
         {
             key: string
             endpoint?: string
-            apiMode?: "chat" | "responses"
+            apiMode?: CustomProviderApiMode
             name?: string
             usageMode?: CoreProviderUsageMode
             authMode?: "ai-studio" | "vertex"
@@ -425,7 +427,8 @@ export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<Us
     for (const [providerId, provider] of Object.entries(settings.customAIProviders)) {
         if (!provider.enabled) continue
         providers[providerId] = {
-            key: await decryptKey(provider.encryptedKey),
+            // Ollama servers may run without a key.
+            key: provider.encryptedKey ? await decryptKey(provider.encryptedKey) : "",
             endpoint: provider.endpoint,
             apiMode: provider.apiMode ?? settings.customAIProviders[providerId]?.apiMode ?? "chat",
             name: provider.name
@@ -459,10 +462,10 @@ export const getUserRegistry = async (ctx: QueryCtx, userId: string): Promise<Us
         const abilities = normalizeModelAbilities(
             model.abilities as Parameters<typeof normalizeModelAbilities>[0]
         )
-        const { effortControl, ...reasoning } = getCustomModelReasoningFields({
-            ...model,
-            abilities
-        })
+        const { effortControl, ...reasoning } = getCustomModelReasoningFields(
+            { ...model, abilities },
+            settings.customAIProviders
+        )
         models[modelId] = {
             id: model.modelId,
             name: model.name ?? model.modelId,
@@ -498,7 +501,7 @@ export const updateUserSettings = mutation({
                 name: v.string(),
                 enabled: v.boolean(),
                 endpoint: v.string(),
-                apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
+                apiMode: v.optional(CustomProviderApiModeSchema),
                 newKey: v.optional(v.string())
             })
         )
@@ -724,8 +727,10 @@ export const updateUserSettingsPartial = mutation({
                         name: v.string(),
                         enabled: v.boolean(),
                         endpoint: v.string(),
-                        apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
-                        newKey: v.optional(v.string())
+                        apiMode: v.optional(CustomProviderApiModeSchema),
+                        newKey: v.optional(v.string()),
+                        // Drops the saved key; Ollama servers may run without one.
+                        clearKey: v.optional(v.boolean())
                     }),
                     // Delete provider (null value)
                     v.null()
@@ -862,7 +867,9 @@ export const updateUserSettingsPartial = mutation({
                             "chat",
                         encryptedKey: update.newKey
                             ? await encryptKey(update.newKey)
-                            : settings.customAIProviders[providerId]?.encryptedKey || ""
+                            : update.clearKey
+                              ? ""
+                              : settings.customAIProviders[providerId]?.encryptedKey || ""
                     }
                 }
             }

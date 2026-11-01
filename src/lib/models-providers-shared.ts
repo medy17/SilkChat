@@ -50,6 +50,7 @@ export type DisplayModel =
       }
 
 export type CustomModelsRecord = Infer<typeof UserSettings>["customModels"]
+export type CustomProvidersRecord = Infer<typeof UserSettings>["customAIProviders"]
 export type CustomModelCatalog = Record<string, CustomModelCatalogStatus>
 // What the settings query returns: stored settings plus custom models' catalog standing.
 export type HydratedUserSettings = Infer<typeof UserSettings> & {
@@ -63,15 +64,16 @@ type CustomDisplayModel = Extract<DisplayModel, { isCustom: true }>
 export const toCustomDisplayModel = (
     id: string,
     customModel: CustomModelsRecord[string],
-    catalogStatus?: CustomModelCatalogStatus
+    catalogStatus?: CustomModelCatalogStatus,
+    customProviders?: CustomProvidersRecord
 ): CustomDisplayModel => {
     const abilities = normalizeModelAbilities(
         customModel.abilities as Parameters<typeof normalizeModelAbilities>[0]
     )
-    const { effortControl, ...reasoning } = getCustomModelReasoningFields({
-        ...customModel,
-        abilities
-    })
+    const { effortControl, ...reasoning } = getCustomModelReasoningFields(
+        { ...customModel, abilities },
+        customProviders
+    )
 
     return {
         id,
@@ -381,7 +383,8 @@ export const isImageGenerationCapableModel = (model: DisplayModel) => {
 export const resolveSelectedDisplayModel = (
     selectedModelId: string | null | undefined,
     sharedModels: readonly SharedModel[],
-    customModels: CustomModelsRecord | undefined
+    customModels: CustomModelsRecord | undefined,
+    customProviders?: CustomProvidersRecord
 ): DisplayModel | undefined => {
     if (!selectedModelId) return undefined
 
@@ -391,7 +394,7 @@ export const resolveSelectedDisplayModel = (
     const customModel = customModels?.[selectedModelId]
     if (!customModel?.enabled) return undefined
 
-    return toCustomDisplayModel(selectedModelId, customModel)
+    return toCustomDisplayModel(selectedModelId, customModel, undefined, customProviders)
 }
 
 const buildFallbackModelDescription = (model: DisplayModel) => {
@@ -614,7 +617,8 @@ export function useAvailableModels(userSettings: HydratedUserSettings | undefine
         const modelData = toCustomDisplayModel(
             id,
             customModel,
-            userSettings?.customModelCatalog?.[id]
+            userSettings?.customModelCatalog?.[id],
+            currentProviders.custom
         )
 
         // Retired or unserved custom models stay in the picker, greyed out with the reason,

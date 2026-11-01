@@ -9,6 +9,7 @@ import {
     MiniMaxIcon,
     MistralIcon,
     MoonshotLogo,
+    OllamaIcon,
     OpenAIIcon,
     OpenRouterIcon,
     QwenIcon,
@@ -18,6 +19,7 @@ import {
 } from "@/components/brand-icons"
 import { Badge } from "@/components/ui/badge"
 import type { SharedModel } from "@/convex/lib/models"
+import { OLLAMA_PROVIDER_ID } from "@/convex/lib/ollama"
 import type { DisplayModel } from "@/lib/models-providers-shared"
 import { FAVORITES_SECTION_ID } from "@/lib/model-favorites"
 import { Server, Star } from "lucide-react"
@@ -122,6 +124,8 @@ export const getProviderSectionIcon = (
             return <FalAIIcon className={className} />
         case "openrouter":
             return <OpenRouterIcon className={className} />
+        case OLLAMA_PROVIDER_ID:
+            return <OllamaIcon className={className} />
         default:
             return <Server className={className} />
     }

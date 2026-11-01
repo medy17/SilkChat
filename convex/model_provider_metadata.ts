@@ -1,6 +1,13 @@
-import { v } from "convex/values"
-import { internalMutation, internalQuery, query } from "./_generated/server"
+import { ConvexError, v } from "convex/values"
+import { internal } from "./_generated/api"
+import { action, internalMutation, internalQuery, query } from "./_generated/server"
 import { getUserIdentity } from "./lib/identity"
+import {
+    OLLAMA_PROVIDER_ID,
+    type OllamaModelEntry,
+    fetchOllamaModels,
+    isOllamaRequestError
+} from "./lib/ollama"
 import { compactRoutingMetadata } from "./lib/model_routing_metadata"
 import { toOpenRouterCatalogEntries } from "./lib/openrouter_catalog"
 import { ModelProviderMetadata } from "./schema/model_provider_metadata"
@@ -109,5 +116,29 @@ export const listOpenRouterCatalog = query({
             .collect()
 
         return toOpenRouterCatalogEntries(rows)
+    }
+})
+
+// The models on the user's Ollama server, for the model picker to fill in their defaults.
+export const listOllamaModels = action({
+    args: {},
+    handler: async (ctx): Promise<OllamaModelEntry[]> => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) throw new ConvexError("Sign in to list Ollama models")
+
+        const registry = await ctx.runQuery(internal.settings.getUserRegistryInternal, {
+            userId: user.id
+        })
+        const provider = registry.providers[OLLAMA_PROVIDER_ID]
+        if (!provider?.endpoint || provider.apiMode !== "ollama") {
+            throw new ConvexError("Connect your Ollama server first")
+        }
+
+        try {
+            return await fetchOllamaModels(provider.endpoint, provider.key || undefined)
+        } catch (error) {
+            if (isOllamaRequestError(error)) throw new ConvexError(error.message)
+            throw error
+        }
     }
 })

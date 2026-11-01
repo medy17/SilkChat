@@ -95,21 +95,31 @@ export const sortReasoningEfforts = (efforts: readonly ReasoningEffortTier[]) =>
         (left, right) => REASONING_EFFORT_RANK[left] - REASONING_EFFORT_RANK[right]
     )
 
-// Runtime reasoning fields for a custom model. Only OpenRouter custom models, which always
-// run on the user's own key, use stored levels; the rest keep always-on reasoning.
-export const getCustomModelReasoningFields = (model: {
-    providerId: string
-    abilities: readonly string[]
-    reasoningEfforts?: readonly ReasoningEffortTier[]
-    defaultReasoningEffort?: ReasoningEffortTier
-}): {
+// Providers whose requests carry a custom model's stored levels: OpenRouter, and custom
+// providers on Ollama's native API. OpenAI-compatible custom providers get no reasoning
+// parameters, so their models keep always-on reasoning.
+export const honorsStoredReasoningLevels = (
+    providerId: string,
+    customProviders?: Readonly<Record<string, { apiMode?: string }>>
+) => providerId === "openrouter" || customProviders?.[providerId]?.apiMode === "ollama"
+
+// Runtime reasoning fields for a custom model.
+export const getCustomModelReasoningFields = (
+    model: {
+        providerId: string
+        abilities: readonly string[]
+        reasoningEfforts?: readonly ReasoningEffortTier[]
+        defaultReasoningEffort?: ReasoningEffortTier
+    },
+    customProviders?: Readonly<Record<string, { apiMode?: string }>>
+): {
     effortControl: boolean
     reasoningEfforts?: ReasoningEffortTier[]
     supportsDisablingReasoning?: boolean
     defaultReasoningEffort?: ReasoningEffortTier
 } => {
     if (
-        model.providerId !== "openrouter" ||
+        !honorsStoredReasoningLevels(model.providerId, customProviders) ||
         !model.abilities.includes("reasoning") ||
         !model.reasoningEfforts
     ) {

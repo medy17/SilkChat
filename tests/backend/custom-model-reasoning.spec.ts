@@ -28,6 +28,24 @@ describe("getCustomModelReasoningFields", () => {
         )
     })
 
+    it("honors stored levels for custom providers on Ollama's API", () => {
+        const model = {
+            providerId: "ollama",
+            abilities: ["reasoning"],
+            reasoningEfforts: ["low", "high"] as ("low" | "high")[]
+        }
+
+        expect(getCustomModelReasoningFields(model, { ollama: { apiMode: "ollama" } })).toEqual({
+            effortControl: true,
+            reasoningEfforts: ["low", "high"],
+            supportsDisablingReasoning: false,
+            defaultReasoningEffort: undefined
+        })
+        expect(
+            getCustomModelReasoningFields(model, { ollama: { apiMode: "chat" } }).effortControl
+        ).toBe(false)
+    })
+
     it("ignores stored levels for other providers, models without reasoning, and legacy models", () => {
         const levels = { reasoningEfforts: ["low", "max"] as const }
 

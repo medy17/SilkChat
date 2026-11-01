@@ -777,9 +777,11 @@ export function useComposerToolbarState() {
         toolAvailability && !("error" in toolAvailability) ? toolAvailability : null
 
     const customModels = resolvedUserSettings.customModels
+    const customProviders = resolvedUserSettings.customAIProviders
     const selectedDisplayModel = useMemo(
-        () => resolveSelectedDisplayModel(selectedModel, sharedModels, customModels),
-        [customModels, selectedModel, sharedModels]
+        () =>
+            resolveSelectedDisplayModel(selectedModel, sharedModels, customModels, customProviders),
+        [customModels, customProviders, selectedModel, sharedModels]
     )
     // Custom models stand in with their stored reasoning levels.
     const selectedSharedModel = useMemo(

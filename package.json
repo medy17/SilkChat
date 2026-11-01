@@ -115,6 +115,7 @@
         "@vercel/sandbox": "^3.8.0",
         "@zip.js/zip.js": "^2.24.0",
         "ai": "^7.0.143",
+        "ai-sdk-ollama": "4.6.1",
         "babel-plugin-react-compiler": "^1.0.0",
         "better-auth": "1.6.33",
         "class-variance-authority": "^0.7.1",

@@ -17,14 +17,22 @@ export const CoreAIProvider = v.object({
 const GoogleAuthModeSchema = v.union(v.literal("ai-studio"), v.literal("vertex"))
 export type GoogleAuthMode = Infer<typeof GoogleAuthModeSchema>
 
+// "chat" and "responses" are OpenAI-compatible; "ollama" speaks Ollama's native chat API,
+// which carries thinking controls and the context size per request.
+export const CustomProviderApiModeSchema = v.union(
+    v.literal("chat"),
+    v.literal("responses"),
+    v.literal("ollama")
+)
+export type CustomProviderApiMode = Infer<typeof CustomProviderApiModeSchema>
+
 export const CustomAIProvider = v.object({
     name: v.string(),
     enabled: v.boolean(),
     endpoint: v.string(),
-    apiMode: v.optional(v.union(v.literal("chat"), v.literal("responses"))),
+    apiMode: v.optional(CustomProviderApiModeSchema),
     encryptedKey: v.string()
 })
-export type CustomProviderApiMode = NonNullable<Infer<typeof CustomAIProvider>["apiMode"]>
 
 export const UserCustomization = v.object({
     name: v.optional(v.string()),

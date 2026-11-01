@@ -1,3 +1,4 @@
+import { OllamaIcon } from "@/components/brand-icons"
 import { SettingsFormActions, SettingsSectionHeader } from "@/components/settings/settings-section"
 import { ProviderListSkeleton } from "@/components/settings/settings-skeletons"
 import {
@@ -25,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
+import { OLLAMA_PROVIDER_ID, normalizeOllamaBaseUrl } from "@/convex/lib/ollama"
 import type { CustomProviderApiMode, GoogleAuthMode } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import {
@@ -68,8 +70,12 @@ const USAGE_MODE_STATUS: Record<UsageMode, string> = {
 
 const API_MODE_LABELS: Record<CustomProviderApiMode, string> = {
     chat: "Chat Completions",
-    responses: "Responses"
+    responses: "Responses",
+    ollama: "Ollama"
 }
+
+// Ollama has its own card, so custom providers only offer the OpenAI-compatible APIs.
+const CUSTOM_PROVIDER_API_MODES: CustomProviderApiMode[] = ["chat", "responses"]
 
 type CoreProviderSettings = {
     enabled: boolean
@@ -99,14 +105,17 @@ type CustomProviderUpdate = {
     endpoint: string
     apiMode: CustomProviderApiMode
     newKey?: string
+    clearKey?: boolean
 }
 
-// The saved-key row with Replace, or the key input when there's no key or it's being replaced.
+// The saved-key row with Replace (and Remove, where a key is optional), or the key input when
+// there's no key or it's being replaced.
 function SecretField({
     id,
     hasExistingKey,
     replacing,
     onReplace,
+    onRemove,
     value,
     onChange,
     label = "API Key",
@@ -117,6 +126,7 @@ function SecretField({
     hasExistingKey: boolean
     replacing: boolean
     onReplace: () => void
+    onRemove?: () => void
     value: string
     onChange: (value: string) => void
     label?: string
@@ -130,10 +140,18 @@ function SecretField({
                     <Key className="h-4 w-4 text-green-600" />
                     <span className="text-sm">{label} saved</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onReplace}>
-                    <RotateCcw className="h-4 w-4" />
-                    Replace
-                </Button>
+                <div className="flex items-center gap-1">
+                    {onRemove && (
+                        <Button variant="ghost" size="sm" onClick={onRemove}>
+                            <Trash2 className="h-4 w-4" />
+                            Remove
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={onReplace}>
+                        <RotateCcw className="h-4 w-4" />
+                        Replace
+                    </Button>
+                </div>
             </div>
         )
     }
@@ -499,7 +517,7 @@ function CustomProviderForm({
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        {(Object.keys(API_MODE_LABELS) as CustomProviderApiMode[]).map((mode) => (
+                        {CUSTOM_PROVIDER_API_MODES.map((mode) => (
                             <SelectItem key={mode} value={mode}>
                                 {API_MODE_LABELS[mode]}
                             </SelectItem>
@@ -664,6 +682,157 @@ const CustomProviderCard = memo(
     }
 )
 
+// Set up like OpenRouter, but with the server address alongside the key. Stored as a custom
+// provider on Ollama's API, so it runs through the same path as any custom provider.
+function OllamaProviderCard({
+    provider,
+    onSave
+}: {
+    provider?: CustomProviderSettings
+    onSave: (update: CustomProviderUpdate, message: string) => Promise<void>
+}) {
+    const isEnabled = provider?.enabled === true
+    const savedEndpoint = provider?.endpoint ?? ""
+    const hasExistingKey = Boolean(provider?.encryptedKey)
+
+    // "setup" is switching on with no server saved; "edit" changes the server or key.
+    const [editMode, setEditMode] = useState<"setup" | "edit" | null>(null)
+    const [endpoint, setEndpoint] = useState(savedEndpoint)
+    const [newKey, setNewKey] = useState("")
+    const [replacingKey, setReplacingKey] = useState(false)
+    // Removing the saved key, for a server that doesn't need one.
+    const [removingKey, setRemovingKey] = useState(false)
+    const [pending, setPending] = useState(false)
+
+    const closeEditor = () => {
+        setEditMode(null)
+        setEndpoint(savedEndpoint)
+        setNewKey("")
+        setReplacingKey(false)
+        setRemovingKey(false)
+    }
+
+    const save = async (
+        update: Omit<CustomProviderUpdate, "name" | "apiMode">,
+        message: string
+    ) => {
+        setPending(true)
+        try {
+            await onSave({ ...update, name: "Ollama", apiMode: "ollama" }, message)
+            return true
+        } catch {
+            // The parent reports the error.
+            return false
+        } finally {
+            setPending(false)
+        }
+    }
+
+    const handleToggle = (checked: boolean) => {
+        if (!checked && editMode === "setup") {
+            closeEditor()
+            return
+        }
+        if (checked && !savedEndpoint) {
+            setEditMode("setup")
+            return
+        }
+        closeEditor()
+        void save(
+            { enabled: checked, endpoint: savedEndpoint },
+            `Ollama turned ${checked ? "on" : "off"}`
+        )
+    }
+
+    const handleSaveEditor = async () => {
+        const saved = await save(
+            {
+                enabled: true,
+                endpoint: normalizeOllamaBaseUrl(endpoint),
+                newKey: newKey.trim() || undefined,
+                clearKey: removingKey && !newKey.trim()
+            },
+            editMode === "setup" ? "Ollama turned on" : "Ollama updated"
+        )
+        if (saved) closeEditor()
+    }
+
+    return (
+        <Card className="gap-4 p-4 shadow-xs">
+            <div className="flex items-start gap-3">
+                <div className="flex size-8 shrink-0 items-center justify-center">
+                    <OllamaIcon className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <h4 className="font-semibold text-sm">Ollama</h4>
+                    <p className="mt-0.5 truncate text-muted-foreground text-xs">
+                        {savedEndpoint ? (
+                            <span className="font-mono">{savedEndpoint}</span>
+                        ) : (
+                            "Use models from your own Ollama server"
+                        )}
+                    </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                    <Switch
+                        checked={isEnabled || editMode === "setup"}
+                        onCheckedChange={handleToggle}
+                        disabled={pending}
+                        aria-label="Use Ollama"
+                        className="mr-2"
+                    />
+                    {savedEndpoint && editMode === null && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Edit Ollama"
+                            onClick={() => setEditMode("edit")}
+                        >
+                            <Pencil className="size-4" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {editMode && (
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="ollama-endpoint">Server URL</Label>
+                        <Input
+                            id="ollama-endpoint"
+                            value={endpoint}
+                            onChange={(event) => setEndpoint(event.target.value)}
+                            placeholder="https://ollama.example.com"
+                            className="font-mono"
+                        />
+                    </div>
+                    <SecretField
+                        id="ollama-key"
+                        hasExistingKey={hasExistingKey && !removingKey}
+                        replacing={replacingKey}
+                        onReplace={() => setReplacingKey(true)}
+                        onRemove={() => setRemovingKey(true)}
+                        value={newKey}
+                        onChange={setNewKey}
+                        placeholder={
+                            replacingKey && !removingKey
+                                ? "Leave empty to keep the saved key"
+                                : "Leave empty if your server has no key"
+                        }
+                    />
+                    <SettingsFormActions
+                        isSaving={pending}
+                        canSave={Boolean(endpoint.trim())}
+                        saveLabel={editMode === "setup" ? "Turn on" : undefined}
+                        onSave={() => void handleSaveEditor()}
+                        onCancel={closeEditor}
+                    />
+                </div>
+            )}
+        </Card>
+    )
+}
+
 function LegacyProvidersRedirect() {
     const navigate = useNavigate()
 
@@ -690,7 +859,9 @@ export function ProvidersSettingsContent() {
     const { currentProviders } = useAvailableModels(
         userSettings && !("error" in userSettings) ? userSettings : undefined
     )
-    const customProviders = Object.entries(currentProviders.custom)
+    const customProviders = Object.entries(currentProviders.custom).filter(
+        ([id]) => id !== OLLAMA_PROVIDER_ID
+    )
 
     // Handlers rethrow so the card or form keeps its edits open on failure.
     const handleSaveProvider = async (
@@ -761,6 +932,16 @@ export function ProvidersSettingsContent() {
                         onSave={handleSaveProvider}
                     />
                 ))}
+            </section>
+
+            <section className="space-y-3">
+                <SettingsSectionHeader title="Self-hosted" />
+                <OllamaProviderCard
+                    provider={currentProviders.custom[OLLAMA_PROVIDER_ID]}
+                    onSave={(update, message) =>
+                        handleSaveCustomProvider(OLLAMA_PROVIDER_ID, update, message)
+                    }
+                />
             </section>
 
             <section className="space-y-3">

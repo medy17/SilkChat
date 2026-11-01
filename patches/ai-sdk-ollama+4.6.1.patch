@@ -1,0 +1,116 @@
+diff --git a/node_modules/ai-sdk-ollama/dist/index.browser.cjs b/node_modules/ai-sdk-ollama/dist/index.browser.cjs
+index 4f2aaac..903277f 100644
+--- a/node_modules/ai-sdk-ollama/dist/index.browser.cjs
++++ b/node_modules/ai-sdk-ollama/dist/index.browser.cjs
+@@ -1417,13 +1417,15 @@ function convertToOllamaChatMessages(prompt) {
+       }
+       case "assistant": {
+         let content;
++        let thinking;
+         const toolCalls = [];
+         if (typeof message.content === "string") {
+           content = message.content;
+         } else {
+           const textParts = message.content.filter((part) => part.type === "text").map((part) => part.text).join("");
+           const reasoningParts = message.content.filter((part) => part.type === "reasoning").map((part) => part.text).join("\n");
+-          content = [textParts, reasoningParts].filter(Boolean).join("\n");
++          content = textParts;
++          thinking = reasoningParts || void 0;
+           for (const part of message.content) {
+             if (part.type !== "tool-call") {
+               continue;
+@@ -1443,6 +1445,7 @@ function convertToOllamaChatMessages(prompt) {
+           role: "assistant",
+           content: content || "",
+           // Ensure content is never undefined
++          ...thinking !== void 0 && { thinking },
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0
+         });
+         break;
+diff --git a/node_modules/ai-sdk-ollama/dist/index.browser.js b/node_modules/ai-sdk-ollama/dist/index.browser.js
+index d1e0631..467afca 100644
+--- a/node_modules/ai-sdk-ollama/dist/index.browser.js
++++ b/node_modules/ai-sdk-ollama/dist/index.browser.js
+@@ -1386,13 +1386,15 @@ function convertToOllamaChatMessages(prompt) {
+       }
+       case "assistant": {
+         let content;
++        let thinking;
+         const toolCalls = [];
+         if (typeof message.content === "string") {
+           content = message.content;
+         } else {
+           const textParts = message.content.filter((part) => part.type === "text").map((part) => part.text).join("");
+           const reasoningParts = message.content.filter((part) => part.type === "reasoning").map((part) => part.text).join("\n");
+-          content = [textParts, reasoningParts].filter(Boolean).join("\n");
++          content = textParts;
++          thinking = reasoningParts || void 0;
+           for (const part of message.content) {
+             if (part.type !== "tool-call") {
+               continue;
+@@ -1412,6 +1414,7 @@ function convertToOllamaChatMessages(prompt) {
+           role: "assistant",
+           content: content || "",
+           // Ensure content is never undefined
++          ...thinking !== void 0 && { thinking },
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0
+         });
+         break;
+diff --git a/node_modules/ai-sdk-ollama/dist/index.cjs b/node_modules/ai-sdk-ollama/dist/index.cjs
+index 61a2ccb..32acc63 100644
+--- a/node_modules/ai-sdk-ollama/dist/index.cjs
++++ b/node_modules/ai-sdk-ollama/dist/index.cjs
+@@ -21101,13 +21101,15 @@ function convertToOllamaChatMessages(prompt) {
+       }
+       case "assistant": {
+         let content;
++        let thinking;
+         const toolCalls = [];
+         if (typeof message.content === "string") {
+           content = message.content;
+         } else {
+           const textParts = message.content.filter((part) => part.type === "text").map((part) => part.text).join("");
+           const reasoningParts = message.content.filter((part) => part.type === "reasoning").map((part) => part.text).join("\n");
+-          content = [textParts, reasoningParts].filter(Boolean).join("\n");
++          content = textParts;
++          thinking = reasoningParts || void 0;
+           for (const part of message.content) {
+             if (part.type !== "tool-call") {
+               continue;
+@@ -21127,6 +21129,7 @@ function convertToOllamaChatMessages(prompt) {
+           role: "assistant",
+           content: content || "",
+           // Ensure content is never undefined
++          ...thinking !== void 0 && { thinking },
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0
+         });
+         break;
+diff --git a/node_modules/ai-sdk-ollama/dist/index.js b/node_modules/ai-sdk-ollama/dist/index.js
+index 7fd7e60..e5767ba 100644
+--- a/node_modules/ai-sdk-ollama/dist/index.js
++++ b/node_modules/ai-sdk-ollama/dist/index.js
+@@ -21054,13 +21054,15 @@ function convertToOllamaChatMessages(prompt) {
+       }
+       case "assistant": {
+         let content;
++        let thinking;
+         const toolCalls = [];
+         if (typeof message.content === "string") {
+           content = message.content;
+         } else {
+           const textParts = message.content.filter((part) => part.type === "text").map((part) => part.text).join("");
+           const reasoningParts = message.content.filter((part) => part.type === "reasoning").map((part) => part.text).join("\n");
+-          content = [textParts, reasoningParts].filter(Boolean).join("\n");
++          content = textParts;
++          thinking = reasoningParts || void 0;
+           for (const part of message.content) {
+             if (part.type !== "tool-call") {
+               continue;
+@@ -21080,6 +21082,7 @@ function convertToOllamaChatMessages(prompt) {
+           role: "assistant",
+           content: content || "",
+           // Ensure content is never undefined
++          ...thinking !== void 0 && { thinking },
+           tool_calls: toolCalls.length > 0 ? toolCalls : void 0
+         });
+         break;

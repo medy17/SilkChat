@@ -106,6 +106,7 @@ vi.mock("../../convex/schema", () => ({
 }))
 
 vi.mock("../../convex/schema/settings", () => ({
+    CustomProviderApiModeSchema: {},
     ImageGenerationDefaults: {},
     NonSensitiveUserSettings: {},
     ReasoningEffortTierSchema: {},

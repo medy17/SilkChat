@@ -943,6 +943,10 @@ async function handleChatPost(
         body.reasoningEffort,
         supportsEffortControl
     )
+    // Ollama takes its thinking setting on the model, so build it for the level in effect.
+    if (modelData.withReasoningEffort) {
+        model = modelData.withReasoningEffort(effectiveReasoningEffort)
+    }
     const requiredPlanForModel = resolveRequiredPlanForModelAccess({
         reasoningEffort: effectiveReasoningEffort,
         availableToPickFor: modelData.availableToPickFor,

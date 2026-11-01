@@ -1,4 +1,4 @@
-import { OpenRouterIcon } from "@/components/brand-icons"
+import { OllamaIcon, OpenRouterIcon } from "@/components/brand-icons"
 import { ModelExpiryBadge } from "@/components/model-expiry-badge"
 import {
     SettingsFormActions,
@@ -41,6 +41,11 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
+import {
+    DEFAULT_OLLAMA_CONTEXT_LENGTH,
+    OLLAMA_PROVIDER_ID,
+    type OllamaModelEntry
+} from "@/convex/lib/ollama"
 import type { ModelAbility, StoredModelAbility } from "@/convex/schema/settings"
 import { useSession } from "@/hooks/auth-hooks"
 import {
@@ -60,8 +65,9 @@ import { cn } from "@/lib/utils"
 import { sortReasoningEfforts } from "@/convex/lib/models/reasoning"
 import { useConvexQuery } from "@convex-dev/react-query"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
+import { ConvexError } from "convex/values"
 import { Check, ChevronsUpDown, Image, Pencil, Plus, Trash2 } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -208,16 +214,20 @@ const formatTokens = (value: number) =>
 // OpenRouter names read "Vendor: Model"; the vendor is already in the model ID.
 const cleanCatalogName = (name: string) => name.replace(/^[^:]+:\s*/, "")
 
-function OpenRouterModelPicker({
+type PickerEntry = { id: string; name: string; expirationDate?: string }
+
+function CatalogModelPicker<TEntry extends PickerEntry>({
     id,
     value,
     catalog,
+    placeholder,
     onSelectEntry
 }: {
     id: string
     value: string
-    catalog: OpenRouterCatalogEntry[] | undefined
-    onSelectEntry: (entry: OpenRouterCatalogEntry) => void
+    catalog: TEntry[] | undefined
+    placeholder: string
+    onSelectEntry: (entry: TEntry) => void
 }) {
     const [open, setOpen] = useState(false)
 
@@ -232,7 +242,7 @@ function OpenRouterModelPicker({
                     className="w-full justify-between font-normal"
                 >
                     <span className={cn("truncate", value ? "font-mono" : "text-muted-foreground")}>
-                        {value || "Search OpenRouter models"}
+                        {value || placeholder}
                     </span>
                     <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                 </Button>
@@ -291,16 +301,19 @@ const REASONING_LEVEL_LABELS: Record<ReasoningEffort, string> = {
 const REASONING_LEVELS = Object.keys(REASONING_LEVEL_LABELS) as ReasoningEffort[]
 
 // Levels the composer offers for this model, in a fixed order. OpenRouter's values are
-// prefilled; "Off" lets reasoning be turned off.
+// prefilled; "Off" lets reasoning be turned off. Fixed levels come from the model's own
+// server (Ollama), so only the default stays editable.
 function ReasoningLevelsEditor({
     idPrefix,
     levels,
     defaultLevel,
+    fixedLevels = false,
     onChange
 }: {
     idPrefix: string
     levels: ReasoningEffort[]
     defaultLevel?: ReasoningEffort
+    fixedLevels?: boolean
     onChange: (levels: ReasoningEffort[], defaultLevel?: ReasoningEffort) => void
 }) {
     const hasEffortLevels = levels.some((level) => level !== "off")
@@ -320,7 +333,7 @@ function ReasoningLevelsEditor({
                 role="group"
                 aria-labelledby={`${idPrefix}-reasoning-levels`}
             >
-                {REASONING_LEVELS.map((level) => {
+                {(fixedLevels ? levels : REASONING_LEVELS).map((level) => {
                     const isSelected = levels.includes(level)
                     return (
                         <Button
@@ -328,6 +341,9 @@ function ReasoningLevelsEditor({
                             variant={isSelected ? "default" : "outline"}
                             size="sm"
                             aria-pressed={isSelected}
+                            // Fixed levels stay shown as selected but can't be toggled.
+                            disabled={fixedLevels}
+                            className={cn(fixedLevels && "disabled:opacity-100")}
                             onClick={() => toggleLevel(level)}
                         >
                             {REASONING_LEVEL_LABELS[level]}
@@ -368,6 +384,37 @@ function ReasoningLevelsEditor({
     )
 }
 
+// The models on the user's Ollama server, loaded once per form. Picker entries need a
+// display name, which for Ollama is the model's tag.
+function useOllamaModels(enabled: boolean) {
+    const listOllamaModels = useAction(api.model_provider_metadata.listOllamaModels)
+    const [entries, setEntries] = useState<(OllamaModelEntry & { name: string })[]>()
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (!enabled) return
+        let cancelled = false
+        setError(null)
+        listOllamaModels({})
+            .then((models) => {
+                if (!cancelled) setEntries(models.map((model) => ({ ...model, name: model.id })))
+            })
+            .catch((caught: unknown) => {
+                if (cancelled) return
+                setError(
+                    caught instanceof ConvexError && typeof caught.data === "string"
+                        ? caught.data
+                        : "Couldn't load models from your Ollama server"
+                )
+            })
+        return () => {
+            cancelled = true
+        }
+    }, [enabled, listOllamaModels])
+
+    return { entries, error }
+}
+
 function CustomModelForm({
     idPrefix,
     initial,
@@ -403,9 +450,16 @@ function CustomModelForm({
     const prefilledDescriptionRef = useRef("")
 
     const isOpenRouter = form.providerId === "openrouter"
+    const isOllama = currentProviders.custom[form.providerId]?.apiMode === "ollama"
     const catalog = useQuery(
         api.model_provider_metadata.listOpenRouterCatalog,
         isOpenRouter ? {} : "skip"
+    )
+    const ollamaModels = useOllamaModels(isOllama)
+    // Levels the server reported are fixed. A model typed in by hand, or a server that
+    // couldn't be reached, leaves them editable.
+    const hasServerReasoningLevels = Boolean(
+        ollamaModels.entries?.find((entry) => entry.id === form.modelId)?.reasoningEfforts
     )
 
     // An edited model keeps its provider as an option even if it's now off or removed.
@@ -450,10 +504,32 @@ function CustomModelForm({
         setMaxTokens(String(entry.maxCompletionTokens ?? Math.min(DEFAULT_MAX_TOKENS, context)))
     }
 
+    // Ollama models are filled in from what the server reports about them.
+    const applyOllamaEntry = (entry: OllamaModelEntry) => {
+        const previousPrefilledName = prefilledNameRef.current
+        setForm((prev) => ({
+            ...prev,
+            modelId: entry.id,
+            name: !prev.name.trim() || prev.name === previousPrefilledName ? entry.id : prev.name,
+            abilities: entry.abilities,
+            reasoningEfforts: entry.reasoningEfforts,
+            defaultReasoningEffort: entry.defaultReasoningEffort
+        }))
+        prefilledNameRef.current = entry.id
+        const context = Math.min(
+            entry.maxContextLength ?? DEFAULT_OLLAMA_CONTEXT_LENGTH,
+            DEFAULT_OLLAMA_CONTEXT_LENGTH
+        )
+        setContextLength(String(context))
+        setMaxTokens(String(Math.min(DEFAULT_MAX_TOKENS, context)))
+    }
+
+    // Levels only reach OpenRouter and Ollama requests; drop them for other providers.
+    const supportsReasoningLevels = isOpenRouter || isOllama
+
     const handleSave = async () => {
-        // Levels only apply to OpenRouter models with reasoning; drop them otherwise.
         const keepsReasoningLevels =
-            isOpenRouter && form.abilities.includes("reasoning") && form.reasoningEfforts
+            supportsReasoningLevels && form.abilities.includes("reasoning") && form.reasoningEfforts
         setIsSaving(true)
         try {
             await onSave({
@@ -508,11 +584,20 @@ function CustomModelForm({
                 <div className="space-y-2">
                     <Label htmlFor={`${idPrefix}-model-id`}>Model</Label>
                     {isOpenRouter ? (
-                        <OpenRouterModelPicker
+                        <CatalogModelPicker
                             id={`${idPrefix}-model-id`}
                             value={form.modelId}
                             catalog={catalog}
+                            placeholder="Search OpenRouter models"
                             onSelectEntry={applyCatalogEntry}
+                        />
+                    ) : isOllama && !ollamaModels.error ? (
+                        <CatalogModelPicker
+                            id={`${idPrefix}-model-id`}
+                            value={form.modelId}
+                            catalog={ollamaModels.entries}
+                            placeholder="Choose a model on your server"
+                            onSelectEntry={applyOllamaEntry}
                         />
                     ) : (
                         <Input
@@ -527,6 +612,12 @@ function CustomModelForm({
                     )}
                 </div>
             </div>
+
+            {isOllama && ollamaModels.error && (
+                <p className="text-muted-foreground text-xs">
+                    {ollamaModels.error}. Enter the model name instead.
+                </p>
+            )}
 
             {showOpenRouterHint && (
                 <p className="text-muted-foreground text-xs">
@@ -601,6 +692,12 @@ function CustomModelForm({
                             onChange={(event) => setMaxTokens(event.target.value)}
                         />
                     </div>
+                    {isOllama && (
+                        <p className="text-muted-foreground text-xs sm:col-span-2">
+                            Your server loads the model with this context length. Longer context
+                            needs more memory.
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -633,11 +730,12 @@ function CustomModelForm({
                 </div>
             </div>
 
-            {isOpenRouter && form.abilities.includes("reasoning") && (
+            {supportsReasoningLevels && form.abilities.includes("reasoning") && (
                 <ReasoningLevelsEditor
                     idPrefix={idPrefix}
                     levels={form.reasoningEfforts ?? []}
                     defaultLevel={form.defaultReasoningEffort}
+                    fixedLevels={isOllama && hasServerReasoningLevels}
                     onChange={(reasoningEfforts, defaultReasoningEffort) =>
                         setForm((prev) => ({ ...prev, reasoningEfforts, defaultReasoningEffort }))
                     }
@@ -731,7 +829,10 @@ export function ModelsSettingsContent() {
     }
 
     const hasOpenRouter = providerOptions.includes("openrouter")
-    const otherProviderIds = providerOptions.filter((id) => id !== "openrouter")
+    const hasOllama = providerOptions.includes(OLLAMA_PROVIDER_ID)
+    const otherProviderIds = providerOptions.filter(
+        (id) => id !== "openrouter" && id !== OLLAMA_PROVIDER_ID
+    )
     const startAdding = (providerId: string) => {
         setEditingId(null)
         setAddingProviderId(providerId)
@@ -748,6 +849,12 @@ export function ModelsSettingsContent() {
                 >
                     <Plus className="size-4" />
                     Add model
+                </Button>
+            )}
+            {hasOllama && (
+                <Button variant="outline" size="sm" onClick={() => startAdding(OLLAMA_PROVIDER_ID)}>
+                    <OllamaIcon className="size-4" />
+                    Add Ollama model
                 </Button>
             )}
             {hasOpenRouter ? (

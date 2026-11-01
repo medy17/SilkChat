@@ -265,7 +265,16 @@ Prices are estimates from one eligible endpoint, using paired input/output rates
 
 ### Custom OpenAI-compatible providers
 
-User-defined custom providers resolve from stored provider settings. They are OpenAI-compatible chat endpoints outside the built-in provider catalog.
+User-defined custom providers resolve from stored provider settings. They are OpenAI-compatible chat endpoints outside the built-in provider catalog. They receive no reasoning parameters, so their models keep always-on reasoning.
+
+### Ollama
+
+Ollama has its own card in provider settings: a server URL and an optional key. It is stored as a custom provider under the fixed ID `ollama` with `apiMode: "ollama"`, and `get_model.ts` runs it through `ai-sdk-ollama` on Ollama's native chat API. Import the package's `/browser` entry; the default entry pulls in Node built-ins, which the chat route's V8 runtime can't load.
+
+- `model_provider_metadata.listOllamaModels` lists the server's chat models. `convex/lib/ollama.ts` maps each model's `/api/show` metadata to abilities and reasoning levels: `thinking.values` gives the levels, and a model that reports the thinking capability without them gets an on/off toggle.
+- Each request sends the model's context length as `num_ctx`, so the server never truncates a prompt SilkChat budgets for.
+- Image URLs are downloaded before the request, because Ollama only accepts inline image data.
+- `patches/ai-sdk-ollama+4.6.1.patch` sends earlier reasoning in the assistant message's `thinking` field instead of appending it to `content`, so the model's template decides what to keep. Re-check it when bumping the package. Models on the llama-server runner (Ornith) currently drop the field entirely.
 
 ### fal image models
 
@@ -335,7 +344,11 @@ Character pricing lives in the Microsoft registry and is excluded from the audio
 
 Reasoning controls are applied in `convex/chat_http/post.route.ts`.
 
-Current chat mapping is OpenRouter-only: the app-level `off|low|medium|high` setting maps to OpenRouter's `reasoning.effort`.
+OpenRouter: the app-level `off|low|medium|high` setting maps to OpenRouter's `reasoning.effort`.
+
+Ollama: the resolved level becomes the model's `think` value. `off` sends `false`, a named level the model offers is sent as-is, and on/off models get `true`. `think` is set on the model rather than per call, so `post.route.ts` rebuilds it through `withReasoningEffort` once the level is resolved.
+
+Custom models store their levels only for providers that honor them (OpenRouter and Ollama); see `honorsStoredReasoningLevels`.
 
 ## Image Model Rules
 
