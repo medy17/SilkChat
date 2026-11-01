@@ -16,6 +16,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthorRouteImport } from './routes/author'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as LegalRouteImport } from './routes/legal'
+import { Route as MascotDemoRouteImport } from './routes/mascot-demo'
 import { Route as MeRouteImport } from './routes/me'
 import { Route as OgBackgroundsRouteImport } from './routes/og-backgrounds'
 import { Route as OgDemoRouteImport } from './routes/og-demo'
@@ -86,6 +87,11 @@ const CompareRoute = CompareRouteImport.update({
 const LegalRoute = LegalRouteImport.update({
   id: '/legal',
   path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MascotDemoRoute = MascotDemoRouteImport.update({
+  id: '/mascot-demo',
+  path: '/mascot-demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MeRoute = MeRouteImport.update({
@@ -330,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/author': typeof AuthorRoute
   '/compare': typeof CompareRoute
   '/legal': typeof LegalRoute
+  '/mascot-demo': typeof MascotDemoRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
@@ -379,6 +386,7 @@ export interface FileRoutesByTo {
   '/author': typeof AuthorRoute
   '/compare': typeof CompareRoute
   '/legal': typeof LegalRoute
+  '/mascot-demo': typeof MascotDemoRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
@@ -431,6 +439,7 @@ export interface FileRoutesById {
   '/author': typeof AuthorRoute
   '/compare': typeof CompareRoute
   '/legal': typeof LegalRoute
+  '/mascot-demo': typeof MascotDemoRoute
   '/me': typeof MeRoute
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
@@ -484,6 +493,7 @@ export interface FileRouteTypes {
     | '/author'
     | '/compare'
     | '/legal'
+    | '/mascot-demo'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
@@ -533,6 +543,7 @@ export interface FileRouteTypes {
     | '/author'
     | '/compare'
     | '/legal'
+    | '/mascot-demo'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
@@ -584,6 +595,7 @@ export interface FileRouteTypes {
     | '/author'
     | '/compare'
     | '/legal'
+    | '/mascot-demo'
     | '/me'
     | '/og-backgrounds'
     | '/og-demo'
@@ -636,6 +648,7 @@ export interface RootRouteChildren {
   AuthorRoute: typeof AuthorRoute
   CompareRoute: typeof CompareRoute
   LegalRoute: typeof LegalRoute
+  MascotDemoRoute: typeof MascotDemoRoute
   MeRoute: typeof MeRoute
   OgBackgroundsRoute: typeof OgBackgroundsRoute
   OgDemoRoute: typeof OgDemoRoute
@@ -692,6 +705,13 @@ declare module '@tanstack/react-router' {
       path: '/legal'
       fullPath: '/legal'
       preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mascot-demo': {
+      id: '/mascot-demo'
+      path: '/mascot-demo'
+      fullPath: '/mascot-demo'
+      preLoaderRoute: typeof MascotDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/me': {
@@ -1091,6 +1111,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthorRoute: AuthorRoute,
   CompareRoute: CompareRoute,
   LegalRoute: LegalRoute,
+  MascotDemoRoute: MascotDemoRoute,
   MeRoute: MeRoute,
   OgBackgroundsRoute: OgBackgroundsRoute,
   OgDemoRoute: OgDemoRoute,

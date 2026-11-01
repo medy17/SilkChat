@@ -53,6 +53,7 @@ import {
     useState
 } from "react"
 import { ChatMascot } from "./chat-mascot"
+import { useFamiliarMood } from "@/lib/familiar-mood-store"
 import { FullPageDropOverlay } from "./full-page-drop-overlay"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
 import { SignupMessagePrompt } from "./signup-message-prompt"
@@ -81,6 +82,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { models: sharedModels } = useSharedModels()
     const multimodalInputRef = useRef<MultimodalInputRef>(null)
     const [isComposerActive, setIsComposerActive] = useState(false)
+    const familiarMood = useFamiliarMood(isComposerActive)
     const [isComposerExpanded, setIsComposerExpanded] = useState(false)
 
     useDynamicTitle({ threadId, enabled: isActiveRoute })
@@ -573,12 +575,14 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                 ) : (
                                     <>
                                         <ChatMascot
-                                            isCurious={isComposerActive}
+                                            mood={familiarMood}
+                                            pokeable
                                             className="mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32"
                                         />
                                         <ChatMascot
                                             variant="face"
-                                            isCurious={isComposerActive}
+                                            mood={familiarMood}
+                                            pokeable
                                             className="mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block"
                                         />
                                     </>

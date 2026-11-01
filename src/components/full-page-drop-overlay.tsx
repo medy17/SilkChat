@@ -1,7 +1,7 @@
 import { THREAD_IMPORT_DIALOG_STATE_EVENT } from "@/lib/thread-import-events"
 import { dispatchComposerDrop } from "@/lib/composer-drop"
 import { cn } from "@/lib/utils"
-import { Upload } from "lucide-react"
+import { ChatMascot } from "./chat-mascot"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 interface FullPageDropOverlayProps {
@@ -137,8 +137,11 @@ export function FullPageDropOverlay({
                     isDragOver && !isSuspended ? "scale-100" : "scale-90"
                 )}
             >
-                <div className="flex size-20 items-center justify-center rounded-2xl border-2 border-primary/60 border-dashed bg-primary/10">
-                    <Upload className="size-10 text-primary" strokeWidth={2} />
+                {/* Mounted only while dragging so its idle loops don't run behind a hidden overlay. */}
+                <div className="size-24">
+                    {isDragOver && !isSuspended && (
+                        <ChatMascot mood="surprised" className="size-full" />
+                    )}
                 </div>
                 <div className="text-center">
                     <h2 className="font-semibold text-2xl text-foreground">Add Attachment</h2>

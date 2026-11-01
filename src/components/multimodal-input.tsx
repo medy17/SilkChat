@@ -70,6 +70,7 @@ import {
     fetchWebTrendSuggestions,
     resolveGoogleTrendsGeo
 } from "@/lib/google-trends"
+import { useFamiliarMoodStore } from "@/lib/familiar-mood-store"
 import { useModelStore } from "@/lib/model-store"
 import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { getEnabledToolsForPastedText, mergePastedTextIntoDraft } from "@/lib/pasted-text"
@@ -252,6 +253,15 @@ export const MultimodalInput = forwardRef<
         (text: string) => setComposerText(draftSession, text),
         [draftSession]
     )
+    // Wiping a long draft in one go makes the empty-chat familiar wince.
+    const handleEditorChange = useCallback(
+        (text: string) => {
+            if (inputValue.trim().length >= 40 && !text.trim())
+                useFamiliarMoodStore.getState().react("worried", 1400)
+            setInputValue(text)
+        },
+        [inputValue, setInputValue]
+    )
     const uploading =
         draftState.submitting ||
         draftState.acquiring > 0 ||
@@ -302,7 +312,11 @@ export const MultimodalInput = forwardRef<
     useEffect(() => retainComposerSession(draftSession), [draftSession])
     const uploadPolicy = queue.policy
     const handleFileUpload = useCallback(
-        (files: File[]) => queue.add(files.map((file) => ({ file }))),
+        (files: File[]) => {
+            if (activeRef.current && files.length > 0)
+                useFamiliarMoodStore.getState().react("happy")
+            return queue.add(files.map((file) => ({ file })))
+        },
         [queue.add]
     )
     const activateDropTarget = useComposerDropTarget(
@@ -345,6 +359,13 @@ export const MultimodalInput = forwardRef<
             }
         }
     })
+
+    useEffect(() => {
+        if (!isActive) return
+        const { setListening } = useFamiliarMoodStore.getState()
+        setListening(voiceState.isRecording)
+        return () => setListening(false)
+    }, [isActive, voiceState.isRecording])
 
     const requiresNativePdfForModelSelection = useMemo(
         () => threadHasPdfAttachments || hasPdfAttachmentInUploadedFiles(uploadedFiles),
@@ -943,7 +964,7 @@ export const MultimodalInput = forwardRef<
                                         ? "Describe the image you want to generate..."
                                         : "Ask me anything..."
                                 }
-                                onChange={setInputValue}
+                                onChange={handleEditorChange}
                                 onPaste={isActive ? handlePaste : undefined}
                                 onFocus={() => setIsInputFocused(true)}
                                 onLineCountChange={setLineCount}
