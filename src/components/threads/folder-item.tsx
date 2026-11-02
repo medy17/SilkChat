@@ -25,13 +25,19 @@ import {
     DialogTitle
 } from "@/components/ui/dialog"
 import {
+    Drawer,
+    DrawerClose,
+    DrawerContent,
+    DrawerFooter,
+    DrawerHeader,
+    DrawerTitle
+} from "@/components/ui/drawer"
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
     SidebarMenu,
     SidebarMenuButton,
@@ -43,7 +49,6 @@ import { useThreadDraftCleanup } from "@/hooks/use-thread-draft-cleanup"
 import { useDiskCachedPaginatedQuery } from "@/lib/convex-cached-query"
 import {
     DEFAULT_PROJECT_ICON,
-    PROJECT_COLORS,
     type ProjectColorId,
     getProjectColorClasses
 } from "@/lib/project-constants"
@@ -62,6 +67,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
+import { FolderForm } from "./new-folder-button"
 import { ThreadItem } from "./thread-item"
 import type { SidebarProject, Thread, ThreadSelectionToggle } from "./types"
 
@@ -274,6 +280,37 @@ export function FolderItem({
         setEditColor(project.color || "blue")
         setShowEditDialog(true)
     }
+
+    const handleEditOpenChange = (open: boolean) => {
+        if (!isEditing) {
+            setShowEditDialog(open)
+        }
+    }
+
+    const editFormProps = {
+        idPrefix: "edit-folder",
+        name: editName,
+        setName: setEditName,
+        description: editDescription,
+        setDescription: setEditDescription,
+        color: editColor,
+        setColor: setEditColor,
+        disabled: isEditing,
+        onSubmit: handleEdit
+    }
+
+    const saveButton = (
+        <Button onClick={handleEdit} disabled={isEditing || !editName.trim()}>
+            {isEditing ? (
+                <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                </>
+            ) : (
+                "Save"
+            )}
+        </Button>
+    )
 
     const handleStartSelection = () => {
         if (!hasThreads) return
@@ -542,90 +579,45 @@ export function FolderItem({
                     </CollapsibleContent>
                 )}
 
-                <Dialog
-                    open={showEditDialog}
-                    onOpenChange={(open) => {
-                        if (!isEditing) {
-                            setShowEditDialog(open)
-                        }
-                    }}
-                >
-                    <DialogContent className="max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Edit Folder</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-folder-name">Name</Label>
-                                <Input
-                                    id="edit-folder-name"
-                                    value={editName}
-                                    onChange={(e) => setEditName(e.target.value)}
-                                    className="max-w-[50%]"
-                                    placeholder="Enter folder name"
+                {isMobile ? (
+                    <Drawer open={showEditDialog} onOpenChange={handleEditOpenChange}>
+                        <DrawerContent className="z-[70]" overlayClassName="z-[70]">
+                            <DrawerHeader>
+                                <DrawerTitle>Edit Folder</DrawerTitle>
+                            </DrawerHeader>
+                            <div className="overflow-y-auto px-4 pb-2">
+                                <FolderForm {...editFormProps} />
+                            </div>
+                            <DrawerFooter>
+                                {saveButton}
+                                <DrawerClose asChild>
+                                    <Button variant="outline" disabled={isEditing}>
+                                        Cancel
+                                    </Button>
+                                </DrawerClose>
+                            </DrawerFooter>
+                        </DrawerContent>
+                    </Drawer>
+                ) : (
+                    <Dialog open={showEditDialog} onOpenChange={handleEditOpenChange}>
+                        <DialogContent className="max-w-md">
+                            <DialogHeader>
+                                <DialogTitle>Edit Folder</DialogTitle>
+                            </DialogHeader>
+                            <FolderForm {...editFormProps} />
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowEditDialog(false)}
                                     disabled={isEditing}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="edit-folder-description">
-                                    Description (optional)
-                                </Label>
-                                <Input
-                                    id="edit-folder-description"
-                                    value={editDescription}
-                                    onChange={(e) => setEditDescription(e.target.value)}
-                                    placeholder="Enter folder description"
-                                    disabled={isEditing}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Color</Label>
-                                <div className="flex gap-2">
-                                    {PROJECT_COLORS.map((color) => (
-                                        <button
-                                            key={color.id}
-                                            type="button"
-                                            onClick={() => setEditColor(color.id)}
-                                            disabled={isEditing}
-                                            className={cn(
-                                                "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-[border-color,transform]",
-                                                color.class.split(" ").slice(1).join(" "),
-                                                editColor === color.id
-                                                    ? "scale-110 border-foreground"
-                                                    : "border-transparent hover:scale-105"
-                                            )}
-                                        >
-                                            {editColor === color.id && (
-                                                <Check className="h-4 w-4 text-white drop-shadow-sm" />
-                                            )}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowEditDialog(false)}
-                                disabled={isEditing}
-                            >
-                                Cancel
-                            </Button>
-                            <Button onClick={handleEdit} disabled={isEditing || !editName.trim()}>
-                                {isEditing ? (
-                                    <>
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    "Save"
-                                )}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                                >
+                                    Cancel
+                                </Button>
+                                {saveButton}
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
 
                 <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                     <AlertDialogContent>

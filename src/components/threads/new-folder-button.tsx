@@ -28,52 +28,54 @@ import { Check, Plus } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
-function NewFolderForm({
-    folderName,
-    setFolderName,
-    folderDescription,
-    setFolderDescription,
-    folderColor,
-    setFolderColor,
-    isCreating,
+export function FolderForm({
+    idPrefix,
+    name,
+    setName,
+    description,
+    setDescription,
+    color: selectedColor,
+    setColor,
+    disabled,
     onSubmit
 }: {
-    folderName: string
-    setFolderName: (v: string) => void
-    folderDescription: string
-    setFolderDescription: (v: string) => void
-    folderColor: string
-    setFolderColor: (v: string) => void
-    isCreating: boolean
+    idPrefix: string
+    name: string
+    setName: (v: string) => void
+    description: string
+    setDescription: (v: string) => void
+    color: string
+    setColor: (v: string) => void
+    disabled: boolean
     onSubmit: () => void
 }) {
     return (
         <div className="space-y-6">
             <div className="space-y-2">
-                <Label htmlFor="folder-name">Name</Label>
+                <Label htmlFor={`${idPrefix}-name`}>Name</Label>
                 <Input
-                    id="folder-name"
-                    value={folderName}
-                    onChange={(e) => setFolderName(e.target.value)}
+                    id={`${idPrefix}-name`}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Enter folder name"
                     className="max-w-full sm:max-w-[50%]"
                     onKeyDown={(e) => {
-                        if (e.key === "Enter" && !isCreating) {
+                        if (e.key === "Enter" && !disabled) {
                             onSubmit()
                         }
                     }}
-                    disabled={isCreating}
+                    disabled={disabled}
                 />
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="folder-description">Description (Optional)</Label>
+                <Label htmlFor={`${idPrefix}-description`}>Description (Optional)</Label>
                 <Input
-                    id="folder-description"
-                    value={folderDescription}
-                    onChange={(e) => setFolderDescription(e.target.value)}
+                    id={`${idPrefix}-description`}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     placeholder="Enter folder description"
-                    disabled={isCreating}
+                    disabled={disabled}
                 />
             </div>
 
@@ -84,17 +86,17 @@ function NewFolderForm({
                         <button
                             key={color.id}
                             type="button"
-                            onClick={() => setFolderColor(color.id)}
-                            disabled={isCreating}
+                            onClick={() => setColor(color.id)}
+                            disabled={disabled}
                             className={cn(
                                 "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-[border-color,transform]",
                                 color.class.split(" ").slice(1).join(" "),
-                                folderColor === color.id
+                                selectedColor === color.id
                                     ? "scale-110 border-foreground"
                                     : "border-transparent hover:scale-105"
                             )}
                         >
-                            {folderColor === color.id && (
+                            {selectedColor === color.id && (
                                 <Check className="h-4 w-4 text-white drop-shadow-sm" />
                             )}
                         </button>
@@ -158,13 +160,14 @@ export function NewFolderDialog({
     }
 
     const formProps = {
-        folderName,
-        setFolderName,
-        folderDescription,
-        setFolderDescription,
-        folderColor,
-        setFolderColor,
-        isCreating,
+        idPrefix: "folder",
+        name: folderName,
+        setName: setFolderName,
+        description: folderDescription,
+        setDescription: setFolderDescription,
+        color: folderColor,
+        setColor: setFolderColor,
+        disabled: isCreating,
         onSubmit: handleCreate
     }
 
@@ -178,8 +181,8 @@ export function NewFolderDialog({
                             Folders are a great way to organize your threads
                         </DrawerDescription>
                     </DrawerHeader>
-                    <div className="overflow-y-auto px-4">
-                        <NewFolderForm {...formProps} />
+                    <div className="overflow-y-auto px-4 pb-2">
+                        <FolderForm {...formProps} />
                     </div>
                     <DrawerFooter>
                         <Button onClick={handleCreate} disabled={isCreating || !folderName.trim()}>
@@ -205,7 +208,7 @@ export function NewFolderDialog({
                         Folders are a great way to organize your threads
                     </DialogDescription>
                 </DialogHeader>
-                <NewFolderForm {...formProps} />
+                <FolderForm {...formProps} />
                 <DialogFooter>
                     <Button
                         variant="outline"
