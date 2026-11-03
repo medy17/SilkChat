@@ -52,6 +52,7 @@ import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
 import { Route as SettingsSafetyRouteImport } from './routes/settings/safety'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
+import { Route as SettingsUsageResetsRouteImport } from './routes/settings/usage-resets'
 import { Route as ChatSSharedThreadIdRouteImport } from './routes/_chat.s.$sharedThreadId'
 import { Route as ChatThreadThreadIdRouteImport } from './routes/_chat.thread.$threadId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -288,6 +289,11 @@ const SettingsUsageRoute = SettingsUsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsUsageResetsRoute = SettingsUsageResetsRouteImport.update({
+  id: '/usage-resets',
+  path: '/usage-resets',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const ChatFolderFolderIdLazyRoute = ChatFolderFolderIdLazyRouteImport.update({
   id: '/folder/$folderId',
   path: '/folder/$folderId',
@@ -366,6 +372,7 @@ export interface FileRoutesByFullPath {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas/start': typeof PersonasStartLazyRoute
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdRoute
   '/thread/$threadId': typeof ChatThreadThreadIdRoute
@@ -415,6 +422,7 @@ export interface FileRoutesByTo {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas/start': typeof PersonasStartLazyRoute
   '/': typeof ChatIndexRoute
   '/s/$sharedThreadId': typeof ChatSSharedThreadIdRoute
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
   '/settings/usage': typeof SettingsUsageRoute
+  '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas_/start': typeof PersonasStartLazyRoute
   '/_chat/': typeof ChatIndexRoute
   '/_chat/s/$sharedThreadId': typeof ChatSSharedThreadIdRoute
@@ -520,6 +529,7 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/safety'
     | '/settings/usage'
+    | '/settings/usage-resets'
     | '/personas/start'
     | '/s/$sharedThreadId'
     | '/thread/$threadId'
@@ -569,6 +579,7 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/safety'
     | '/settings/usage'
+    | '/settings/usage-resets'
     | '/personas/start'
     | '/'
     | '/s/$sharedThreadId'
@@ -620,6 +631,7 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/safety'
     | '/settings/usage'
+    | '/settings/usage-resets'
     | '/personas_/start'
     | '/_chat/'
     | '/_chat/s/$sharedThreadId'
@@ -960,6 +972,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsUsageRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/usage-resets': {
+      id: '/settings/usage-resets'
+      path: '/usage-resets'
+      fullPath: '/settings/usage-resets'
+      preLoaderRoute: typeof SettingsUsageResetsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/_chat/folder/$folderId': {
       id: '/_chat/folder/$folderId'
       path: '/folder/$folderId'
@@ -1058,6 +1077,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsProvidersRoute: typeof SettingsProvidersRoute
   SettingsSafetyRoute: typeof SettingsSafetyRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
+  SettingsUsageResetsRoute: typeof SettingsUsageResetsRoute
 }
 
 const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
@@ -1080,6 +1100,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsProvidersRoute: SettingsProvidersRoute,
   SettingsSafetyRoute: SettingsSafetyRoute,
   SettingsUsageRoute: SettingsUsageRoute,
+  SettingsUsageResetsRoute: SettingsUsageResetsRoute,
 }
 
 const SettingsRouteLazyRouteWithChildren =

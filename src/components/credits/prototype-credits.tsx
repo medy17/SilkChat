@@ -20,8 +20,13 @@ import type {
     PrototypeCreditSummary
 } from "@/lib/prototype-credits"
 import { cn } from "@/lib/utils"
+import { useUsageResetTicketsStore } from "@/lib/usage-reset-tickets-store"
+import {
+    readCachedResetTicketCount,
+    useUsageResetTicketCount
+} from "@/hooks/use-usage-reset-ticket-count"
 import { useConvexQuery } from "@convex-dev/react-query"
-import { Clock, Crown, RefreshCw, Shield, Wallet } from "lucide-react"
+import { Clock, Crown, RefreshCw, Shield, Ticket, Wallet } from "lucide-react"
 import { memo, type ReactNode, useEffect, useMemo, useState } from "react"
 
 const formatUsageCountdown = (target: number | null, now: number) => {
@@ -70,9 +75,21 @@ function PrototypeCreditPlanToggle({
     )
 }
 
-function PrototypeCreditsLoadingState({ className }: { className?: string }) {
+// Mirrors the body, including the conditional buttons at the bottom: the upgrade button
+// for a known Free plan and the ticket button for the last known ticket count.
+function PrototypeCreditsLoadingState({
+    plan,
+    userId,
+    className
+}: {
+    plan?: PrototypeCreditSummary["plan"]
+    userId?: string
+    className?: string
+}) {
+    const ticketCount = useMemo(() => readCachedResetTicketCount(userId), [userId])
+
     return (
-        <div className={cn("space-y-4", className)}>
+        <div className={cn("space-y-3 md:space-y-4", className)}>
             <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                     <Skeleton className="h-4 w-4 shrink-0" />
@@ -98,10 +115,10 @@ function PrototypeCreditsLoadingState({ className }: { className?: string }) {
                 </div>
             </div>
 
-            <div className="flex items-center justify-between">
-                <Skeleton className="h-3 w-16" />
-                <Skeleton className="h-3 w-16" />
-            </div>
+            <Skeleton className="h-3 w-28" />
+
+            {plan === "free" ? <Skeleton className="h-8 w-full" /> : null}
+            {ticketCount > 0 ? <Skeleton className="h-8 w-full" /> : null}
         </div>
     )
 }
@@ -173,6 +190,8 @@ function PrototypeCreditsBody({
     }, [summary])
     const [isRefreshAnimating, setIsRefreshAnimating] = useState(false)
     const [clockNow, setClockNow] = useState(() => Date.now())
+    const resetTicketCount = useUsageResetTicketCount(checkoutUser?.id)
+    const showResetTickets = useUsageResetTicketsStore((state) => state.show)
 
     useEffect(() => {
         const interval = window.setInterval(() => setClockNow(Date.now()), 30 * 1000)
@@ -312,6 +331,20 @@ function PrototypeCreditsBody({
                             Upgrade to Pro
                         </span>
                     )}
+                </Button>
+            ) : null}
+
+            {resetTicketCount > 0 ? (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => showResetTickets()}
+                >
+                    <Ticket className="size-4" />
+                    {resetTicketCount === 1
+                        ? "1 Banked Reset"
+                        : `${resetTicketCount} Banked Resets`}
                 </Button>
             ) : null}
 
@@ -476,6 +509,7 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
 }) {
     const [open, setOpen] = useState(false)
     const visible = enabled && open
+    const isResetTicketsOpen = useUsageResetTicketsStore((state) => state.open)
     const {
         summary,
         isLoading,
@@ -497,6 +531,11 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
         if (!enabled) setOpen(false)
     }, [enabled])
 
+    // The tickets dialog replaces the popover rather than stacking over it.
+    useEffect(() => {
+        if (isResetTicketsOpen) setOpen(false)
+    }, [isResetTicketsOpen])
+
     return (
         <ResponsivePopover modal={false} open={visible} onOpenChange={setOpen}>
             <ResponsivePopoverTrigger asChild>
@@ -517,7 +556,11 @@ export const PrototypeCreditsQuickView = memo(function PrototypeCreditsQuickView
                 className="w-full max-w-none overflow-hidden p-0 md:w-[22rem] md:p-4"
             >
                 {isLoading ? (
-                    <PrototypeCreditsLoadingState className="px-4 pt-5 pb-4 md:p-0" />
+                    <PrototypeCreditsLoadingState
+                        plan={summary?.plan}
+                        userId={userId}
+                        className="px-4 pt-5 pb-4 md:p-0"
+                    />
                 ) : (
                     <PrototypeCreditsBody
                         summary={summary}
@@ -548,6 +591,7 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     title = "Included usage",
     headerAction,
     showPlanHeader = true,
+    userId,
     className
 }: {
     summary: PrototypeCreditSummary | null
@@ -562,6 +606,8 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
     title?: ReactNode
     headerAction?: ReactNode
     showPlanHeader?: boolean
+    // Lets the skeleton reserve the ticket button from the last known count.
+    userId?: string
     className?: string
 }) {
     return (
@@ -577,7 +623,7 @@ export const PrototypeCreditsCard = memo(function PrototypeCreditsCard({
             </CardHeader>
             <CardContent>
                 {isLoading ? (
-                    <PrototypeCreditsLoadingState />
+                    <PrototypeCreditsLoadingState plan={summary?.plan} userId={userId} />
                 ) : (
                     <PrototypeCreditsBody
                         summary={summary}

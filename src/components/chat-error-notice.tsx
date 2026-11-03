@@ -1,4 +1,7 @@
+import { api } from "@/convex/_generated/api"
 import type { SharedModel } from "@/convex/lib/models"
+import { resetCoversLimit } from "@/convex/lib/usage_resets"
+import { useCapAlignedIcon } from "@/hooks/use-cap-aligned-icon"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
     type ParsedChatError,
@@ -10,8 +13,10 @@ import { type ProviderErrorDetail, getProviderErrorCopy } from "@/lib/provider-e
 import { useSharedModels } from "@/lib/shared-models"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
+import { useUsageResetTicketsStore } from "@/lib/usage-reset-tickets-store"
 import { cn } from "@/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
+import { useQuery } from "convex/react"
 import {
     AlertTriangle,
     ChevronDown,
@@ -23,9 +28,10 @@ import {
     Pencil,
     RotateCcw,
     ShieldAlert,
+    Ticket,
     Unplug
 } from "lucide-react"
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import { getProviderIcon } from "./model-selector"
 import { SPOTLIGHT_CARD_CLASS } from "./renderers/spotlight-frame"
 import { AnimatedCollapsible } from "./ui/animated-collapsible"
@@ -39,7 +45,7 @@ type ErrorCta = {
     /** Open an external page in a new tab, e.g. the provider's billing page. */
     href?: string
     /** Trigger an in-app action instead of navigating to a route. */
-    action?: "new_chat"
+    action?: "new_chat" | "use_reset"
 }
 
 type ErrorPresentation = {
@@ -126,7 +132,10 @@ function describeProviderError(detail: ProviderErrorDetail): ErrorPresentation {
  * Translate a parsed chat error into a specific, actionable notice. Falls back
  * to the backend-supplied cause/message, then to a generic line.
  */
-function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
+function describeChatError(
+    parsed: ParsedChatError | null,
+    { canUseReset = false }: { canUseReset?: boolean } = {}
+): ErrorPresentation {
     const detail = parsed?.detail
 
     if (detail?.kind === "provider_error") return describeProviderError(detail)
@@ -156,8 +165,19 @@ function describeChatError(parsed: ParsedChatError | null): ErrorPresentation {
             description: isFiveHour
                 ? `Your 5-hour window ${recovery ? `resets at ${recovery}` : "resets within a few hours"}. You can wait, pick a cheaper model, or continue with BYOK.`
                 : "You've depleted your usage for this billing period. You can continue with BYOK until it renews.",
-            primaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
-            secondaryCta: { label: "Manage plan", to: "/settings/billing" }
+            ...(canUseReset
+                ? {
+                      primaryCta: {
+                          label: "Use a Banked Reset",
+                          action: "use_reset",
+                          icon: Ticket
+                      },
+                      secondaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key }
+                  }
+                : {
+                      primaryCta: { label: "Set up BYOK", to: "/settings/providers", icon: Key },
+                      secondaryCta: { label: "Manage plan", to: "/settings/billing" }
+                  })
         }
     }
 
@@ -215,7 +235,23 @@ export const ChatErrorNotice = memo(
         onSwitchModel?: (modelId: string) => void
     }) => {
         const parsedError = useMemo(() => parseChatError(error), [error])
-        const presentation = useMemo(() => describeChatError(parsedError), [parsedError])
+        const usageLimit =
+            parsedError?.detail?.kind === "usage_limit_exceeded" ? parsedError.detail.window : null
+        const resetTickets = useQuery(
+            api.usage_resets.getMyUsageResetTickets,
+            usageLimit ? {} : "skip"
+        )
+        const showResetTickets = useUsageResetTicketsStore((state) => state.show)
+        const canUseReset = Boolean(
+            usageLimit &&
+                resetTickets?.some(
+                    (ticket) => ticket.canRedeem && resetCoversLimit(ticket, usageLimit)
+                )
+        )
+        const presentation = useMemo(
+            () => describeChatError(parsedError, { canUseReset }),
+            [parsedError, canUseReset]
+        )
         const startNewChat = useStartNewChat()
         const isMobile = useIsMobile()
         const { models: sharedModels } = useSharedModels()
@@ -243,6 +279,19 @@ export const ChatErrorNotice = memo(
             const CtaIcon = cta.icon
             // Filled buttons bring their own foreground; forcing one breaks contrast.
             const ctaClassName = variant === "outline" ? "text-foreground" : undefined
+            if (cta.action === "use_reset") {
+                return (
+                    <Button
+                        variant={variant}
+                        size="sm"
+                        className={ctaClassName}
+                        onClick={() => showResetTickets(usageLimit ?? undefined)}
+                    >
+                        {CtaIcon && <CtaIcon />}
+                        {cta.label}
+                    </Button>
+                )
+            }
             if (cta.action === "new_chat") {
                 return (
                     <Button
@@ -354,56 +403,13 @@ function linkify(message: string) {
     )
 }
 
-/** Lucide draws on a 24-unit grid with a 2-unit stroke. */
-const LUCIDE_GRID = 24
-const LUCIDE_STROKE = 2
-
-/**
- * How far below the top of its line box an element's capitals start. The font's ascent and
- * cap height come from the browser, so this follows the real typeface and size.
- */
-function measureCapTop(element: Element) {
-    const style = getComputedStyle(element)
-    const lineHeight = Number.parseFloat(style.lineHeight)
-    const context = document.createElement("canvas").getContext("2d")
-    if (!context || Number.isNaN(lineHeight)) return undefined
-    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
-    const metrics = context.measureText("H")
-    const halfLeading =
-        (lineHeight - metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2
-    return halfLeading + metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent
-}
-
-/**
- * The title, led by an icon whose drawn top hangs from the title's cap height. Centring the
- * icon box on the line leaves it riding high beside ProximaVara's tall lowercase, and Lucide
- * pads each glyph differently inside its box, so the glyph's own bounds are used.
- */
+/** The title, led by an icon hung from the title's cap height. */
 function ErrorHeading({ icon: Icon, title }: { icon: ErrorPresentation["icon"]; title: string }) {
-    const iconRef = useRef<SVGSVGElement>(null)
-    const titleRef = useRef<HTMLHeadingElement>(null)
-    const [iconTop, setIconTop] = useState<number>()
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: a new glyph has new bounds to measure.
-    useLayoutEffect(() => {
-        let cancelled = false
-        const align = () => {
-            const icon = iconRef.current
-            const heading = titleRef.current
-            if (cancelled || !icon || !heading) return
-            const capTop = measureCapTop(heading)
-            if (capTop === undefined) return
-            const scale = icon.getBoundingClientRect().height / LUCIDE_GRID
-            const glyphTop = (icon.getBBox().y - LUCIDE_STROKE / 2) * scale
-            setIconTop(capTop - glyphTop)
-        }
-        align()
-        // The first pass can measure the fallback font; settle once ProximaVara loads.
-        void document.fonts?.ready.then(align)
-        return () => {
-            cancelled = true
-        }
-    }, [Icon])
+    const {
+        iconRef,
+        textRef: titleRef,
+        marginTop: iconTop
+    } = useCapAlignedIcon<HTMLHeadingElement>(Icon)
 
     return (
         <div className="flex items-start gap-2">

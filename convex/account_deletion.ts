@@ -20,9 +20,13 @@ import { aggregrateThreadsByFolder } from "./aggregates"
 import { r2 } from "./attachments"
 import { authComponent } from "./auth"
 import { getUserCreditPeriod } from "./credits"
+import { getConfiguredHostedUsageLimits } from "./lib/usage_metering"
+import { resolveUsageBreakpoints } from "./lib/usage_reset_state"
+import { type UsageRecord, computeMonthlyUsedMicrousd } from "./lib/usage_resets"
 import {
     chooseCanonicalSuppression,
     fingerprintAccountIdentity,
+    mergeSuppressedUsageMicrousd,
     mergeSuppressionSnapshots
 } from "./lib/account_deletion"
 import {
@@ -279,7 +283,9 @@ const deletionCreditSnapshotValidator = v.object({
     periodStartsAt: v.number(),
     periodEndsAt: v.number(),
     consumedUsageMicrousd: v.number(),
-    carriedUsageMicrousd: v.number()
+    carriedUsageMicrousd: v.number(),
+    // The latest monthly or weekly reset this period. Usage it forgave stays forgiven.
+    latestResetAt: v.optional(v.number())
 })
 
 type DeletionCreditSnapshot = {
@@ -289,6 +295,7 @@ type DeletionCreditSnapshot = {
     periodEndsAt: number
     consumedUsageMicrousd: number
     carriedUsageMicrousd: number
+    latestResetAt?: number
 }
 
 export const getAccountDeletionCreditPeriodInternal = internalQuery({
@@ -301,13 +308,23 @@ export const getAccountDeletionCreditPeriodInternal = internalQuery({
             account?.carriedForPeriodKey === period.periodKey
                 ? (account.carriedUsageMicrousd ?? 0)
                 : 0
+        const plan = account?.plan ?? "free"
+        const breakpoints = await resolveUsageBreakpoints(ctx, {
+            userId,
+            plan,
+            account,
+            periodStartsAt: period.startsAt,
+            now: timestamp
+        })
 
         return {
             anchorAt,
             periodKey: period.periodKey,
             periodStartsAt: period.startsAt,
             periodEndsAt: period.endsAt,
-            carriedUsageMicrousd
+            carriedUsageMicrousd,
+            breakpoints,
+            monthlyLimitMicrousd: getConfiguredHostedUsageLimits(plan).monthlyMicrousd
         }
     }
 })
@@ -463,10 +480,12 @@ export const prepareAccountDeletion = internalMutation({
                 freePeriodEndsAt: canonicalDoc?.freePeriodEndsAt ?? freePeriod.endsAt,
                 freeConsumedBasicUnits: canonicalDoc?.freeConsumedBasicUnits ?? 0,
                 usagePeriodKey: freePeriod.periodKey,
-                consumedUsageMicrousd:
-                    canonicalDoc?.usagePeriodKey === freePeriod.periodKey
-                        ? Math.max(consumedUsageMicrousd, canonicalDoc.consumedUsageMicrousd ?? 0)
-                        : consumedUsageMicrousd,
+                consumedUsageMicrousd: mergeSuppressedUsageMicrousd({
+                    consumedUsageMicrousd,
+                    periodKey: freePeriod.periodKey,
+                    latestResetAt: creditSnapshot.latestResetAt,
+                    previous: canonicalDoc
+                }),
                 everWasPro,
                 proEntitlementEndsAt:
                     proEntitlementEndsAt ??
@@ -932,6 +951,31 @@ export const purgeAccountData = internalMutation({
         )
         if (toolReservations) return toolReservations
 
+        // Unused reset tickets are forfeited with the account.
+        const usageResetRedemptions = await deleteUserBatch(
+            "purging_usage_reset_redemptions",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("usageResetRedemptions")
+                    .withIndex("byUserGrant", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (usageResetRedemptions) return usageResetRedemptions
+
+        const usageResetGrants = await deleteUserBatch(
+            "purging_usage_reset_grants",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("usageResetGrants")
+                    .withIndex("byUserCreatedAt", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (usageResetGrants) return usageResetGrants
+
         const subscriptions = await deleteUserBatch(
             "purging_subscriptions",
             deleteBatch(
@@ -1166,7 +1210,7 @@ type PaginatedPage<T> = {
     continueCursor: string
 }
 
-const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
+export const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
     ctx: GenericActionCtx<DataModel>,
     userId: string,
     timestamp: number
@@ -1178,7 +1222,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
             timestamp
         }
     )
-    let consumedUsageMicrousd = 0
+    const records: UsageRecord[] = []
 
     let cursor: string | null = null
     while (true) {
@@ -1190,6 +1234,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
                 paginationOpts: { numItems: ACCOUNT_DELETION_BATCH_SIZE, cursor }
             }
         )) as PaginatedPage<{
+            createdAt: number
             accountingKind?: "usage"
             reservedMicrousd?: number
             settledMicrousd?: number
@@ -1197,10 +1242,13 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
 
         for (const event of result.page) {
             if (event.accountingKind === "usage") {
-                consumedUsageMicrousd += Math.max(
-                    0,
-                    event.settledMicrousd ?? event.reservedMicrousd ?? 0
-                )
+                records.push({
+                    createdAt: event.createdAt,
+                    amountMicrousd: Math.max(
+                        0,
+                        event.settledMicrousd ?? event.reservedMicrousd ?? 0
+                    )
+                })
             }
         }
 
@@ -1218,6 +1266,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
                 paginationOpts: { numItems: ACCOUNT_DELETION_BATCH_SIZE, cursor }
             }
         )) as PaginatedPage<{
+            createdAt: number
             active: boolean
             accountingKind?: "usage"
             reservedMicrousd?: number
@@ -1226,7 +1275,10 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
         for (const reservation of result.page) {
             if (!reservation.active) continue
             if (reservation.accountingKind === "usage") {
-                consumedUsageMicrousd += Math.max(0, reservation.reservedMicrousd ?? 0)
+                records.push({
+                    createdAt: reservation.createdAt,
+                    amountMicrousd: Math.max(0, reservation.reservedMicrousd ?? 0)
+                })
             }
         }
 
@@ -1244,6 +1296,7 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
                 paginationOpts: { numItems: ACCOUNT_DELETION_BATCH_SIZE, cursor }
             }
         )) as PaginatedPage<{
+            createdAt: number
             active: boolean
             reservedMicrousd?: number
             consumedMicrousd?: number
@@ -1251,23 +1304,38 @@ const getDeletionCreditSnapshot = async <DataModel extends GenericDataModel>(
 
         for (const reservation of result.page) {
             if (!reservation.active) continue
-            consumedUsageMicrousd += Math.max(
-                0,
-                (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0)
-            )
+            records.push({
+                createdAt: reservation.createdAt,
+                amountMicrousd: Math.max(
+                    0,
+                    (reservation.reservedMicrousd ?? 0) - (reservation.consumedMicrousd ?? 0)
+                )
+            })
         }
 
         if (result.isDone) break
         cursor = result.continueCursor
     }
 
+    const { breakpoints } = period
+    const resetTimes = [
+        ...(breakpoints.monthlyAt === undefined ? [] : [breakpoints.monthlyAt]),
+        ...breakpoints.weekly.map((weekly) => weekly.at)
+    ]
+    // Resets apply to carried usage too, so the carry is folded into the consumed total.
     return {
         anchorAt: period.anchorAt,
         periodKey: period.periodKey,
         periodStartsAt: period.periodStartsAt,
         periodEndsAt: period.periodEndsAt,
-        consumedUsageMicrousd,
-        carriedUsageMicrousd: period.carriedUsageMicrousd
+        consumedUsageMicrousd: computeMonthlyUsedMicrousd({
+            records,
+            carriedMicrousd: period.carriedUsageMicrousd,
+            breakpoints,
+            monthlyLimitMicrousd: period.monthlyLimitMicrousd
+        }),
+        carriedUsageMicrousd: 0,
+        ...(resetTimes.length > 0 ? { latestResetAt: Math.max(...resetTimes) } : {})
     }
 }
 

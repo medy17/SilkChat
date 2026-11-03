@@ -20,6 +20,7 @@ import {
 import { fingerprintAccountIdentity } from "./lib/account_deletion"
 import { getFingerprintPepper } from "./lib/account_deletion_restore"
 import { getUserIdentity } from "./lib/identity"
+import { isImpersonatedSession } from "./lib/impersonation_session"
 import { canImpersonate } from "./lib/impersonation"
 import {
     DEFAULT_STRIKE_EXPIRY_DAYS,
@@ -792,15 +793,6 @@ export const getMyModerationNotices = query({
         }
     }
 })
-
-const isImpersonatedSession = async (ctx: QueryCtx, sessionId: unknown) => {
-    if (typeof sessionId !== "string" || !sessionId) return false
-    const session = await ctx.runQuery(betterAuthComponent.adapter.findOne, {
-        model: "session",
-        where: [{ field: "_id", value: sessionId }]
-    })
-    return Boolean((session as { impersonatedBy?: string | null } | null)?.impersonatedBy)
-}
 
 export const submitModerationAppeal = mutation({
     args: { caseId: v.id("moderationCases"), message: v.string() },

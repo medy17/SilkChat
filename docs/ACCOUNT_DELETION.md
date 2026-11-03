@@ -37,6 +37,8 @@ carriedUsageMicrousd
 
 Credit summary and enforcement use the carry only when its period key matches the current period. It therefore expires naturally at the next period boundary. Repeated delete/recreate cycles write the cumulative value rather than adding an already-carried value twice.
 
+[Usage resets](./USAGE_LIMITS.md#usage-resets) are breakpoints, and the snapshot honours them: usage before a monthly reset, and the share a weekly reset forgave, are left out, and the carry-in counts as usage from before every reset. A reset made after an earlier deletion also stops the cumulative merge from bringing back that deletion's higher total. Unused Banked Resets are forfeited: per-user grants and redemptions are purged, and a re-registered account signs up after any global grant's cutoff.
+
 ## Billing Relinking
 
 `billingSubscriptionLinks` is the durable mapping from a LemonSqueezy subscription to either a live user or an identity suppression. Webhook resolution prefers this mapping and uses `custom_data.user_id` only as the fallback identifier.

@@ -149,6 +149,7 @@
         "pdfjs-dist": "6.4.299",
         "posthog-js": "^1.438.12",
         "react": "^19.3.1",
+        "react-day-picker": "^9.14.0",
         "react-dom": "^19.3.1",
         "react-easy-crop": "^6.2.4",
         "react-hook-form": "^7.90.0",

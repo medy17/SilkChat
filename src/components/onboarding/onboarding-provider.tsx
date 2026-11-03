@@ -1,5 +1,6 @@
 "use client"
 
+import { UsageResetTicketsDialog } from "@/components/credits/usage-reset-tickets-dialog"
 import {
     type ModerationNotice,
     ModerationNoticeDialog
@@ -26,11 +27,13 @@ import {
     DEV_OPEN_ONBOARDING_EVENT,
     DEV_OPEN_PRO_WELCOME_EVENT,
     DEV_OPEN_RENEWAL_NUDGE_EVENT,
+    DEV_OPEN_USAGE_RESET_NOTICE_EVENT,
     type DevModerationNoticeAction
 } from "./dev-onboarding"
 import { OnboardingDialog } from "./onboarding-dialog"
 import { PastDueRenewalDialog } from "./past-due-renewal-dialog"
 import { ProWelcomeDialog } from "./pro-welcome-dialog"
+import { type UsageResetNotice, UsageResetNoticeDialog } from "./usage-reset-notice-dialog"
 
 const buildDevModerationNotice = (action: DevModerationNoticeAction): ModerationNotice => {
     const now = Date.now()
@@ -88,6 +91,14 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     // mutation is a no-op because an operator is viewing as this user.
     const [acknowledgedCaseIds, setAcknowledgedCaseIds] = useState<string[]>([])
     const [devModerationNotice, setDevModerationNotice] = useState<ModerationNotice | null>(null)
+    const usageResetNotice = useQuery(
+        api.usage_resets.getMyUsageResetNotice,
+        session?.user?.id ? {} : "skip"
+    )
+    const dismissUsageResetNotice = useMutation(api.usage_resets.dismissMyUsageResetNotice)
+    // Hides the notice as soon as it's dismissed, before the query catches up.
+    const [dismissedUsageResetAt, setDismissedUsageResetAt] = useState<number | null>(null)
+    const [devUsageResetNotice, setDevUsageResetNotice] = useState<UsageResetNotice | null>(null)
 
     const pendingModerationCase = moderationNotices?.cases.find(
         (moderationCase) => !acknowledgedCaseIds.includes(moderationCase.id)
@@ -102,6 +113,19 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
               }
             : null)
     const isModerationNoticeOpen = moderationNotice !== null
+    const shownUsageResetNotice: UsageResetNotice | null =
+        devUsageResetNotice ??
+        (usageResetNotice &&
+        usageResetNotice.createdAt !== dismissedUsageResetAt &&
+        !isLoading &&
+        !shouldShowOnboarding &&
+        !isStatusDialogOpen &&
+        !isDevDialogOpen &&
+        !isModerationNoticeOpen &&
+        !isRenewalDialogOpen &&
+        !isProWelcomeDialogOpen
+            ? usageResetNotice
+            : null)
 
     useEffect(() => {
         if (!isLoading && shouldShowOnboarding) {
@@ -135,11 +159,19 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             const action = (event as CustomEvent<DevModerationNoticeAction>).detail
             setDevModerationNotice(buildDevModerationNotice(action))
         }
+        const openDevUsageResetNotice = () => {
+            setDevUsageResetNotice({
+                window: "monthly",
+                includesFiveHour: true,
+                createdAt: Date.now()
+            })
+        }
 
         document.addEventListener(DEV_OPEN_ONBOARDING_EVENT, openDevDialog)
         document.addEventListener(DEV_OPEN_RENEWAL_NUDGE_EVENT, openDevRenewalDialog)
         document.addEventListener(DEV_OPEN_PRO_WELCOME_EVENT, openDevProWelcomeDialog)
         document.addEventListener(DEV_OPEN_MODERATION_NOTICE_EVENT, openDevModerationNotice)
+        document.addEventListener(DEV_OPEN_USAGE_RESET_NOTICE_EVENT, openDevUsageResetNotice)
 
         const searchParams = new URLSearchParams(window.location.search)
         if (searchParams.get("onboarding") === "1" || searchParams.has("showOnboarding")) {
@@ -151,6 +183,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             document.removeEventListener(DEV_OPEN_RENEWAL_NUDGE_EVENT, openDevRenewalDialog)
             document.removeEventListener(DEV_OPEN_PRO_WELCOME_EVENT, openDevProWelcomeDialog)
             document.removeEventListener(DEV_OPEN_MODERATION_NOTICE_EVENT, openDevModerationNotice)
+            document.removeEventListener(DEV_OPEN_USAGE_RESET_NOTICE_EVENT, openDevUsageResetNotice)
         }
     }, [])
 
@@ -300,6 +333,20 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
         })
     }
 
+    const handleUsageResetNoticeDismiss = () => {
+        if (devUsageResetNotice) {
+            setDevUsageResetNotice(null)
+            return
+        }
+        if (!usageResetNotice) return
+
+        const seenAt = usageResetNotice.createdAt
+        setDismissedUsageResetAt(seenAt)
+        void dismissUsageResetNotice({ seenAt }).catch(() => {
+            // The notice comes back on the next visit, so there's nothing to surface here.
+        })
+    }
+
     return (
         <>
             {children}
@@ -320,6 +367,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                 notice={moderationNotice}
                 onAcknowledge={handleModerationNoticeAcknowledge}
             />
+            <UsageResetNoticeDialog
+                notice={shownUsageResetNotice}
+                onDismiss={handleUsageResetNoticeDismiss}
+            />
+            <UsageResetTicketsDialog />
         </>
     )
 }

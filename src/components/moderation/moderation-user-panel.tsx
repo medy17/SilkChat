@@ -7,6 +7,7 @@ import {
 } from "@/components/moderation/case-details"
 import { CaseUpdateDialog } from "@/components/moderation/case-update-dialog"
 import { ModerationActionForm } from "@/components/moderation/moderation-action-form"
+import { UserUsageResets } from "@/components/moderation/usage-reset-controls"
 import { Button } from "@/components/ui/button"
 import {
     DropdownMenu,
@@ -31,6 +32,7 @@ import {
     Loader2,
     LockOpen,
     MoreHorizontal,
+    Ticket,
     Undo2
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
@@ -245,7 +247,7 @@ function CaseActions({ moderationCase }: { moderationCase: OperatorCase }) {
     )
 }
 
-type CardStep = "overview" | "history" | "moderate" | "data-copy"
+type CardStep = "overview" | "usage" | "history" | "moderate" | "data-copy"
 
 function StepHeader({ title, description }: { title: string; description?: ReactNode }) {
     return (
@@ -447,6 +449,13 @@ export function ModerationUserPanel({
                                             </Button>
                                             <Button
                                                 variant="outline"
+                                                onClick={() => setStep("usage")}
+                                            >
+                                                <Ticket className="size-4" />
+                                                Usage
+                                            </Button>
+                                            <Button
+                                                variant="outline"
                                                 onClick={() => setStep("data-copy")}
                                             >
                                                 <Download className="size-4" />
@@ -478,6 +487,13 @@ export function ModerationUserPanel({
                             )}
                             {step === "history" && (
                                 <HistoryStep cases={data.cases} onBack={toOverview} />
+                            )}
+                            {step === "usage" && (
+                                <div className="space-y-5">
+                                    <StepHeader title="Usage Resets" />
+                                    <UserUsageResets authUserId={authUserId} />
+                                    <BackButton onClick={toOverview} />
+                                </div>
                             )}
                             {step === "data-copy" && (
                                 <DataCopyStep

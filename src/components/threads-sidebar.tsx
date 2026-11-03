@@ -3,7 +3,8 @@ import {
     openDevModerationNotice,
     openDevOnboarding,
     openDevProWelcome,
-    openDevRenewalNudge
+    openDevRenewalNudge,
+    openDevUsageResetNotice
 } from "@/components/onboarding/dev-onboarding"
 import { Button } from "@/components/ui/button"
 import {
@@ -111,13 +112,15 @@ function DevToolsGroup({
     onShowProWelcome,
     onShowRenewalNudge,
     onShowWarningNotice,
-    onShowStrikeNotice
+    onShowStrikeNotice,
+    onShowUsageResetNotice
 }: {
     onShowOnboarding: () => void
     onShowProWelcome: () => void
     onShowRenewalNudge: () => void
     onShowWarningNotice: () => void
     onShowStrikeNotice: () => void
+    onShowUsageResetNotice: () => void
 }) {
     return (
         <SidebarGroup>
@@ -173,6 +176,16 @@ function DevToolsGroup({
                     >
                         <PlayCircle className="h-4 w-4" />
                         Show strike notice
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-full justify-start"
+                        onClick={onShowUsageResetNotice}
+                    >
+                        <PlayCircle className="h-4 w-4" />
+                        Show usage reset notice
                     </Button>
                 </div>
             </SidebarGroupContent>
@@ -850,6 +863,11 @@ export function ThreadsSidebar() {
         openDevModerationNotice("strike")
     })
 
+    const handleShowUsageResetNoticeClick = useFunction(() => {
+        setOpenMobile(false)
+        openDevUsageResetNotice()
+    })
+
     const renderContent = () => {
         if (isLoading) {
             return <LoadingSkeleton />
@@ -979,6 +997,7 @@ export function ThreadsSidebar() {
                                 onShowRenewalNudge={handleShowRenewalNudgeClick}
                                 onShowWarningNotice={handleShowWarningNoticeClick}
                                 onShowStrikeNotice={handleShowStrikeNoticeClick}
+                                onShowUsageResetNotice={handleShowUsageResetNoticeClick}
                             />
                         )}
                         {renderContent()}

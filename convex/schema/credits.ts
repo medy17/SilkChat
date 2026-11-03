@@ -31,6 +31,13 @@ export const PrototypeCreditAccount = v.object({
     carriedBasicUnits: v.optional(v.number()),
     carriedProUnits: v.optional(v.number()),
     carriedUsageMicrousd: v.optional(v.number()),
+    // Usage reset breakpoints from per-user instant resets and redeemed tickets. Global
+    // instant resets stay in usageResetGrants and are merged in when usage is read.
+    usageResetFiveHourAt: v.optional(v.number()),
+    usageResetMonthlyAt: v.optional(v.number()),
+    usageResetWeekly: v.optional(v.array(v.object({ at: v.number(), fraction: v.number() }))),
+    // The newest instant reset the user has been shown a notice for.
+    usageResetNoticeSeenAt: v.optional(v.number()),
     updatedAt: v.number()
 })
 

@@ -505,6 +505,7 @@ export function AccountSettingsContent() {
 
                 <PrototypeCreditsCard
                     summary={prototypeCreditSummary}
+                    userId={session?.user?.id}
                     isLoading={isCreditsLoading}
                     isRefreshing={isRefreshingCredits}
                     shouldShowDevCreditPlanToggle={shouldShowDevCreditPlanToggle}

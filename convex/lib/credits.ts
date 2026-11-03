@@ -32,7 +32,7 @@ export const getCreditPeriodBounds = (timestamp = Date.now()) => {
 const getDaysInUtcMonth = (year: number, monthIndex: number) =>
     new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
 
-const addUtcMonthsClamped = (timestamp: number, months: number) => {
+export const addUtcMonthsClamped = (timestamp: number, months: number) => {
     const date = new Date(timestamp)
     const targetMonthStart = Date.UTC(
         date.getUTCFullYear(),

@@ -149,6 +149,31 @@ export type SuppressedCreditSeedInput = {
     currentFreePeriodKey: string
 }
 
+// Repeated delete/re-create cycles keep the higher total for the period, so deleting can't
+// launder usage. A reset made after the earlier deletion already forgave the usage carried
+// from it, so the new snapshot stands on its own.
+export const mergeSuppressedUsageMicrousd = ({
+    consumedUsageMicrousd,
+    periodKey,
+    latestResetAt,
+    previous
+}: {
+    consumedUsageMicrousd: number
+    periodKey: string
+    latestResetAt?: number
+    previous?: {
+        usagePeriodKey?: string
+        consumedUsageMicrousd?: number
+        lastDeletedAt: number
+    } | null
+}) => {
+    if (!previous || previous.usagePeriodKey !== periodKey) return consumedUsageMicrousd
+    if (latestResetAt !== undefined && latestResetAt > previous.lastDeletedAt) {
+        return consumedUsageMicrousd
+    }
+    return Math.max(consumedUsageMicrousd, previous.consumedUsageMicrousd ?? 0)
+}
+
 export const buildSuppressedCreditAccountSeed = ({
     userId,
     now,

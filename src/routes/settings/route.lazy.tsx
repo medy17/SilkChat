@@ -10,6 +10,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
 import { cn } from "@/lib/utils"
+import { UsageResetTicketsDialog } from "@/components/credits/usage-reset-tickets-dialog"
 import { Link, Outlet, createLazyFileRoute, useLocation, useNavigate } from "@tanstack/react-router"
 import {
     BarChart3,
@@ -22,6 +23,7 @@ import {
     Paperclip,
     Shield,
     ShieldCheck,
+    Ticket,
     User,
     Users
 } from "lucide-react"
@@ -95,6 +97,12 @@ const settingsNavItems = [
         href: "/settings/moderation",
         icon: Gavel,
         operatorOnly: true
+    },
+    {
+        title: "Usage Resets",
+        href: "/settings/usage-resets",
+        icon: Ticket,
+        operatorOnly: true
     }
 ]
 
@@ -126,7 +134,14 @@ export const Route = createLazyFileRoute("/settings")({
 // Sections render their own header and skeleton, so the shell only gates on sign-in.
 const Inner = () => {
     const session = useSession()
-    if (session.user?.id) return <Outlet />
+    if (session.user?.id) {
+        return (
+            <>
+                <Outlet />
+                <UsageResetTicketsDialog />
+            </>
+        )
+    }
     if (session.isPending) return null
 
     return (

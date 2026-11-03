@@ -35,6 +35,7 @@ import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
 import { SharedThread, Thread } from "./schema/thread"
 import { UsageEvent } from "./schema/usage"
+import { UsageResetGrant, UsageResetRedemption } from "./schema/usage_resets"
 import { VisualSearchRun } from "./schema/visuals"
 
 export {
@@ -252,6 +253,14 @@ export default defineSchema({
         .index("byUserPeriod", ["userId", "periodKey"])
         .index("byUserMessageKey", ["userId", "messageKey"])
         .index("byUserCreatedAt", ["userId", "createdAt"]),
+    usageResetGrants: defineTable(UsageResetGrant)
+        .index("byUserCreatedAt", ["userId", "createdAt"])
+        .index("byScopeCreatedAt", ["scope", "createdAt"])
+        .index("byScopeDeliveryCreatedAt", ["scope", "delivery", "createdAt"]),
+    usageResetRedemptions: defineTable(UsageResetRedemption).index("byUserGrant", [
+        "userId",
+        "grantId"
+    ]),
     lemonSqueezySubscriptions: defineTable(LemonSqueezySubscription)
         .index("byUser", ["userId"])
         .index("bySubscriptionId", ["lemonSqueezySubscriptionId"]),

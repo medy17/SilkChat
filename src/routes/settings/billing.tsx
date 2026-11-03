@@ -225,6 +225,7 @@ function BillingSettingsRoute() {
 
                 <PrototypeCreditsCard
                     summary={creditSummary}
+                    userId={user?.id}
                     isLoading={isCreditSummaryLoading || isPlanLoading}
                     isRefreshing={isRefreshing}
                     shouldShowDevCreditPlanToggle={false}
