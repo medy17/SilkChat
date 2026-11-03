@@ -325,6 +325,36 @@ export const selectionCases: SelectionCase[] = [
         forbidden: ["image_generation", "canvas", "web_search"]
     },
     {
+        id: "showcase",
+        text: "Show off what you can do here with math charts and code execution",
+        required: ["math", "code_execution"]
+    },
+    {
+        id: "holdout-demo-chart",
+        text: "What can your charting do? Give me a few examples.",
+        required: ["math"]
+    },
+    {
+        id: "holdout-demo-runtime",
+        text: "Let's take your code runner for a spin. Try something interesting.",
+        required: ["code_execution"]
+    },
+    {
+        id: "holdout-chart-advice",
+        text: "Which kind of chart is best for showing proportions?",
+        forbidden: ["math", "code_execution"]
+    },
+    {
+        id: "holdout-sandbox-concept",
+        text: "Explain how code execution sandboxes keep untrusted code isolated.",
+        forbidden: ["code_execution", "math"]
+    },
+    {
+        id: "holdout-capability-question",
+        text: "Can you run code?",
+        exploratory: true
+    },
+    {
         id: "holdout-manual",
         text: "Do not run code. Describe how to remove duplicate rows from a CSV.",
         forbidden: ["code_execution"]

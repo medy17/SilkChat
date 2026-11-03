@@ -12,9 +12,14 @@ export const DECISION_MODEL = {
     skillSelection: {
         thresholds: {
             web_search: 0.85,
-            code_execution: 0.85,
+            // Live evals: explicit requests score 0.87-0.98 and decoys at most 0.35, but a
+            // request naming the tool to show it off scores 0.69-0.77. Math requests
+            // (0.77-0.84) also preload it alongside Math Kit; preloading forces nothing.
+            code_execution: 0.65,
             memory: 0.85,
-            math: 0.85,
+            // Live evals: clear requests score 0.92-0.98, a show-off request naming charts
+            // 0.79-0.81, and decoys (chart advice, plain arithmetic) at most 0.44.
+            math: 0.75,
             image_generation: 0.85,
             // Presentation-only instructions expose no executable tools.
             diagrams: 0.75,
