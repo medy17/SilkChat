@@ -863,9 +863,12 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         const visibleLegacyModels = expandedLegacyModels
             ? legacyModels
             : legacyModels.filter((model) => collapsedVisibleLegacyModelIds.has(model.id))
+        // Free plans see their pickable models first so the list doesn't open on locked rows.
+        const byPlanLock = (left: SharedModel, right: SharedModel) =>
+            Number(lockedModelIds.has(left.id)) - Number(lockedModelIds.has(right.id))
 
-        return [...currentModels, ...visibleLegacyModels]
-    }, [collapsedVisibleLegacyModelIds, expandedLegacyModels, imageModels])
+        return [...currentModels.sort(byPlanLock), ...visibleLegacyModels.sort(byPlanLock)]
+    }, [collapsedVisibleLegacyModelIds, expandedLegacyModels, imageModels, lockedModelIds])
     const hiddenLegacyModelCount = useMemo(() => {
         if (expandedLegacyModels) return 0
 
