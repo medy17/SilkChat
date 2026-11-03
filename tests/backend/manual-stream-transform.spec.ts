@@ -36,7 +36,8 @@ const collectChunks = async (
         totalTokens: 0,
         estimatedCostUsd: undefined as number | undefined,
         estimatedPromptCostUsd: undefined as number | undefined,
-        estimatedCompletionCostUsd: undefined as number | undefined
+        estimatedCompletionCostUsd: undefined as number | undefined,
+        contextTokens: undefined as number | undefined
     }
     const uploadPromises: Promise<void>[] = []
     const streamMetrics: {
@@ -540,7 +541,8 @@ describe("manualStreamTransform", () => {
             totalTokens: 30,
             estimatedCostUsd: 0.001552,
             estimatedPromptCostUsd: 0.000757,
-            estimatedCompletionCostUsd: 0.000795
+            estimatedCompletionCostUsd: 0.000795,
+            contextTokens: 10
         })
         expect(result.output).toEqual([
             { type: "reasoning-start", id: "r-1" },
@@ -566,6 +568,24 @@ describe("manualStreamTransform", () => {
             }))
         )
         expect(result.totalTokenUsage.estimatedCostUsd).toBe(0.001)
+    })
+
+    it("anchors context on the last step without reasoning the next turn drops", async () => {
+        const step = (inputTokens: number, reasoningTokens: number) => ({
+            type: "finish-step",
+            finishReason: "stop",
+            usage: {
+                inputTokens,
+                outputTokens: 100,
+                outputTokenDetails: { reasoningTokens },
+                totalTokens: inputTokens + 100,
+                raw: {}
+            }
+        })
+        // Probe shape from DeepSeek: a tool step, then a final step whose input carries step 1's reasoning.
+        const result = await collectChunks([step(325, 53), step(470, 92)])
+        expect(result.totalTokenUsage.promptTokens).toBe(795)
+        expect(result.totalTokenUsage.contextTokens).toBe(417)
     })
 
     it("uses upstream inference cost when OpenRouter BYOK reports zero credit cost", async () => {

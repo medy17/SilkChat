@@ -115,7 +115,7 @@ type ProviderSection = {
     icon: React.ReactNode
 }
 
-const getActiveRuntimeProvider = (
+export const getActiveRuntimeProvider = (
     model: DisplayModel,
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"],
     sharedModels: SharedModel[]

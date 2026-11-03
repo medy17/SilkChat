@@ -68,6 +68,10 @@ export const ImportedMessageMetadata = v.object({
 export const MessageMetadata = v.object({
     ...ImportedMessageMetadata.fields,
     generationConfig: v.optional(GenerationConfig),
+    // See ContextAnchor in convex/lib/context_limits.ts.
+    contextAnchor: v.optional(
+        v.object({ inputTokens: v.number(), systemTokens: v.optional(v.number()) })
+    ),
     contextRouting: v.optional(
         v.object({
             mode: v.literal("byok_fallback"),

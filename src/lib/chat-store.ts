@@ -12,6 +12,7 @@ export type ChatMessageMetadata = {
     runtimeProvider?: string
     reasoningEffort?: string
     promptTokens?: number
+    contextAnchor?: import("@/convex/lib/context_limits").ContextAnchor
     completionTokens?: number
     reasoningTokens?: number
     totalTokens?: number

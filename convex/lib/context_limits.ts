@@ -3,6 +3,19 @@ import type { Infer } from "convex/values"
 import type { HTTPAIMessage, Message } from "../schema/message"
 import { estimateTokenCount } from "./file_constants"
 import type { SharedModel } from "./models"
+import {
+    type TokenKind,
+    type TokenTally,
+    type TokenizerFamily,
+    addTallies,
+    convertTokensBetweenFamilies,
+    emptyTally,
+    getTaggedTokenKind,
+    resolveTokenizerFamily,
+    tallyOf,
+    tallyText,
+    weighTally
+} from "./token_kinds"
 
 export const DEFAULT_MODEL_CONTEXT_LENGTH = 128_000
 export const MAX_OUTPUT_CONTEXT_FRACTION = 0.25
@@ -56,27 +69,40 @@ const parsePositiveNumber = (value: string | undefined, fallback: number) => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-const getHostedMaxInputCostUsd = () =>
-    parsePositiveNumber(
-        process.env.HOSTED_CONTEXT_MAX_INPUT_COST_USD,
-        DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD
-    )
+/** The deployment-wide hosted caps. Convex reads them from env; the client gets them from getSharedModels. */
+export type HostedContextPolicy = {
+    maxInputCostUsd: number
+    maxInputTokens: number
+    fallbackInputTokens: number
+}
 
-const getHostedFallbackInputTokens = () =>
-    Math.floor(
+export const DEFAULT_HOSTED_CONTEXT_POLICY: HostedContextPolicy = {
+    maxInputCostUsd: DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD,
+    maxInputTokens: DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS,
+    fallbackInputTokens: DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS
+}
+
+// `process` doesn't exist in the browser, where this falls back to the defaults.
+const readEnv = (name: string) => (typeof process !== "undefined" ? process.env[name] : undefined)
+
+export const getHostedContextPolicy = (): HostedContextPolicy => ({
+    maxInputCostUsd: parsePositiveNumber(
+        readEnv("HOSTED_CONTEXT_MAX_INPUT_COST_USD"),
+        DEFAULT_HOSTED_CONTEXT_MAX_INPUT_COST_USD
+    ),
+    maxInputTokens: Math.floor(
         parsePositiveNumber(
-            process.env.HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS,
+            readEnv("HOSTED_CONTEXT_MAX_INPUT_TOKENS"),
+            DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS
+        )
+    ),
+    fallbackInputTokens: Math.floor(
+        parsePositiveNumber(
+            readEnv("HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS"),
             DEFAULT_HOSTED_CONTEXT_FALLBACK_INPUT_TOKENS
         )
     )
-
-const getHostedMaxInputTokens = () =>
-    Math.floor(
-        parsePositiveNumber(
-            process.env.HOSTED_CONTEXT_MAX_INPUT_TOKENS,
-            DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS
-        )
-    )
+})
 
 const isPositiveFiniteNumber = (value: unknown): value is number =>
     typeof value === "number" && Number.isFinite(value) && value > 0
@@ -98,7 +124,8 @@ export const resolveMaxOutputTokens = (model: ContextLimitPolicyModel | null | u
 
 export const resolveContextLimits = (
     model: ContextLimitPolicyModel | null | undefined,
-    override?: ContextLimitOverride
+    override?: ContextLimitOverride,
+    policy: HostedContextPolicy = getHostedContextPolicy()
 ) => {
     const modelContextLength = isPositiveFiniteNumber(model?.contextLength)
         ? model.contextLength
@@ -113,16 +140,16 @@ export const resolveContextLimits = (
     const configuredHostedLimit = isPositiveFiniteNumber(model?.hostedContextLength)
         ? model.hostedContextLength
         : undefined
-    const hostedMetadataLimit = configuredHostedLimit ?? getHostedMaxInputTokens()
+    const hostedMetadataLimit = configuredHostedLimit ?? policy.maxInputTokens
     const priceDerivedHostedLimit = isPositiveFiniteNumber(model?.inputUsdPer1MTokens)
-        ? Math.floor((getHostedMaxInputCostUsd() * 1_000_000) / model.inputUsdPer1MTokens)
+        ? Math.floor((policy.maxInputCostUsd * 1_000_000) / model.inputUsdPer1MTokens)
         : undefined
     const computedHostedInputLimit = Math.max(
         1_024,
         Math.min(
             computedModelInputLimit,
             hostedMetadataLimit,
-            priceDerivedHostedLimit ?? configuredHostedLimit ?? getHostedFallbackInputTokens()
+            priceDerivedHostedLimit ?? configuredHostedLimit ?? policy.fallbackInputTokens
         )
     )
 
@@ -235,6 +262,7 @@ export const computeSuggestedModels = ({
     candidates: ModelSuggestionCandidate[]
     limit?: number
 }): SuggestedModel[] => {
+    const currentFamily = resolveTokenizerFamily(currentModelId)
     const requiredModalities = SUGGESTABLE_MODALITIES.filter((ability) =>
         currentModelAbilities.includes(ability)
     )
@@ -256,7 +284,13 @@ export const computeSuggestedModels = ({
             if (!requiredModalities.every((ability) => candidate.abilities.includes(ability))) {
                 return false
             }
-            return estimatedTokens <= resolveContextLimits(candidate).hostedInputLimit
+            // The thread's size differs under the candidate's tokenizer.
+            const candidateTokens = convertTokensBetweenFamilies(
+                estimatedTokens,
+                currentFamily,
+                resolveTokenizerFamily(candidate.id)
+            )
+            return candidateTokens <= resolveContextLimits(candidate).hostedInputLimit
         })
         .sort((a, b) => {
             const aSameProvider = a.developer === currentModelDeveloper ? 0 : 1
@@ -273,64 +307,195 @@ export const computeSuggestedModels = ({
         .map((candidate) => ({ id: candidate.id, name: candidate.name }))
 }
 
-const estimateUnknownTokens = (value: unknown): number => {
-    if (value === null || value === undefined) return 0
-    if (typeof value === "string") return estimateTokenCount(value)
+const tallyUnknown = (value: unknown, kind: TokenKind): TokenTally => {
+    if (value === null || value === undefined) return emptyTally()
+    if (typeof value === "string") return tallyOf(kind, estimateTokenCount(value))
     if (typeof value === "number" || typeof value === "boolean") {
-        return estimateTokenCount(String(value))
+        return tallyOf(kind, estimateTokenCount(String(value)))
     }
 
     try {
-        return estimateTokenCount(JSON.stringify(value))
+        return tallyOf(kind, estimateTokenCount(JSON.stringify(value)))
     } catch {
-        return DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS
+        return tallyOf("fixed", DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS)
     }
 }
 
-const estimateContentPartTokens = (part: unknown): number => {
-    if (!part || typeof part !== "object") return 0
+const tallyContentPart = (part: unknown): TokenTally => {
+    if (!part || typeof part !== "object") return emptyTally()
     const candidate = part as Record<string, unknown>
     const type = candidate.type
 
     if (type === "text") {
-        return estimateUnknownTokens(candidate.text)
+        return typeof candidate.text === "string"
+            ? tallyText(candidate.text, getTaggedTokenKind(candidate))
+            : emptyTally()
     }
 
-    if (type === "reasoning") {
-        return estimateUnknownTokens(candidate.text ?? candidate.reasoning)
-    }
-
-    if (type === "tool-call" || type === "tool-result") {
-        return estimateUnknownTokens(candidate)
-    }
+    // Stored reasoning is plain text without provider signatures, so the SDK drops it from
+    // later turns (verified on OpenRouter: identical input with and without it).
+    if (type === "reasoning") return emptyTally()
 
     if (type === "file" || type === "image") {
-        return (
-            DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS +
-            estimateUnknownTokens(candidate.filename) +
-            estimateUnknownTokens(candidate.mediaType ?? candidate.mimeType)
+        return addTallies(
+            addTallies(
+                tallyOf("fixed", DEFAULT_CONTEXT_FILE_REFERENCE_TOKENS),
+                tallyUnknown(candidate.filename, "prose")
+            ),
+            tallyUnknown(candidate.mediaType ?? candidate.mimeType, "prose")
         )
     }
 
-    return estimateUnknownTokens(candidate)
+    // Tool calls and results (and anything else structured) are serialised JSON.
+    return tallyUnknown(candidate, "data")
 }
 
-export const estimateModelMessagesTokens = (messages: ModelMessage[]) =>
-    messages.reduce((total, message) => {
-        const content = message.content
-        const contentTokens = Array.isArray(content)
-            ? content.reduce((sum, part) => sum + estimateContentPartTokens(part), 0)
-            : estimateUnknownTokens(content)
+const tallyParts = (parts: readonly unknown[]) =>
+    parts.reduce<TokenTally>(
+        (tally, part) => addTallies(tally, tallyContentPart(part)),
+        tallyOf("fixed", DEFAULT_MESSAGE_OVERHEAD_TOKENS)
+    )
 
-        return total + DEFAULT_MESSAGE_OVERHEAD_TOKENS + contentTokens
-    }, 0)
+/** Estimates weigh content by kind for the target model's tokenizer family. */
+export const estimateModelMessagesTokens = (
+    messages: ModelMessage[],
+    family: TokenizerFamily = "o200k"
+) =>
+    weighTally(
+        messages.reduce<TokenTally>((tally, message) => {
+            const content = message.content
+            return addTallies(
+                tally,
+                Array.isArray(content)
+                    ? tallyParts(content)
+                    : addTallies(
+                          tallyOf("fixed", DEFAULT_MESSAGE_OVERHEAD_TOKENS),
+                          typeof content === "string"
+                              ? tallyText(content)
+                              : tallyUnknown(content, "data")
+                      )
+            )
+        }, emptyTally()),
+        family
+    )
 
-export const estimateHttpMessageTokens = (message: Infer<typeof HTTPAIMessage>) => {
-    const partTokens = message.parts.reduce((sum, part) => sum + estimateContentPartTokens(part), 0)
-    return DEFAULT_MESSAGE_OVERHEAD_TOKENS + partTokens
+export const estimateHttpMessageTokens = (
+    message: Infer<typeof HTTPAIMessage>,
+    family: TokenizerFamily = "o200k"
+) => weighTally(tallyParts(message.parts), family)
+
+export const estimateStoredMessageTokens = (
+    message: Pick<Infer<typeof Message>, "parts">,
+    family: TokenizerFamily = "o200k"
+) => weighTally(tallyParts(message.parts), family)
+
+/**
+ * The provider's real input count for a reply's last step, minus reasoning from earlier steps
+ * of that turn (sent back within the turn, dropped on the next). `systemTokens` is our estimate
+ * of that turn's system prompt, so later turns can add only the change.
+ */
+export type ContextAnchor = { inputTokens: number; systemTokens?: number }
+
+type AnchorableMessage = {
+    role: string
+    parts: readonly unknown[]
+    metadata?: {
+        modelId?: string
+        promptTokens?: number
+        contextAnchor?: ContextAnchor
+    } | null
 }
 
-export const estimateStoredMessageTokens = (message: Infer<typeof Message>) => {
-    const partTokens = message.parts.reduce((sum, part) => sum + estimateContentPartTokens(part), 0)
-    return DEFAULT_MESSAGE_OVERHEAD_TOKENS + partTokens
+const getPartType = (part: unknown) =>
+    part && typeof part === "object" ? (part as { type?: unknown }).type : undefined
+
+// Stored parts use "tool-invocation"; UI parts use "tool-<name>" or "dynamic-tool".
+const isToolPart = (part: unknown) => {
+    const type = getPartType(part)
+    return typeof type === "string" && (type.startsWith("tool-") || type === "dynamic-tool")
+}
+
+const resolveContextAnchor = (message: AnchorableMessage): ContextAnchor | null => {
+    // The model is what says which tokenizer the count is in.
+    if (message.role !== "assistant" || !message.metadata?.modelId) return null
+    const anchor = message.metadata.contextAnchor
+    if (anchor && isPositiveFiniteNumber(anchor.inputTokens)) return anchor
+    // Replies from before anchors were stored: with no tool calls the turn was a single step,
+    // so its summed promptTokens is exactly that step's input.
+    const promptTokens = message.metadata.promptTokens
+    if (isPositiveFiniteNumber(promptTokens) && !message.parts.some(isToolPart)) {
+        return { inputTokens: promptTokens }
+    }
+    return null
+}
+
+/**
+ * The newest reply carrying a real count, and the parts of it that count doesn't include: its
+ * final step (everything after its last tool call). Later messages aren't covered either.
+ */
+export const findContextAnchor = <M extends AnchorableMessage>(messages: readonly M[]) => {
+    for (let index = messages.length - 1; index >= 0; index--) {
+        const message = messages[index]
+        const anchor = resolveContextAnchor(message)
+        if (!anchor) continue
+
+        let lastToolIndex = -1
+        message.parts.forEach((part, partIndex) => {
+            if (isToolPart(part)) lastToolIndex = partIndex
+        })
+        return {
+            index,
+            anchor,
+            modelId: message.metadata?.modelId as string,
+            family: resolveTokenizerFamily(message.metadata?.modelId),
+            finalStepParts: message.parts.slice(lastToolIndex + 1) as M["parts"]
+        }
+    }
+    return null
+}
+
+/** An anchor's counts in the target family's units; exact when the families match. */
+export const convertContextAnchor = (
+    anchor: ContextAnchor,
+    from: TokenizerFamily,
+    to: TokenizerFamily
+): ContextAnchor => ({
+    inputTokens: convertTokensBetweenFamilies(anchor.inputTokens, from, to),
+    ...(anchor.systemTokens === undefined
+        ? {}
+        : { systemTokens: convertTokensBetweenFamilies(anchor.systemTokens, from, to) })
+})
+
+/**
+ * Context anchored on the newest reply with a real count, from any model: a reply from another
+ * tokenizer family is converted. Only what came after that count is estimated. Null when nothing
+ * in the history can anchor.
+ */
+export const estimateAnchoredContextTokens = <M extends AnchorableMessage>({
+    messages,
+    family,
+    estimateMessage
+}: {
+    /** Chronological, ending with the message about to be sent. */
+    messages: readonly M[]
+    family: TokenizerFamily
+    estimateMessage: (message: { parts: M["parts"] }) => number
+}) => {
+    const match = findContextAnchor(messages)
+    if (!match) return null
+
+    const anchor = convertContextAnchor(match.anchor, match.family, family)
+    const tailTokens =
+        estimateMessage({ parts: match.finalStepParts }) +
+        messages.slice(match.index + 1).reduce((sum, later) => sum + estimateMessage(later), 0)
+
+    return {
+        anchorTokens: anchor.inputTokens,
+        tailTokens,
+        anchorSystemTokens: anchor.systemTokens,
+        // Where the count came from, for diagnostics.
+        anchorModelId: match.modelId,
+        anchorFamily: match.family,
+        realAnchorTokens: match.anchor.inputTokens
+    }
 }

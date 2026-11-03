@@ -152,6 +152,7 @@ import type * as lib_thread_import_core_parsers_t3chat_json from "../lib/thread_
 import type * as lib_thread_import_core_parsers_t3chat_markdown from "../lib/thread_import_core/parsers/t3chat_markdown.js";
 import type * as lib_thread_import_core_shared from "../lib/thread_import_core/shared.js";
 import type * as lib_thread_import_core_types from "../lib/thread_import_core/types.js";
+import type * as lib_token_kinds from "../lib/token_kinds.js";
 import type * as lib_toolkit from "../lib/toolkit.js";
 import type * as lib_tools_adapters_index from "../lib/tools/adapters/index.js";
 import type * as lib_tools_adapters_perplexity_search_adapter from "../lib/tools/adapters/perplexity_search_adapter.js";
@@ -377,6 +378,7 @@ declare const fullApi: ApiFromModules<{
   "lib/thread_import_core/parsers/t3chat_markdown": typeof lib_thread_import_core_parsers_t3chat_markdown;
   "lib/thread_import_core/shared": typeof lib_thread_import_core_shared;
   "lib/thread_import_core/types": typeof lib_thread_import_core_types;
+  "lib/token_kinds": typeof lib_token_kinds;
   "lib/toolkit": typeof lib_toolkit;
   "lib/tools/adapters/index": typeof lib_tools_adapters_index;
   "lib/tools/adapters/perplexity_search_adapter": typeof lib_tools_adapters_perplexity_search_adapter;

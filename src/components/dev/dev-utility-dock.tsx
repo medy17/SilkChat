@@ -3,13 +3,31 @@ import { LogoSymbol } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSession } from "@/hooks/auth-hooks"
 import { optionalBrowserEnv } from "@/lib/browser-env"
+import { RING_TONE_CLASSES } from "@/components/context-usage-ring"
+import {
+    CONTEXT_RING_TONES,
+    type ContextRingLevel,
+    type ContextRingTone,
+    type ContextRingVisibility,
+    DEFAULT_CONTEXT_RING_LEVELS
+} from "@/lib/composer-context"
 import { useAreDevOverridesActive, useDevOverridesStore } from "@/lib/dev-overrides"
 import { serializeReproBundle, useReproRecorderStore } from "@/lib/dev-repro-recorder"
-import { useThreadDiagnosticsStore } from "@/lib/dev-thread-diagnostics"
+import {
+    useComposerContextDiagnosticsStore,
+    useThreadDiagnosticsStore
+} from "@/lib/dev-thread-diagnostics"
 import {
     type DevDockCorner,
     type DevStorageScope,
@@ -23,8 +41,20 @@ import {
     isLocalImageOptimizerEnabled
 } from "@/lib/local-image-optimizer"
 import { useModelStore } from "@/lib/model-store"
+import { cn } from "@/lib/utils"
 import { useLocation, useParams } from "@tanstack/react-router"
-import { Bug, Copy, Database, ImageOff, RefreshCcw, ScanEye, Wrench } from "lucide-react"
+import {
+    Bug,
+    Circle,
+    Copy,
+    Database,
+    ImageOff,
+    Plus,
+    RefreshCcw,
+    ScanEye,
+    Wrench,
+    X
+} from "lucide-react"
 import {
     type CSSProperties,
     type MouseEvent as ReactMouseEvent,
@@ -605,6 +635,7 @@ export function DevUtilityDock() {
                                             />
                                         </div>
                                     </div>
+                                    <ContextRingDevControls disabled={!overridesActive} />
                                 </div>
                                 {!overridesActive && (
                                     <p className="text-muted-foreground text-xs">
@@ -708,6 +739,7 @@ export function DevUtilityDock() {
                                 {threadDiagnostics?.threadId && (
                                     <ThreadDiagnosticsSection diagnostics={threadDiagnostics} />
                                 )}
+                                <ComposerContextSection />
                             </TabsContent>
 
                             <TabsContent
@@ -798,7 +830,7 @@ function ThreadDiagnosticsSection({
 }: {
     diagnostics: NonNullable<ReturnType<typeof useThreadDiagnosticsStore.getState>["diagnostics"]>
 }) {
-    const { persona, stats, context } = diagnostics
+    const { persona, stats } = diagnostics
     const fmt = (value: number) => value.toLocaleString()
     const attachments = stats.attachments
 
@@ -841,15 +873,7 @@ function ThreadDiagnosticsSection({
                     label="Estimator tok (excl. sys)"
                     value={`${fmt(stats.estimatorTotalTokens)} (${fmt(stats.estimatorInputTokens)} in · ${fmt(stats.estimatorOutputTokens)} out)`}
                 />
-                <DiagnosticRow label="Thread cost" value={`$${stats.totalCostUsd.toFixed(4)}`} />
-                {context && (
-                    <DiagnosticRow
-                        label={`Until hosted limit (${context.basis})`}
-                        value={`${fmt(context.tokensUntilHostedLimit)} / ${context.hasPricing ? "" : "~"}${fmt(context.hostedInputLimit)}${
-                            context.otfOverrideActive ? " · OTF" : ""
-                        }`}
-                    />
-                )}
+                <DiagnosticRow label="Thread cost" value={`${stats.totalCostUsd.toFixed(4)}`} />
             </div>
         </div>
     )
@@ -859,22 +883,28 @@ function DevNumberField({
     label,
     value,
     disabled,
-    onChange
+    onChange,
+    ariaLabel = `${label} context limit override`,
+    placeholder = "real",
+    min = 1
 }: {
     label: string
     value: number | null
     disabled: boolean
     onChange: (value: number | null) => void
+    ariaLabel?: string
+    placeholder?: string
+    min?: number
 }) {
     return (
         <div className="space-y-1">
             <span className="text-[0.625rem] text-muted-foreground">{label}</span>
             <Input
                 type="number"
-                min={1}
+                min={min}
                 value={value ?? ""}
-                placeholder="real"
-                aria-label={`${label} context limit override`}
+                placeholder={placeholder}
+                aria-label={ariaLabel}
                 disabled={disabled}
                 className="h-8 rounded-[var(--radius-sm)] text-xs"
                 onChange={(event) => {
@@ -884,7 +914,7 @@ function DevNumberField({
                         return
                     }
                     const parsed = Number.parseInt(raw, 10)
-                    onChange(Number.isNaN(parsed) ? null : Math.max(1, parsed))
+                    onChange(Number.isNaN(parsed) ? null : Math.max(min, parsed))
                 }}
             />
         </div>
@@ -896,6 +926,198 @@ function DiagnosticRow({ label, value }: { label: string; value: string | null }
         <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">{label}</span>
             <span className="truncate text-right">{value ?? "none"}</span>
+        </div>
+    )
+}
+
+function ContextRingDevControls({ disabled }: { disabled: boolean }) {
+    const visibility = useDevOverridesStore((state) => state.contextRingVisibility)
+    const setVisibility = useDevOverridesStore((state) => state.setContextRingVisibility)
+    const showFromPercent = useDevOverridesStore((state) => state.contextRingShowFromPercent)
+    const setShowFromPercent = useDevOverridesStore((state) => state.setContextRingShowFromPercent)
+    const storedLevels = useDevOverridesStore((state) => state.contextRingLevels)
+    const setLevels = useDevOverridesStore((state) => state.setContextRingLevels)
+    const levels = storedLevels ?? DEFAULT_CONTEXT_RING_LEVELS
+
+    const updateLevel = (index: number, patch: Partial<ContextRingLevel>) =>
+        setLevels(levels.map((level, i) => (i === index ? { ...level, ...patch } : level)))
+    const addLevel = () => {
+        const highest = Math.max(0, ...levels.map((level) => level.fromPercent))
+        setLevels([...levels, { fromPercent: highest + 10, tone: "primary" }])
+    }
+
+    return (
+        <div className="space-y-2 border-t pt-2">
+            <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                    <p className="font-medium text-xs">Context ring</p>
+                    <p className="text-muted-foreground text-xs">
+                        Composer ring visibility and tones
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 rounded-[var(--radius-md)] text-xs"
+                    disabled={disabled}
+                    onClick={() => {
+                        setVisibility("auto")
+                        setShowFromPercent(null)
+                        setLevels(null)
+                    }}
+                >
+                    Reset
+                </Button>
+            </div>
+            <Tabs
+                value={visibility}
+                onValueChange={(value) => setVisibility(value as ContextRingVisibility)}
+            >
+                <TabsList className="grid h-8 w-full grid-cols-3">
+                    {(["auto", "always", "never"] as const).map((option) => (
+                        <TabsTrigger
+                            key={option}
+                            value={option}
+                            disabled={disabled}
+                            className="px-2 text-xs capitalize"
+                        >
+                            {option}
+                        </TabsTrigger>
+                    ))}
+                </TabsList>
+            </Tabs>
+            <DevNumberField
+                label="Show from % (auto)"
+                ariaLabel="Context ring show-from percentage"
+                placeholder="75"
+                min={0}
+                value={showFromPercent}
+                disabled={disabled || visibility !== "auto"}
+                onChange={setShowFromPercent}
+            />
+            <div className="space-y-1">
+                <span className="text-[0.625rem] text-muted-foreground">Levels (tone from %)</span>
+                {levels.map((level, index) => (
+                    // Levels have no identity beyond their position while being edited.
+                    <div key={index} className="flex items-center gap-2">
+                        <Input
+                            type="number"
+                            min={0}
+                            value={level.fromPercent}
+                            aria-label={`Level ${index + 1} start percentage`}
+                            disabled={disabled}
+                            className="h-8 w-20 rounded-[var(--radius-sm)] text-xs"
+                            onChange={(event) => {
+                                const parsed = Number.parseInt(event.target.value, 10)
+                                if (!Number.isNaN(parsed)) {
+                                    updateLevel(index, { fromPercent: Math.max(0, parsed) })
+                                }
+                            }}
+                        />
+                        <Select
+                            value={level.tone}
+                            disabled={disabled}
+                            onValueChange={(tone) =>
+                                updateLevel(index, { tone: tone as ContextRingTone })
+                            }
+                        >
+                            <SelectTrigger
+                                size="sm"
+                                aria-label={`Level ${index + 1} tone`}
+                                className="h-8 flex-1 text-xs"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {CONTEXT_RING_TONES.map((tone) => (
+                                    <SelectItem key={tone} value={tone} className="text-xs">
+                                        <Circle
+                                            className={cn(
+                                                "size-2.5 fill-current",
+                                                RING_TONE_CLASSES[tone]
+                                            )}
+                                        />
+                                        {tone}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Remove level ${index + 1}`}
+                            disabled={disabled || levels.length <= 1}
+                            className="size-8 shrink-0"
+                            style={{ borderRadius: "var(--radius-md)" }}
+                            onClick={() => setLevels(levels.filter((_, i) => i !== index))}
+                        >
+                            <X className="size-3.5" />
+                        </Button>
+                    </div>
+                ))}
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-full rounded-[var(--radius-md)] text-xs"
+                    disabled={disabled}
+                    onClick={addLevel}
+                >
+                    <Plus className="size-3.5" />
+                    Add level
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+function ComposerContextSection() {
+    const diagnostics = useComposerContextDiagnosticsStore((state) => state.diagnostics)
+    if (!diagnostics) return null
+
+    const { usage, limitTokens, limitKind, overrideActive } = diagnostics
+    const fmt = (value: number) => Math.round(value).toLocaleString()
+    const percent = limitTokens > 0 ? Math.round((usage.usedTokens / limitTokens) * 100) : 0
+    const anchor = usage.anchor
+
+    return (
+        <div className="space-y-2">
+            <span className="font-medium text-xs">Composer context</span>
+            <div className="space-y-1 rounded-[var(--radius-lg)] bg-muted/40 p-2 text-xs">
+                <DiagnosticRow
+                    label="Next send"
+                    value={`${fmt(usage.usedTokens)} / ${fmt(limitTokens)} · ${percent}%${
+                        overrideActive ? " · OTF" : ""
+                    }`}
+                />
+                <DiagnosticRow
+                    label="Limit"
+                    value={limitKind === "model" ? "model window" : "hosted cap"}
+                />
+                <DiagnosticRow label="Tokenizer" value={usage.family} />
+                <DiagnosticRow
+                    label="Counted from"
+                    value={
+                        anchor
+                            ? `${anchor.modelId} · real ${fmt(anchor.realTokens)}${
+                                  anchor.family === usage.family
+                                      ? ""
+                                      : ` → ${fmt(anchor.tokens)} (${anchor.family}→${usage.family})`
+                              }`
+                            : "estimate (no anchor)"
+                    }
+                />
+                <DiagnosticRow
+                    label="Estimated on top"
+                    value={
+                        anchor
+                            ? `${fmt(anchor.tailTokens)} tail · ${fmt(usage.draftTokens)} draft`
+                            : `${fmt(usage.draftTokens)} draft`
+                    }
+                />
+            </div>
         </div>
     )
 }

@@ -145,6 +145,7 @@ const FOOTER_METADATA_KEYS = [
     "creditProviderSource",
     "reasoningEffort",
     "promptTokens",
+    "contextAnchor",
     "completionTokens",
     "reasoningTokens",
     "totalTokens",

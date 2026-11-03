@@ -39,6 +39,9 @@ export type DisplayModel =
           // The provider's model ID and the user's description of it.
           modelId?: string
           description?: string
+          // The window and output budget the user set, which the server budgets with too.
+          contextLength?: number
+          maxTokens?: number
           mode?: "text" | "image"
           reasoningEfforts?: ReasoningEffort[]
           supportsDisablingReasoning?: boolean
@@ -86,6 +89,8 @@ export const toCustomDisplayModel = (
         providerId: customModel.providerId,
         modelId: customModel.modelId,
         description: customModel.description?.trim() || undefined,
+        contextLength: customModel.contextLength,
+        maxTokens: customModel.maxTokens,
         ...reasoning,
         expirationDate: catalogStatus?.expirationDate,
         unavailableReason: catalogStatus?.unavailableReason
@@ -93,7 +98,8 @@ export const toCustomDisplayModel = (
 }
 
 // The reasoning helpers take a SharedModel; custom models carry the same reasoning fields,
-// so they can stand in and get the composer's level picker too.
+// so they can stand in and get the composer's level picker too. Their window comes along so
+// the composer budgets with the same limits the server does.
 export const getReasoningSourceModel = (
     model: DisplayModel | null | undefined
 ): SharedModel | undefined => {
@@ -105,6 +111,8 @@ export const getReasoningSourceModel = (
         name: model.name,
         adapters: [],
         abilities: model.abilities,
+        contextLength: model.contextLength,
+        maxTokens: model.maxTokens,
         reasoningEfforts: model.reasoningEfforts,
         supportsDisablingReasoning: model.supportsDisablingReasoning,
         defaultReasoningEffort: model.defaultReasoningEffort

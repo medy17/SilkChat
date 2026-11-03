@@ -370,7 +370,7 @@ describe("dbMessagesToCore", () => {
     it("replaces text above 16k estimated tokens with a public URL for code execution", async () => {
         vi.stubGlobal(
             "fetch",
-            vi.fn().mockResolvedValue(new Response("word ".repeat(14_000), { status: 200 }))
+            vi.fn().mockResolvedValue(new Response("word ".repeat(20_000), { status: 200 }))
         )
 
         const result = await dbMessagesToCore(
@@ -465,7 +465,7 @@ describe("dbMessagesToCore", () => {
     })
 
     it("keeps medium text inline when code execution is unavailable", async () => {
-        const text = "word ".repeat(14_000)
+        const text = "word ".repeat(20_000)
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
 
         const result = await dbMessagesToCore(
@@ -498,7 +498,7 @@ describe("dbMessagesToCore", () => {
     })
 
     it("does not dump enormous text into context when code execution is unavailable", async () => {
-        const text = "word ".repeat(30_000)
+        const text = "word ".repeat(40_000)
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
 
         const result = await dbMessagesToCore(
@@ -531,7 +531,7 @@ describe("dbMessagesToCore", () => {
     })
 
     it("applies the safe inline ceiling when the caller omits it", async () => {
-        const text = "word ".repeat(30_000)
+        const text = "word ".repeat(40_000)
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(text, { status: 200 })))
 
         const result = await dbMessagesToCore(

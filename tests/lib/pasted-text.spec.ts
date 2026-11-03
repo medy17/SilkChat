@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest"
 
 describe("pasted text policy", () => {
     it("keeps long text inline without enabling tools when the editor's attachment queue is busy", () => {
-        const decision = classifyPastedText("word ".repeat(30_000), {
+        const decision = classifyPastedText("word ".repeat(40_000), {
             canReferenceLongTextAttachments: true,
             attachmentQueueBusy: true
         })
@@ -19,7 +19,7 @@ describe("pasted text policy", () => {
         const inline = classifyPastedText("A short note", {
             canReferenceLongTextAttachments: true
         })
-        const url = classifyPastedText("word ".repeat(14_000), {
+        const url = classifyPastedText("word ".repeat(20_000), {
             canReferenceLongTextAttachments: true
         })
 
@@ -32,10 +32,10 @@ describe("pasted text policy", () => {
     })
 
     it("keeps medium pastes inline when code execution cannot retrieve them", () => {
-        const medium = classifyPastedText("word ".repeat(14_000), {
+        const medium = classifyPastedText("word ".repeat(20_000), {
             canReferenceLongTextAttachments: false
         })
-        const enormous = classifyPastedText("word ".repeat(30_000), {
+        const enormous = classifyPastedText("word ".repeat(40_000), {
             canReferenceLongTextAttachments: false
         })
 
@@ -44,7 +44,7 @@ describe("pasted text policy", () => {
     })
 
     it("keeps code execution enabled after turning a long paste into a URL reference", () => {
-        const decision = classifyPastedText("word ".repeat(14_000), {
+        const decision = classifyPastedText("word ".repeat(20_000), {
             canReferenceLongTextAttachments: true
         })
 

@@ -54,6 +54,8 @@ export const manualStreamTransform = (
         estimatedCostUsd?: number
         estimatedPromptCostUsd?: number
         estimatedCompletionCostUsd?: number
+        /** The last step's input minus earlier steps' reasoning: see ContextAnchor. */
+        contextTokens?: number
     },
     uploadPromises: Promise<void>[],
     userId: string,
@@ -567,6 +569,11 @@ export const manualStreamTransform = (
                     break
                 case "finish-step": {
                     const rawCostDetails = getRawCostDetails(chunk.usage.raw)
+                    // Earlier steps' reasoning is in this step's input but dropped next turn.
+                    if (chunk.usage.inputTokens) {
+                        totalTokenUsage.contextTokens =
+                            chunk.usage.inputTokens - totalTokenUsage.reasoningTokens
+                    }
                     totalTokenUsage.promptTokens += chunk.usage.inputTokens || 0
                     totalTokenUsage.completionTokens += chunk.usage.outputTokens || 0
                     totalTokenUsage.reasoningTokens +=

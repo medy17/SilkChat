@@ -13,7 +13,7 @@ import { type Infer, v } from "convex/values"
 import type { Doc, Id } from "./_generated/dataModel"
 import { type QueryCtx, internalQuery, mutation, query } from "./_generated/server"
 import { assertAccountNotDeleting } from "./lib/account_deletion_status"
-import { resolveContextLimits } from "./lib/context_limits"
+import { getHostedContextPolicy } from "./lib/context_limits"
 import { decryptKey, encryptKey } from "./lib/encryption"
 import { getUserIdentity } from "./lib/identity"
 import { normalizeModelAbilities } from "./lib/model_abilities"
@@ -347,47 +347,8 @@ export const getSharedModels = query({
             version: `${SHARED_MODELS_VERSION}:${metadataVersion}`,
             models: sharedModels.map((model) =>
                 overlayOpenRouterMetadata(model, metadataByProviderModelId)
-            )
-        }
-    }
-})
-
-/**
- * Dev-only: the resolved context limits for a model, computed with OpenRouter pricing metadata.
- * Returns null in production — gated by the same flag as the dev credit lab.
- */
-export const getDevModelContextLimits = query({
-    args: { modelId: v.string() },
-    handler: async (ctx, { modelId }) => {
-        if (process.env.DEV_CREDIT_LAB_ENABLED !== "1") return null
-
-        const model = MODELS_SHARED.find((candidate) => candidate.id === modelId)
-        if (!model) return null
-
-        const providerModelId = getOpenRouterProviderModelId(model)
-        const metadataByProviderModelId: Record<string, Doc<"modelProviderMetadata">> = {}
-        if (providerModelId) {
-            const metadata = await ctx.db
-                .query("modelProviderMetadata")
-                .withIndex("byProviderModel", (q) =>
-                    q.eq("provider", "openrouter").eq("providerModelId", providerModelId)
-                )
-                .first()
-            if (metadata) metadataByProviderModelId[providerModelId] = metadata
-        }
-
-        const enriched = overlayOpenRouterMetadata(model, metadataByProviderModelId)
-        const limits = resolveContextLimits(enriched)
-        return {
-            // The enriched policy fields, so the client can re-run resolveContextLimits with a
-            // dev OTF override layered on top.
-            contextLength: enriched.contextLength ?? null,
-            maxTokens: enriched.maxTokens ?? null,
-            inputUsdPer1MTokens: enriched.inputUsdPer1MTokens ?? null,
-            hostedContextLength: model.hostedContextLength ?? null,
-            resolvedHostedInputLimit: limits.hostedInputLimit,
-            resolvedModelInputLimit: limits.modelInputLimit,
-            hasPricing: typeof enriched.inputUsdPer1MTokens === "number"
+            ),
+            hostedContextPolicy: getHostedContextPolicy()
         }
     }
 })

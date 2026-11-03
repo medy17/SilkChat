@@ -1,8 +1,8 @@
 import { useEffect } from "react"
 import { create } from "zustand"
 
-import { type ContextLimitPolicyModel, resolveContextLimits } from "@/convex/lib/context_limits"
-import { getActiveDevContextOverride, useAreDevOverridesActive } from "@/lib/dev-overrides"
+import type { ComposerContextUsage } from "@/lib/composer-context"
+import { useAreDevOverridesActive } from "@/lib/dev-overrides"
 import { estimateTokenCount, getFileTypeInfo } from "@/lib/file_constants"
 
 /**
@@ -154,21 +154,10 @@ export type ThreadPersonaInfo = {
     description: string | null
 }
 
-export type ThreadContextInfo = {
-    hostedInputLimit: number
-    tokensUntilHostedLimit: number
-    otfOverrideActive: boolean
-    /** Which figure drove the "tokens until limit" calc. */
-    basis: "canonical" | "estimator"
-    /** False when the limit came from the client fallback (no OpenRouter pricing available). */
-    hasPricing: boolean
-}
-
 export type ThreadDiagnostics = {
     threadId: string | null
     stats: ThreadTokenStats
     persona: ThreadPersonaInfo
-    context: ThreadContextInfo | null
 }
 
 export const useThreadDiagnosticsStore = create<{
@@ -180,22 +169,51 @@ export const useThreadDiagnosticsStore = create<{
 }))
 
 /**
+ * What the composer measured for the next send, published as-is so the dock shows the same
+ * numbers the ring and the server use instead of computing its own.
+ */
+export type ComposerContextDiagnostics = {
+    usage: ComposerContextUsage
+    limitTokens: number
+    limitKind: "hosted" | "model"
+    overrideActive: boolean
+}
+
+export const useComposerContextDiagnosticsStore = create<{
+    diagnostics: ComposerContextDiagnostics | null
+    setDiagnostics: (diagnostics: ComposerContextDiagnostics | null) => void
+}>((set) => ({
+    diagnostics: null,
+    setDiagnostics: (diagnostics) => set({ diagnostics })
+}))
+
+/** Publishes the composer's measurement while dev tooling is active; clears it otherwise. */
+export const usePublishComposerContextDiagnostics = (
+    diagnostics: ComposerContextDiagnostics | null
+) => {
+    const active = useAreDevOverridesActive()
+    const setDiagnostics = useComposerContextDiagnosticsStore((state) => state.setDiagnostics)
+
+    useEffect(() => () => setDiagnostics(null), [setDiagnostics])
+
+    useEffect(() => {
+        setDiagnostics(active ? diagnostics : null)
+    }, [active, diagnostics, setDiagnostics])
+}
+
+/**
  * Compute the active thread's diagnostics and publish them for the dock. Runs only while
  * dev tooling is active; clears the store otherwise. Call once from the thread view (it has
- * the live messages + resolved persona/model).
+ * the live messages + resolved persona).
  */
 export const usePublishThreadDiagnostics = (input: {
     threadId: string | null
     messages: readonly DiagMessage[]
     persona: ThreadPersonaInfo
-    /** Enriched policy model (with OpenRouter pricing) when available; shared model otherwise. */
-    contextModel: ContextLimitPolicyModel | null | undefined
-    /** Whether contextModel carries real pricing (i.e. the hosted limit is accurate). */
-    hasPricing: boolean
 }) => {
     const active = useAreDevOverridesActive()
     const setDiagnostics = useThreadDiagnosticsStore((state) => state.setDiagnostics)
-    const { threadId, messages, persona, contextModel, hasPricing } = input
+    const { threadId, messages, persona } = input
 
     // Clear on unmount so the dock never shows a thread's stats after leaving its view.
     useEffect(() => () => setDiagnostics(null), [setDiagnostics])
@@ -206,20 +224,6 @@ export const usePublishThreadDiagnostics = (input: {
             return
         }
 
-        const stats = computeThreadStats(messages)
-        const override = getActiveDevContextOverride()
-        const limits = resolveContextLimits(contextModel, override)
-        // Prefer the canonical last-turn prompt size (includes the server system prompt) over
-        // our content-only estimator when it's available.
-        const currentContextTokens = stats.lastCanonicalPromptTokens ?? stats.estimatorTotalTokens
-        const context: ThreadContextInfo = {
-            hostedInputLimit: limits.hostedInputLimit,
-            tokensUntilHostedLimit: limits.hostedInputLimit - currentContextTokens,
-            otfOverrideActive: override != null,
-            basis: stats.lastCanonicalPromptTokens != null ? "canonical" : "estimator",
-            hasPricing
-        }
-
-        setDiagnostics({ threadId, stats, persona, context })
-    }, [active, threadId, messages, persona, contextModel, hasPricing, setDiagnostics])
+        setDiagnostics({ threadId, stats: computeThreadStats(messages), persona })
+    }, [active, threadId, messages, persona, setDiagnostics])
 }

@@ -1,3 +1,5 @@
+import { estimateTokenCount as estimateTokenxCount } from "tokenx"
+
 // Supported raster image file extensions
 export const SUPPORTED_RASTER_IMAGE_EXTENSIONS = [
     ".png",
@@ -286,52 +288,12 @@ export const getFileAcceptAttribute = (includeImages = true) => {
     return `${textExtensions},${documentExtensions},.svg`
 }
 
-export const estimateTokenCount = (text: string): number => {
-    let ascii = 0
-    let cjk = 0
-    let nonLatin = 0
-    let emojiOrSymbol = 0
-    let punctuation = 0
-    let whitespace = 0
-
-    for (const char of text) {
-        if (/\s/u.test(char)) {
-            whitespace++
-        } else if (
-            /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(char)
-        ) {
-            cjk++
-        } else if (/[A-Za-z0-9]/u.test(char)) {
-            ascii++
-        } else if (/\p{L}|\p{N}/u.test(char)) {
-            nonLatin++
-        } else if (/\p{S}/u.test(char)) {
-            emojiOrSymbol++
-        } else {
-            punctuation++
-        }
-    }
-
-    const raw =
-        ascii / 4 +
-        whitespace / 20 +
-        cjk * 1.1 +
-        nonLatin / 2.2 +
-        emojiOrSymbol * 2 +
-        punctuation / 2
-
-    const punctuationDensity = punctuation / Math.max(text.length, 1)
-    const densityMultiplier = punctuationDensity > 0.25 ? 1.15 : 1
-
-    const codeish =
-        /```|~~~|[{[\]}();<>]|=>|->|::|\/\*|\*\/|\/\/|import\s|export\s|function\s|const\s|let\s|var\s|class\s|interface\s|type\s|enum\s|SELECT\s|INSERT\s|UPDATE\s|DELETE\s|CREATE\s|FROM\s|WHERE\s|package\s|namespace\s/i.test(
-            text
-        )
-
-    const codeMultiplier = codeish ? 1.25 : 1
-
-    return Math.ceil(raw * densityMultiplier * codeMultiplier * 1.15)
-}
+/**
+ * A model-neutral count close to OpenAI's o200k (tokenx: within ~6% on code, prose and JSON).
+ * Tokenizers differ by model family; convex/lib/token_kinds.ts weights this per family before
+ * anything is compared against a model's limits.
+ */
+export const estimateTokenCount = (text: string): number => estimateTokenxCount(text)
 
 // File type detection result
 export interface FileTypeInfo {

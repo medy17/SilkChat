@@ -21,6 +21,7 @@ import {
     getFileTypeInfo
 } from "./file_constants"
 import { supportsNativePdf } from "./model_abilities"
+import { tagTokenKind, tokenKindForFile } from "./token_kinds"
 
 export type CoreMessage = ModelMessage & {
     messageId: string
@@ -254,10 +255,16 @@ export const dbMessagesToCore = async (
                                         text: `<internal-system-error>The text attachment "${filename}" is too large to inline safely (${estimatedTokens.toLocaleString()} estimated tokens), and code execution is unavailable. Ask the user to enable code execution or choose a function-calling model before analyzing this file.</internal-system-error>`
                                     })
                                 } else {
-                                    mapped_content.push({
-                                        type: "text",
-                                        text: `<file name="${filename}">\n${text}\n</file>`
-                                    })
+                                    // Estimates weigh code, prose and data differently per model.
+                                    mapped_content.push(
+                                        tagTokenKind(
+                                            {
+                                                type: "text",
+                                                text: `<file name="${filename}">\n${text}\n</file>`
+                                            },
+                                            tokenKindForFile(filename, p.mimeType)
+                                        )
+                                    )
                                 }
                             } else {
                                 console.warn(

@@ -32,12 +32,15 @@ import {
     type ContextLimitViolation,
     type SuggestedModel,
     computeSuggestedModels,
+    convertContextAnchor,
     estimateHttpMessageTokens,
     estimateModelMessagesTokens,
+    findContextAnchor,
     getContextLimitViolation,
     resolveContextLimits,
     resolveMaxOutputTokens
 } from "../lib/context_limits"
+import { resolveTokenizerFamily } from "../lib/token_kinds"
 import { resolveRequiredPlanForModelAccess } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { EPHEMERAL_CACHE_CONTROL, withCacheBreakpoint } from "../lib/prompt_caching"
@@ -930,8 +933,13 @@ async function handleChatPost(
     const devContextOverride =
         process.env.DEV_CREDIT_LAB_ENABLED === "1" ? body.devContextOverride : undefined
     const contextLimits = resolveContextLimits(selectedRegistryModel, devContextOverride)
-    const immediateEstimatedTokens = estimateHttpMessageTokens(body.message)
+    const tokenizerFamily = resolveTokenizerFamily(
+        body.model,
+        ...(selectedRegistryModel?.adapters ?? [])
+    )
+    const immediateEstimatedTokens = estimateHttpMessageTokens(body.message, tokenizerFamily)
     let estimatedPromptTokens = immediateEstimatedTokens
+    let estimatedSystemTokens: number | undefined
     const immediateContextViolation = getContextLimitViolation({
         estimatedTokens: immediateEstimatedTokens,
         limits: contextLimits,
@@ -1279,10 +1287,9 @@ async function handleChatPost(
                 targetFromMessageId: body.targetFromMessageId,
                 targetMode: body.targetMode
             })
-            const prospectiveMappedMessages = await dbMessagesToCore(
-                prospectiveMessages,
-                modelData.abilities,
-                {
+            // Newest first, as dbMessagesToCore takes them.
+            const mapForEstimate = (messages: StoredMessage[]) =>
+                dbMessagesToCore(messages, modelData.abilities, {
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
                     resolveGeneratedImageContextUrl: resolveGeneratedImageContext,
                     referenceLongTextAttachments: canReferenceLongTextAttachments,
@@ -1290,9 +1297,8 @@ async function handleChatPost(
                         MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
                     attachmentReferer,
                     validatePdfs
-                }
-            )
-            const promptMessages: ModelMessage[] = [
+                })
+            const systemMessages: ModelMessage[] = [
                 {
                     role: "system",
                     content: buildPrompt({
@@ -1305,7 +1311,6 @@ async function handleChatPost(
                         verbosity
                     })
                 },
-                ...prospectiveMappedMessages,
                 {
                     role: "system",
                     content: buildCurrentTurnContext(
@@ -1317,8 +1322,45 @@ async function handleChatPost(
                     )
                 }
             ]
+            estimatedSystemTokens = estimateModelMessagesTokens(systemMessages, tokenizerFamily)
 
-            estimatedPromptTokens = estimateModelMessagesTokens(promptMessages)
+            const chronologicalMessages = sortMessagesChronologically(prospectiveMessages)
+            const anchorMatch = findContextAnchor(chronologicalMessages)
+            if (anchorMatch) {
+                // The anchor's real count covers everything up to its reply's last step, so only
+                // what follows is mapped and estimated, attachments included.
+                const tail = [
+                    {
+                        ...chronologicalMessages[anchorMatch.index],
+                        parts: anchorMatch.finalStepParts
+                    },
+                    ...chronologicalMessages.slice(anchorMatch.index + 1)
+                ].reverse()
+                const tailTokens = estimateModelMessagesTokens(
+                    await mapForEstimate(tail),
+                    tokenizerFamily
+                )
+                const anchor = convertContextAnchor(
+                    anchorMatch.anchor,
+                    anchorMatch.family,
+                    tokenizerFamily
+                )
+                estimatedPromptTokens = Math.max(
+                    0,
+                    anchor.inputTokens +
+                        tailTokens +
+                        (anchor.systemTokens === undefined
+                            ? 0
+                            : estimatedSystemTokens - anchor.systemTokens)
+                )
+            } else {
+                estimatedPromptTokens =
+                    estimatedSystemTokens +
+                    estimateModelMessagesTokens(
+                        await mapForEstimate(prospectiveMessages),
+                        tokenizerFamily
+                    )
+            }
             const prospectiveContextViolation = getContextLimitViolation({
                 estimatedTokens: estimatedPromptTokens,
                 limits: contextLimits,
@@ -1515,12 +1557,19 @@ async function handleChatPost(
                 imageGenerationEnabled: hasInternalImagePreparationTool
             })
             ;({ effectiveToolCallLimitPerTurn, reservedToolMicrousd } = resolveTurnToolBudget())
-            estimatedPromptTokens += Math.max(
+            const skillIndexGrowth = Math.max(
                 0,
-                estimateModelMessagesTokens([
-                    { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
-                ]) - estimateModelMessagesTokens([{ role: "system", content: previousSkillIndex }])
+                estimateModelMessagesTokens(
+                    [{ role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }],
+                    tokenizerFamily
+                ) -
+                    estimateModelMessagesTokens(
+                        [{ role: "system", content: previousSkillIndex }],
+                        tokenizerFamily
+                    )
             )
+            estimatedPromptTokens += skillIndexGrowth
+            if (estimatedSystemTokens !== undefined) estimatedSystemTokens += skillIndexGrowth
             contextViolation = getContextLimitViolation({
                 estimatedTokens: estimatedPromptTokens,
                 limits: contextLimits,
@@ -1539,9 +1588,12 @@ async function handleChatPost(
             extractVisibleMessageText(body.message.parts)
         )
         if (memoryTurnContext) {
-            estimatedPromptTokens += estimateModelMessagesTokens([
-                { role: "system", content: memoryTurnContext }
-            ])
+            const memoryTokens = estimateModelMessagesTokens(
+                [{ role: "system", content: memoryTurnContext }],
+                tokenizerFamily
+            )
+            estimatedPromptTokens += memoryTokens
+            if (estimatedSystemTokens !== undefined) estimatedSystemTokens += memoryTokens
             const memoryAdjustedContextViolation = getContextLimitViolation({
                 estimatedTokens: estimatedPromptTokens,
                 limits: contextLimits,
@@ -1869,7 +1921,8 @@ async function handleChatPost(
         totalTokens: 0,
         estimatedCostUsd: undefined as number | undefined,
         estimatedPromptCostUsd: undefined as number | undefined,
-        estimatedCompletionCostUsd: undefined as number | undefined
+        estimatedCompletionCostUsd: undefined as number | undefined,
+        contextTokens: undefined as number | undefined
     }
     const streamMetrics: {
         firstVisibleAtMs?: number
@@ -2199,9 +2252,10 @@ async function handleChatPost(
                     imageGenerationDefaults: settings.imageGenerationDefaults,
                     availableImageSelectionSummary
                 }
-                const baseSkillIndexTokens = estimateModelMessagesTokens([
-                    { role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }
-                ])
+                const baseSkillIndexTokens = estimateModelMessagesTokens(
+                    [{ role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }],
+                    tokenizerFamily
+                )
                 // Preloading must not bypass the context admission check performed earlier.
                 // Each group is admitted separately, so a roleplay preload near the limit
                 // cannot displace the opening selection.
@@ -2209,16 +2263,19 @@ async function handleChatPost(
                     const candidateSkillIds = new Set([...loadedSkillIds, ...skillIds])
                     const additionalSkillTokens = Math.max(
                         0,
-                        estimateModelMessagesTokens([
-                            {
-                                role: "system",
-                                content: buildSkillIndexContext(
-                                    availableSkillIdsForTurn,
-                                    candidateSkillIds,
-                                    skillContext
-                                )
-                            }
-                        ]) - baseSkillIndexTokens
+                        estimateModelMessagesTokens(
+                            [
+                                {
+                                    role: "system",
+                                    content: buildSkillIndexContext(
+                                        availableSkillIdsForTurn,
+                                        candidateSkillIds,
+                                        skillContext
+                                    )
+                                }
+                            ],
+                            tokenizerFamily
+                        ) - baseSkillIndexTokens
                     )
                     if (
                         !getContextLimitViolation({
@@ -2448,6 +2505,16 @@ async function handleChatPost(
                 }
                 await persistLiveAssistantMessage(true)
 
+                const contextAnchor =
+                    totalTokenUsage.contextTokens && totalTokenUsage.contextTokens > 0
+                        ? {
+                              inputTokens: totalTokenUsage.contextTokens,
+                              ...(estimatedSystemTokens !== undefined
+                                  ? { systemTokens: estimatedSystemTokens }
+                                  : {})
+                          }
+                        : undefined
+
                 await ctx.runMutation(internal.messages.finalizeStream, {
                     resolveVisuals,
                     threadId: mutationResult.threadId,
@@ -2488,6 +2555,7 @@ async function handleChatPost(
                         creditCounted: modelCreditCharge.counted,
                         serverDurationMs: Date.now() - streamStartTime,
                         timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextAnchor ? { contextAnchor } : {}),
                         ...(contextRouting ? { contextRouting } : {})
                     }
                 })
@@ -2515,6 +2583,7 @@ async function handleChatPost(
                         estimatedCompletionCostUsd: totalTokenUsage.estimatedCompletionCostUsd,
                         serverDurationMs: Date.now() - streamStartTime,
                         timeToFirstVisibleMs: getTimeToFirstVisibleMs(),
+                        ...(contextAnchor ? { contextAnchor } : {}),
                         ...(contextRouting ? { contextRouting } : {})
                     }
                 })

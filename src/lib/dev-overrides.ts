@@ -2,7 +2,9 @@ import type { ImageQuality } from "@/convex/lib/models"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
+import type { ContextRingLevel, ContextRingVisibility } from "@/lib/composer-context"
 import { canUseDevTools, useDevToolsStore } from "@/lib/dev-tools"
+import { useMemo } from "react"
 
 /**
  * Dev override switches. These intentionally live in their own persisted store so the
@@ -26,6 +28,10 @@ export type DevOverridesState = {
     // Chat hosted/model context-limit overrides (Wave 3). null = use the real limits.
     hostedContextLimitOverride: number | null
     modelContextLimitOverride: number | null
+    // Composer context ring. null = the product defaults.
+    contextRingVisibility: ContextRingVisibility
+    contextRingShowFromPercent: number | null
+    contextRingLevels: ContextRingLevel[] | null
     setDisableAnimations: (value: boolean) => void
     setRawMarkdown: (value: boolean) => void
     setThemeAudit: (value: boolean) => void
@@ -38,6 +44,9 @@ export type DevOverridesState = {
     setImageQualityOverride: (modelId: string, value: Exclude<ImageQuality, "auto">) => void
     setHostedContextLimitOverride: (value: number | null) => void
     setModelContextLimitOverride: (value: number | null) => void
+    setContextRingVisibility: (value: ContextRingVisibility) => void
+    setContextRingShowFromPercent: (value: number | null) => void
+    setContextRingLevels: (value: ContextRingLevel[] | null) => void
     resetOverrides: () => void
 }
 
@@ -54,7 +63,10 @@ const OVERRIDE_DEFAULTS = {
     disableImageCompression: false,
     imageQualityOverrides: {},
     hostedContextLimitOverride: null,
-    modelContextLimitOverride: null
+    modelContextLimitOverride: null,
+    contextRingVisibility: "auto",
+    contextRingShowFromPercent: null,
+    contextRingLevels: null
 } satisfies Omit<
     DevOverridesState,
     | "setDisableAnimations"
@@ -69,6 +81,9 @@ const OVERRIDE_DEFAULTS = {
     | "resetImageQualityOverrides"
     | "setHostedContextLimitOverride"
     | "setModelContextLimitOverride"
+    | "setContextRingVisibility"
+    | "setContextRingShowFromPercent"
+    | "setContextRingLevels"
     | "resetOverrides"
 >
 
@@ -94,6 +109,10 @@ export const useDevOverridesStore = create<DevOverridesState>()(
                 set({ hostedContextLimitOverride }),
             setModelContextLimitOverride: (modelContextLimitOverride) =>
                 set({ modelContextLimitOverride }),
+            setContextRingVisibility: (contextRingVisibility) => set({ contextRingVisibility }),
+            setContextRingShowFromPercent: (contextRingShowFromPercent) =>
+                set({ contextRingShowFromPercent }),
+            setContextRingLevels: (contextRingLevels) => set({ contextRingLevels }),
             resetOverrides: () => set({ ...OVERRIDE_DEFAULTS })
         }),
         {
@@ -172,4 +191,30 @@ export const getActiveDevContextOverride = (): DevContextOverride | undefined =>
             : {}),
         ...(modelContextLimitOverride != null ? { modelInputLimit: modelContextLimitOverride } : {})
     }
+}
+
+/** The context-limit overrides the next send carries, reactive so the composer agrees with it. */
+export const useActiveDevContextOverride = (): DevContextOverride | undefined => {
+    const active = useAreDevOverridesActive()
+    const hosted = useDevOverridesStore((state) => state.hostedContextLimitOverride)
+    const model = useDevOverridesStore((state) => state.modelContextLimitOverride)
+    return useMemo(() => {
+        if (!active || (hosted == null && model == null)) return undefined
+        return {
+            ...(hosted != null ? { hostedInputLimit: hosted } : {}),
+            ...(model != null ? { modelInputLimit: model } : {})
+        }
+    }, [active, hosted, model])
+}
+
+/** Ring overrides while dev mode is on; null means the product behaviour. */
+export const useDevContextRingSettings = () => {
+    const active = useAreDevOverridesActive()
+    const visibility = useDevOverridesStore((state) => state.contextRingVisibility)
+    const showFromPercent = useDevOverridesStore((state) => state.contextRingShowFromPercent)
+    const levels = useDevOverridesStore((state) => state.contextRingLevels)
+    return useMemo(
+        () => (active ? { visibility, showFromPercent, levels } : null),
+        [active, visibility, showFromPercent, levels]
+    )
 }

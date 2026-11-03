@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest"
 import { estimateTokenCount } from "../../src/lib/file_constants"
 
 describe("estimateTokenCount", () => {
-    it("keeps plain ASCII prose close to the legacy characters-over-four estimate", () => {
+    it("counts plain English prose like OpenAI's o200k, about a token per word", () => {
+        // o200k splits this into 12 tokens: 11 words and the full stop.
         const text = "This is a normal English sentence with a few ordinary words."
 
-        expect(estimateTokenCount(text)).toBeGreaterThanOrEqual(Math.ceil(text.length / 4))
-        expect(estimateTokenCount(text)).toBeLessThanOrEqual(Math.ceil((text.length / 4) * 1.25))
+        expect(estimateTokenCount(text)).toBeGreaterThanOrEqual(11)
+        expect(estimateTokenCount(text)).toBeLessThanOrEqual(13)
     })
 
     it("counts CJK text more conservatively than a character-count estimate", () => {

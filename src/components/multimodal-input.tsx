@@ -29,7 +29,8 @@ import {
     type AttachmentPreview
 } from "./composer/attachment-preview-dialog"
 import { IntentGuide } from "@/components/intent-guide"
-import { ModelSelector } from "@/components/model-selector"
+import { ContextUsageRing } from "@/components/context-usage-ring"
+import { ModelSelector, getActiveRuntimeProvider } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
 import type { PromptEditorHandle } from "@/components/composer/prompt-editor"
 import {
@@ -80,7 +81,19 @@ import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import { getThreadDraftKey } from "@/lib/thread-drafts"
 import type { AbilityId } from "@/lib/tool-abilities"
 import { cn } from "@/lib/utils"
-import { predictComposerContextRouting, resolveByokContextHint } from "@/lib/composer-context"
+import {
+    DEFAULT_CONTEXT_RING_LEVELS,
+    combineComposerContextUsage,
+    estimateComposerDraftTokens,
+    estimateComposerThreadContext,
+    predictComposerContextRouting,
+    resolveByokContextHint,
+    resolveContextRing,
+    shouldShowContextRing
+} from "@/lib/composer-context"
+import { useActiveDevContextOverride, useDevContextRingSettings } from "@/lib/dev-overrides"
+import { usePublishComposerContextDiagnostics } from "@/lib/dev-thread-diagnostics"
+import { useMessageFooterStore } from "@/lib/message-footer-store"
 import type { useChat } from "@ai-sdk/react"
 import type { UIMessage } from "ai"
 import { useAction, useConvexAuth, usePaginatedQuery, useQuery } from "convex/react"
@@ -201,7 +214,7 @@ export const MultimodalInput = forwardRef<
     } = composerToolbar
 
     const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
-    const { models: sharedModels } = useSharedModels()
+    const { models: sharedModels, hostedContextPolicy } = useSharedModels()
     const { availableModels } = useAvailableModels(userSettings)
     const modelNudge = useModelNudge({
         selectedModel,
@@ -469,31 +482,143 @@ export const MultimodalInput = forwardRef<
         { initialNumItems: 6 }
     )
     const voiceInputEnabled = optionalBrowserEnv("VITE_ENABLE_VOICE_INPUT") === "true"
-    const predictedByokContextRouting = useMemo(
+    const selectedDisplayModel = composerToolbar.selectedDisplayModel
+    const providerModelId =
+        selectedDisplayModel && "isCustom" in selectedDisplayModel
+            ? selectedDisplayModel.modelId
+            : undefined
+    // Dev limit overrides reach the server with the next send; the composer uses the same ones.
+    const devContextOverride = useActiveDevContextOverride()
+    const devRingSettings = useDevContextRingSettings()
+    const footerMode = useMessageFooterStore((state) => state.footerMode)
+    // The thread is estimated only when it settles: not while a reply is generating (its messages
+    // update every ~50ms, and its real count only arrives at the end) and never per keystroke.
+    // Re-estimating an unanchored 1M-character thread costs ~40ms.
+    const isGeneratingReply = status === "submitted" || status === "streaming"
+    const [settledMessages, setSettledMessages] = useState(messages)
+    useEffect(() => {
+        if (!isGeneratingReply) setSettledMessages(messages)
+    }, [isGeneratingReply, messages])
+    const threadContext = useMemo(
         () =>
-            predictComposerContextRouting({
+            estimateComposerThreadContext({
                 model: selectedSharedModel,
-                modelId: selectedModel,
-                text: inputValue,
-                attachments: uploadedFiles,
-                tokenCounts: fileTokenCounts,
-                imageDimensions: fileImageDimensions,
-                messages,
-                openRouterByokEnabled:
-                    "openrouter" in userSettings.coreAIProviders &&
-                    userSettings.coreAIProviders.openrouter?.enabled === true
+                messages: settledMessages,
+                providerModelId,
+                hostedContextPolicy,
+                contextOverride: devContextOverride
             }),
         [
             selectedSharedModel,
+            settledMessages,
+            providerModelId,
+            hostedContextPolicy,
+            devContextOverride
+        ]
+    )
+    // The draft is cheap (well under 1ms for 20k characters), so it stays live as the user types.
+    const draftTokens = useMemo(
+        () =>
+            threadContext
+                ? estimateComposerDraftTokens({
+                      family: threadContext.family,
+                      modelId: selectedModel,
+                      text: inputValue,
+                      attachments: uploadedFiles,
+                      tokenCounts: fileTokenCounts,
+                      imageDimensions: fileImageDimensions
+                  })
+                : 0,
+        [
+            threadContext,
             selectedModel,
             inputValue,
             uploadedFiles,
             fileTokenCounts,
-            fileImageDimensions,
-            messages,
-            userSettings
+            fileImageDimensions
         ]
     )
+    const composerContextUsage = useMemo(
+        () => combineComposerContextUsage(threadContext, draftTokens),
+        [threadContext, draftTokens]
+    )
+    const openRouterByokEnabled =
+        "openrouter" in userSettings.coreAIProviders &&
+        userSettings.coreAIProviders.openrouter?.enabled === true
+    const predictedByokContextRouting = useMemo(
+        () =>
+            predictComposerContextRouting({
+                model: selectedSharedModel,
+                usage: composerContextUsage,
+                openRouterByokEnabled
+            }),
+        [selectedSharedModel, composerContextUsage, openRouterByokEnabled]
+    )
+    const byokContextHint = resolveByokContextHint(predictedByokContextRouting)
+    // Once the request can run on the user's own key, only the model's window can stop it.
+    const runsOnOwnKey = useMemo(() => {
+        if (openRouterByokEnabled) return true
+        const displayModel = composerToolbar.selectedDisplayModel
+        if (!displayModel) return false
+        const currentProviders = {
+            core: userSettings.coreAIProviders ?? {},
+            custom: userSettings.customAIProviders ?? {}
+        }
+        return Boolean(
+            getActiveRuntimeProvider(displayModel, currentProviders, sharedModels)?.isByok
+        )
+    }, [openRouterByokEnabled, composerToolbar.selectedDisplayModel, userSettings, sharedModels])
+    const contextRing = useMemo(
+        () => resolveContextRing(composerContextUsage, runsOnOwnKey),
+        [composerContextUsage, runsOnOwnKey]
+    )
+    const showContextRing = shouldShowContextRing({
+        fraction: contextRing?.fraction ?? null,
+        hasByokHint: Boolean(byokContextHint),
+        nerdMode: footerMode !== "simple",
+        visibility: devRingSettings?.visibility,
+        showFromPercent: devRingSettings?.showFromPercent
+    })
+    const contextRingLevels = devRingSettings?.levels ?? DEFAULT_CONTEXT_RING_LEVELS
+    usePublishComposerContextDiagnostics(
+        useMemo(
+            () =>
+                composerContextUsage && contextRing
+                    ? {
+                          usage: composerContextUsage,
+                          limitTokens: contextRing.limitTokens,
+                          limitKind: contextRing.limitKind,
+                          overrideActive: devContextOverride !== undefined
+                      }
+                    : null,
+            [composerContextUsage, contextRing, devContextOverride]
+        )
+    )
+    // Rendered in two toolbar slots (after reasoning when wide, before the overflow menu when
+    // narrow); CSS shows one. It grows in from the gap so neighbours slide instead of jumping.
+    const renderContextRing = (side: "start" | "end", visibilityClassName: string) => {
+        const margin = side === "start" ? "marginLeft" : "marginRight"
+        return (
+            <AnimatePresence initial={false}>
+                {showContextRing && contextRing && (
+                    <motion.div
+                        key="context-ring"
+                        initial={{ width: 0, opacity: 0, [margin]: -8 }}
+                        animate={{ width: 32, opacity: 1, [margin]: 0 }}
+                        exit={{ width: 0, opacity: 0, [margin]: -8 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className={cn("shrink-0 items-center overflow-hidden", visibilityClassName)}
+                    >
+                        <ContextUsageRing
+                            usedTokens={contextRing.usedTokens}
+                            limitTokens={contextRing.limitTokens}
+                            levels={contextRingLevels}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        )
+    }
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: Intent and expansion belong to the active draft session.
     useEffect(() => {
@@ -1041,6 +1166,7 @@ export const MultimodalInput = forwardRef<
                                                     handleComposerOverlayOpenChange
                                                 }
                                             />
+                                            {renderContextRing("start", "@3xl:flex hidden")}
                                         </motion.div>
                                     </motion.div>
 
@@ -1049,6 +1175,7 @@ export const MultimodalInput = forwardRef<
                                         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                                         className="flex shrink-0 items-center gap-2"
                                     >
+                                        {renderContextRing("end", "@3xl:hidden flex")}
                                         <ComposerMobileMenu
                                             state={composerToolbar}
                                             onAttachClick={() => uploadInputRef.current?.click()}
@@ -1138,9 +1265,7 @@ export const MultimodalInput = forwardRef<
                                     tooltip="Select model"
                                     suppressTooltip={activeComposerOverlay !== null}
                                     requiresNativePdf={requiresNativePdfForModelSelection}
-                                    byokContextHint={resolveByokContextHint(
-                                        predictedByokContextRouting
-                                    )}
+                                    byokContextHint={byokContextHint}
                                 />
                             </div>
                         )}

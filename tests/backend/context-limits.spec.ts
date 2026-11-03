@@ -5,9 +5,18 @@ import {
     DEFAULT_HOSTED_CONTEXT_MAX_INPUT_TOKENS,
     type ModelSuggestionCandidate,
     computeSuggestedModels,
+    estimateAnchoredContextTokens,
+    estimateModelMessagesTokens,
     getContextLimitViolation,
     resolveContextLimits
 } from "../../convex/lib/context_limits"
+import {
+    type TokenizerFamily,
+    resolveTokenizerFamily,
+    tagTokenKind,
+    tallyText,
+    tokenKindForFile
+} from "../../convex/lib/token_kinds"
 
 describe("context limit policy", () => {
     const originalEnv = { ...process.env }
@@ -238,5 +247,182 @@ describe("computeSuggestedModels", () => {
         )
 
         expect(result).toHaveLength(2)
+    })
+})
+
+describe("anchored context estimate", () => {
+    const text = (value: string) => ({ type: "text", text: value })
+    const toolCall = { type: "tool-invocation", toolInvocation: { toolName: "search" } }
+    const reasoning = { type: "reasoning", reasoning: "long private reasoning ".repeat(50) }
+    const estimateMessage = (message: { parts: readonly unknown[] }) => message.parts.length * 10
+    const user = (value: string) => ({ role: "user", parts: [text(value)] })
+    const reply = (parts: unknown[], metadata: Record<string, unknown>) => ({
+        role: "assistant",
+        parts,
+        metadata: { modelId: "gpt-6-luna", ...metadata }
+    })
+
+    it("estimates only the anchored reply's final step and what follows it", () => {
+        const result = estimateAnchoredContextTokens({
+            messages: [
+                user("hi"),
+                reply([reasoning, toolCall, text("found it"), text("summary")], {
+                    contextAnchor: { inputTokens: 5_000, systemTokens: 900 }
+                }),
+                user("next")
+            ],
+            family: "o200k",
+            estimateMessage
+        })
+
+        // Final step = the two text parts after the tool call; then the new user message.
+        expect(result).toMatchObject({
+            anchorTokens: 5_000,
+            tailTokens: 30,
+            anchorSystemTokens: 900,
+            anchorModelId: "gpt-6-luna",
+            realAnchorTokens: 5_000
+        })
+    })
+
+    it("anchors on the newest reply from any model, converting between tokenizer families", () => {
+        const messages = [
+            user("a"),
+            reply([text("luna")], { contextAnchor: { inputTokens: 1_000 } }),
+            user("b"),
+            reply([text("sonnet")], {
+                modelId: "claude-sonnet-5",
+                contextAnchor: { inputTokens: 1_650 }
+            }),
+            user("c")
+        ]
+
+        expect(
+            estimateAnchoredContextTokens({ messages, family: "claude", estimateMessage })
+        ).toMatchObject({ anchorTokens: 1_650, tailTokens: 20 })
+        // Claude's newer tokenizer counts ~1.65x o200k for the same thread.
+        expect(
+            estimateAnchoredContextTokens({ messages, family: "o200k", estimateMessage })
+        ).toMatchObject({ anchorTokens: 1_000, tailTokens: 20 })
+    })
+
+    it("uses older replies' promptTokens only when they made no tool calls", () => {
+        const estimate = (parts: unknown[]) =>
+            estimateAnchoredContextTokens({
+                messages: [user("a"), reply(parts, { promptTokens: 2_000 }), user("b")],
+                family: "o200k",
+                estimateMessage
+            })
+
+        expect(estimate([text("plain")])?.anchorTokens).toBe(2_000)
+        expect(estimate([toolCall, text("after tool")])).toBeNull()
+    })
+
+    it("can't anchor on a reply without a model, since its tokenizer is unknown", () => {
+        expect(
+            estimateAnchoredContextTokens({
+                messages: [
+                    user("a"),
+                    {
+                        role: "assistant",
+                        parts: [text("imported")],
+                        metadata: { promptTokens: 900 }
+                    }
+                ],
+                family: "o200k",
+                estimateMessage
+            })
+        ).toBeNull()
+    })
+})
+
+describe("tokenizer families", () => {
+    it("splits Claude by tokenizer generation and groups the rest by family", () => {
+        const families = Object.fromEntries(
+            [
+                "claude-sonnet-5",
+                "claude-sonnet-5.5",
+                "claude-haiku-5.5",
+                "claude-opus-4.7",
+                "claude-fable-5.1",
+                "claude-sonnet-4.6",
+                "claude-haiku-4-5",
+                "claude-opus-4-6",
+                "gemini-3.7-flash",
+                "gemma-4-26b-a4b-it",
+                "qwen3.8-max-0902",
+                "grok-4.7",
+                "gpt-6-luna",
+                "deepseek-v4.1-flash"
+            ].map((id) => [id, resolveTokenizerFamily(id)])
+        )
+
+        expect(families).toEqual({
+            "claude-sonnet-5": "claude",
+            "claude-sonnet-5.5": "claude",
+            "claude-haiku-5.5": "claude",
+            "claude-opus-4.7": "claude",
+            "claude-fable-5.1": "claude",
+            "claude-sonnet-4.6": "claude-legacy",
+            "claude-haiku-4-5": "claude-legacy",
+            "claude-opus-4-6": "claude-legacy",
+            "gemini-3.7-flash": "google",
+            "gemma-4-26b-a4b-it": "google",
+            "qwen3.8-max-0902": "qwen",
+            "grok-4.7": "xai",
+            "gpt-6-luna": "o200k",
+            "deepseek-v4.1-flash": "o200k"
+        })
+        // A custom model is recognised by what its adapter routes to.
+        expect(resolveTokenizerFamily("my-model", "openrouter:anthropic/claude-sonnet-5")).toBe(
+            "claude"
+        )
+    })
+
+    it("counts fenced code as code and leaves the rest of the text as prose", () => {
+        const tally = tallyText("Here is the fix:\n```ts\nconst limit = 256_000\n```\nThat is it.")
+
+        expect(tally.code).toBeGreaterThan(0)
+        expect(tally.prose).toBeGreaterThan(0)
+        expect(tallyText("No code here at all, just from where we left off.").code).toBe(0)
+    })
+
+    it("weighs an inlined attachment by the kind its extension gave it", () => {
+        const source = "export const limit = 256_000\n".repeat(200)
+        const asCode = tagTokenKind({ type: "text" as const, text: source }, "code")
+        const asProse = { type: "text" as const, text: source }
+        const estimate = (part: { type: "text"; text: string }, family: TokenizerFamily) =>
+            estimateModelMessagesTokens([{ role: "user", content: [part] }], family)
+
+        expect(tokenKindForFile("limits.ts")).toBe("code")
+        expect(tokenKindForFile("package.json")).toBe("data")
+        expect(tokenKindForFile("notes.md")).toBe("prose")
+        // Claude's newer tokenizer is heavier on code than on prose; o200k treats them alike.
+        expect(estimate(asCode, "claude")).toBeGreaterThan(estimate(asProse, "claude"))
+        expect(estimate(asCode, "o200k")).toBe(estimate(asProse, "o200k"))
+    })
+
+    it("suggests a model by the thread's size under that model's tokenizer", () => {
+        const candidate = (id: string): ModelSuggestionCandidate => ({
+            id,
+            name: id,
+            abilities: [],
+            runnable: true,
+            requiredPlan: "free",
+            contextLength: 1_000_000,
+            maxTokens: 8_000,
+            inputUsdPer1MTokens: 1
+        })
+
+        // 165k in Claude's units is ~100k under o200k, which fits a 128k hosted window.
+        const result = computeSuggestedModels({
+            currentModelId: "claude-sonnet-5",
+            currentModelAbilities: [],
+            estimatedTokens: 165_000,
+            userPlan: "pro",
+            candidates: [candidate("claude-opus-5"), candidate("gpt-6-luna")]
+        })
+
+        expect(result.map((model) => model.id)).toEqual(["gpt-6-luna"])
     })
 })

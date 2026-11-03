@@ -1297,7 +1297,7 @@ describe("chatPOST", () => {
                 proposedNewAssistantId: "assistant-1",
                 message: {
                     role: "user",
-                    parts: [{ type: "text", text: "x".repeat(20_000) }]
+                    parts: [{ type: "text", text: "word ".repeat(8_000) }]
                 },
                 enabledTools: [],
                 reasoningEffort: "off"

@@ -954,6 +954,7 @@ export function useComposerToolbarState() {
         selectedModel,
         creditPlan,
         userSettings: resolvedUserSettings,
+        selectedDisplayModel,
         selectedSharedModel,
         allowedReasoningEfforts,
         modelSupportsReasoningControl,

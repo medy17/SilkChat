@@ -401,15 +401,11 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     )
 
     // Dev-only: publish thread diagnostics (persona, attachments, token/cost stats) for the dock.
-    // Both queries are skipped entirely outside local dev builds.
+    // Skipped entirely outside local dev builds.
     const devEnabled = canUseDevTools()
     const devThreadDoc = useConvexQuery(
         api.threads.getThread,
         devEnabled && threadId ? { threadId: threadId as Id<"threads"> } : "skip"
-    )
-    const devModelLimits = useConvexQuery(
-        api.settings.getDevModelContextLimits,
-        devEnabled && selectedModel ? { modelId: selectedModel } : "skip"
     )
     const personaDiagnostics = useMemo<ThreadPersonaInfo>(() => {
         const options =
@@ -448,23 +444,11 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
             description: selectedPersonaOption?.description ?? null
         }
     }, [devThreadDoc, personaOptions, selectedPersona, selectedPersonaOption, selectedModel])
-    const diagnosticsContextModel = useMemo(() => {
-        if (devModelLimits) {
-            return {
-                contextLength: devModelLimits.contextLength ?? undefined,
-                maxTokens: devModelLimits.maxTokens ?? undefined,
-                inputUsdPer1MTokens: devModelLimits.inputUsdPer1MTokens ?? undefined,
-                hostedContextLength: devModelLimits.hostedContextLength ?? undefined
-            }
-        }
-        return sharedModels.find((model) => model.id === selectedModel) ?? null
-    }, [devModelLimits, sharedModels, selectedModel])
+    // Context numbers come from the composer, which publishes what the ring and server use.
     usePublishThreadDiagnostics({
         threadId: threadId ?? null,
         messages: deferredMessages,
-        persona: personaDiagnostics,
-        contextModel: diagnosticsContextModel,
-        hasPricing: Boolean(devModelLimits?.hasPricing)
+        persona: personaDiagnostics
     })
 
     useEffect(() => {
