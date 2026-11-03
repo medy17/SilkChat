@@ -242,3 +242,28 @@ it("adds the separately estimated thread and draft up to the full estimate", () 
     )
     expect(combineComposerContextUsage(null, draftTokens)).toBeNull()
 })
+
+it("counts only the reference for text too long to inline", () => {
+    const draft = (contentTokens: number) =>
+        estimateComposerDraftTokens({
+            family: "o200k",
+            modelId: "test",
+            text: "",
+            attachments: [
+                {
+                    key: "paste",
+                    fileName: "Pasted Text 1.txt",
+                    fileType: "text/plain",
+                    fileSize: contentTokens * 4,
+                    uploadedAt: 1
+                }
+            ],
+            tokenCounts: { paste: contentTokens },
+            imageDimensions: {}
+        })
+    const reference = draft(0)
+
+    expect(draft(30_000)).toBeGreaterThan(reference + 27_000)
+    // Code execution fetches it by URL, or the model gets an error note.
+    expect(draft(200_000)).toBe(reference)
+})

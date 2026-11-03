@@ -15,36 +15,33 @@ describe("pasted text policy", () => {
         expect(decision.disposition).toBe("inline")
         expect(getEnabledToolsForPastedText(decision, ["web_search"])).toEqual(["web_search"])
     })
-    it("keeps pastes under 16k tokens inline and turns longer pastes into a URL-backed attachment", () => {
-        const inline = classifyPastedText("A short note", {
-            canReferenceLongTextAttachments: true
-        })
-        const url = classifyPastedText("word ".repeat(20_000), {
-            canReferenceLongTextAttachments: true
-        })
+    it("grades pastes as typed text, a file read in full, or a file code execution fetches", () => {
+        const grade = (words: number, canReferenceLongTextAttachments = true) =>
+            classifyPastedText("word ".repeat(words), { canReferenceLongTextAttachments })
+                .disposition
 
-        expect(inline.disposition).toBe("inline")
-        expect(url.disposition).toBe("url")
+        expect(grade(8_000)).toBe("inline")
+        expect(grade(9_000)).toBe("attachment")
+        expect(grade(32_000)).toBe("attachment")
+        expect(grade(40_000)).toBe("url")
+        // Without code execution, long text stays a file the model is told it can't read.
+        expect(grade(40_000, false)).toBe("attachment")
         expect(getPastedTextNames(1)).toEqual({
             displayName: "Pasted Text 1",
             fileName: "Pasted Text 1.txt"
         })
     })
 
-    it("keeps medium pastes inline when code execution cannot retrieve them", () => {
-        const medium = classifyPastedText("word ".repeat(20_000), {
-            canReferenceLongTextAttachments: false
-        })
-        const enormous = classifyPastedText("word ".repeat(40_000), {
-            canReferenceLongTextAttachments: false
-        })
-
-        expect(medium.disposition).toBe("inline")
-        expect(enormous.disposition).toBe("attachment")
-    })
-
-    it("keeps code execution enabled after turning a long paste into a URL reference", () => {
-        const decision = classifyPastedText("word ".repeat(20_000), {
+    it("turns code execution on only for a URL reference", () => {
+        expect(
+            getEnabledToolsForPastedText(
+                classifyPastedText("word ".repeat(20_000), {
+                    canReferenceLongTextAttachments: true
+                }),
+                ["web_search"]
+            )
+        ).toEqual(["web_search"])
+        const decision = classifyPastedText("word ".repeat(40_000), {
             canReferenceLongTextAttachments: true
         })
 

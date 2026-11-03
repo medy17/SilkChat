@@ -15,8 +15,7 @@ import { components } from "../_generated/api"
 import type { Message } from "../schema/message"
 import type { ModelAbility } from "../schema/settings"
 import {
-    LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD,
-    MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS,
     estimateTokenCount,
     getFileTypeInfo
 } from "./file_constants"
@@ -175,8 +174,7 @@ export const dbMessagesToCore = async (
     }
     const mapped_messages: CoreMessage[] = []
     const maxInlineTextAttachmentTokens =
-        options?.maxInlineTextAttachmentTokens ??
-        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION
+        options?.maxInlineTextAttachmentTokens ?? MAX_INLINE_TEXT_ATTACHMENT_TOKENS
     for await (const message of messages) {
         const to_commit_messages: CoreMessage[] = []
         if (message.role === "user") {
@@ -229,7 +227,7 @@ export const dbMessagesToCore = async (
 
                                 if (
                                     options?.referenceLongTextAttachments &&
-                                    estimatedTokens > LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD
+                                    estimatedTokens > maxInlineTextAttachmentTokens
                                 ) {
                                     const attachmentReferer = normalizeAttachmentReferer(
                                         options.attachmentReferer

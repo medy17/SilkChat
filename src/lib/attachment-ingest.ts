@@ -3,7 +3,7 @@ import {
     convertDocumentToMarkdownFile,
     createInlineDocumentDataUrl
 } from "@/lib/document-conversion"
-import { isDocumentExtension } from "@/lib/file_constants"
+import { getFileTypeInfo, isDocumentExtension } from "@/lib/file_constants"
 import { type PastedTextDecision, classifyPastedText } from "@/lib/pasted-text"
 
 export type AttachmentIngestResult = {
@@ -22,13 +22,20 @@ export const ingestChatAttachment = async (
     { canReferenceLongTextAttachments }: { canReferenceLongTextAttachments: boolean }
 ): Promise<AttachmentIngestResult> => {
     if (!isDocumentExtension(file.name)) {
+        const fileTypeInfo = getFileTypeInfo(file.name, file.type)
+        // Long text files turn code execution on, as the same text pasted would.
+        const decision =
+            canReferenceLongTextAttachments && fileTypeInfo.isText && !fileTypeInfo.isImage
+                ? classifyPastedText(await file.text(), { canReferenceLongTextAttachments })
+                : undefined
         return {
             file,
             originalFile: file,
             delivery: "upload",
             tileKind: "attachment",
             source: "upload",
-            displayName: file.name
+            displayName: file.name,
+            decision
         }
     }
 

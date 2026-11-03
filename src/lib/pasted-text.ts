@@ -1,19 +1,19 @@
 import {
-    LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD,
-    MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS,
+    PASTED_TEXT_FILE_TOKEN_THRESHOLD,
     estimateTokenCount
 } from "@/lib/file_constants"
 import type { AbilityId } from "@/lib/tool-abilities"
 
-export { LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD }
-
-export type PastedTextDisposition = "inline" | "url" | "attachment"
+/** Typed text, a file read in full, or a file code execution fetches by URL. */
+export type PastedTextDisposition = "inline" | "attachment" | "url"
 
 export type PastedTextDecision = {
     disposition: PastedTextDisposition
     estimatedTokens: number
 }
 
+/** Grades text by size. Attached files take the same grades, apart from staying files. */
 export const classifyPastedText = (
     text: string,
     {
@@ -26,16 +26,12 @@ export const classifyPastedText = (
 ): PastedTextDecision => {
     const estimatedTokens = estimateTokenCount(text)
 
-    if (attachmentQueueBusy || estimatedTokens <= LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD) {
+    if (attachmentQueueBusy || estimatedTokens <= PASTED_TEXT_FILE_TOKEN_THRESHOLD) {
         return { disposition: "inline", estimatedTokens }
     }
 
-    if (canReferenceLongTextAttachments) {
+    if (canReferenceLongTextAttachments && estimatedTokens > MAX_INLINE_TEXT_ATTACHMENT_TOKENS) {
         return { disposition: "url", estimatedTokens }
-    }
-
-    if (estimatedTokens <= MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION) {
-        return { disposition: "inline", estimatedTokens }
     }
 
     return { disposition: "attachment", estimatedTokens }

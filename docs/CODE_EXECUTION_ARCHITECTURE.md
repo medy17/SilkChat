@@ -50,14 +50,15 @@ Attachment presentation and model delivery are separate decisions.
 
 ### Pasted text
 
-The first implementation uses the existing client-side `estimateTokenCount` helper and one token threshold:
+Text is graded by the client-side `estimateTokenCount` helper into three grades:
 
-- Up to `LONG_ATTACHMENT_REFERENCE_TOKEN_THRESHOLD`: leave the paste in the textarea and send it directly in model context, without a chip.
-- Above the long-attachment threshold: create a `Pasted Text N.txt` attachment chip, upload the content, and route it to the model as a scoped URL/reference that must be inspected with code execution.
+- Up to `PASTED_TEXT_FILE_TOKEN_THRESHOLD` (8,000): leave the paste in the composer and send it directly in model context, without a chip.
+- Up to `MAX_INLINE_TEXT_ATTACHMENT_TOKENS` (32,000): create a `Pasted Text N.txt` attachment chip and upload it. The model still reads it in full, which costs less than a tool-call loop.
+- Above that: the chip's content goes to the model as a scoped URL/reference that must be inspected with code execution, and code execution turns on.
 
-The current threshold is 16,000 estimated tokens. It is a policy constant and can be tuned from real usage.
+Attached text files take the same grades, apart from always being chips: one above 32,000 tokens turns code execution on just as the same text pasted would.
 
-URL references are emitted only when code execution is enabled and the selected model supports function calling. Without that route, text remains inline up to the former 32,000-token ceiling; larger text is withheld with a model-visible instruction to ask the user to enable execution or select a capable model.
+URL references are emitted only when code execution is enabled and the selected model supports function calling. Without that route, text above 32,000 tokens is withheld with a model-visible instruction to ask the user to enable execution or select a capable model.
 
 The upload token ceiling is separate from this context threshold. It is raised from 32,000 to 8,000,000 estimated tokens as a final abuse guard, leaving the existing 15 MB byte limit as the practical upload ceiling. A file being uploadable does not make it eligible for direct model context.
 
@@ -227,7 +228,7 @@ The UI can continue using the provisional flat credit reservation while the feat
 
 ### Phase 1 — Pasted-text UX
 
-- Classify plain-text paste as inline or an execution-backed URL at 16,000 estimated tokens.
+- Grade plain-text paste as inline, a file read in full, or an execution-backed URL (8,000 and 32,000 estimated tokens).
 - Render the URL-backed paste in the normal attachment area.
 - Support converting a pasted attachment back into textarea content.
 - Abort or delete the backing upload during conversion.

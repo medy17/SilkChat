@@ -19,7 +19,11 @@ import {
 } from "@/convex/lib/token_kinds"
 import type { UIMessage } from "ai"
 import type { ChatMessage, UploadedFile } from "./chat-store"
-import { estimateTokenCount, getFileTypeInfo } from "./file_constants"
+import {
+    MAX_INLINE_TEXT_ATTACHMENT_TOKENS,
+    estimateTokenCount,
+    getFileTypeInfo
+} from "./file_constants"
 import { estimateImageInputTokens, type ImageDimensions } from "./vision-token-estimate"
 
 const COMPOSER_CONTEXT_WARNING_CONFIDENCE_MULTIPLIER = 1.1
@@ -70,13 +74,13 @@ const tallyUploadedFile = (
         return tally
     }
 
+    const contentTokens =
+        cachedContentTokens ?? (fileTypeInfo.isText ? Math.ceil(file.fileSize / 4) : 0)
+    // As the server maps it: longer text goes to code execution by URL, or becomes an error note
+    // without it. Only the reference reaches the prompt either way.
     // The extension says whether the content is code, data or prose.
-    const kind = tokenKindForFile(file.fileName, file.fileType)
-    if (cachedContentTokens !== undefined) {
-        tally[kind] += cachedContentTokens
-    } else if (fileTypeInfo.isText) {
-        tally[kind] += Math.ceil(file.fileSize / 4)
-    }
+    if (contentTokens <= MAX_INLINE_TEXT_ATTACHMENT_TOKENS)
+        tally[tokenKindForFile(file.fileName, file.fileType)] += contentTokens
     return tally
 }
 

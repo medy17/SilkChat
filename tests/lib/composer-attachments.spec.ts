@@ -262,3 +262,17 @@ it("cleans a reservation whose response arrives after the editor was discarded",
     expect(session.getState()).toMatchObject({ attachments: [], jobs: [] })
     expect(config.deleteFile.mock.calls).toEqual([["late-reservation.txt"]])
 })
+
+it("turns code execution on for a long text file, as for the same text pasted", async () => {
+    vi.useFakeTimers()
+    const session = createComposerSession()
+    const config = options("compose", async (file) => uploaded(file))
+    const long = new File(["word ".repeat(40_000)], "long.txt", { type: "text/plain" })
+    const done = enqueueAttachments(session, [{ file: long }, input("short.txt")], config)
+    await vi.runAllTimersAsync()
+    await done
+    expect(config.enableTools.mock.calls.map(([decision]) => decision.disposition)).toEqual([
+        "url",
+        "inline"
+    ])
+})

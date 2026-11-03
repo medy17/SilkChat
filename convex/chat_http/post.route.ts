@@ -44,7 +44,7 @@ import { resolveTokenizerFamily } from "../lib/token_kinds"
 import { resolveRequiredPlanForModelAccess } from "../lib/credits"
 import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { EPHEMERAL_CACHE_CONTROL, withCacheBreakpoint } from "../lib/prompt_caching"
-import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION } from "../lib/file_constants"
+import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS } from "../lib/file_constants"
 import { getUserIdentity } from "../lib/identity"
 import {
     type PreparedImageReference,
@@ -1293,8 +1293,7 @@ async function handleChatPost(
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
                     resolveGeneratedImageContextUrl: resolveGeneratedImageContext,
                     referenceLongTextAttachments: canReferenceLongTextAttachments,
-                    maxInlineTextAttachmentTokens:
-                        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+                    maxInlineTextAttachmentTokens: MAX_INLINE_TEXT_ATTACHMENT_TOKENS,
                     attachmentReferer,
                     validatePdfs
                 })
@@ -1859,8 +1858,7 @@ async function handleChatPost(
                     publicAssetBaseUrl: process.env.R2_PUBLIC_BASE_URL,
                     resolveGeneratedImageContextUrl: resolveGeneratedImageContext,
                     referenceLongTextAttachments: canReferenceLongTextAttachments,
-                    maxInlineTextAttachmentTokens:
-                        MAX_INLINE_TEXT_ATTACHMENT_TOKENS_WITHOUT_EXECUTION,
+                    maxInlineTextAttachmentTokens: MAX_INLINE_TEXT_ATTACHMENT_TOKENS,
                     attachmentReferer,
                     validatePdfs
                 }

@@ -103,7 +103,7 @@ The deletion mutation checks both completed file metadata and pending upload res
 
 ## Paste and drop routing
 
-Clipboard files take precedence over clipboard text. Text uses the thresholds in `classifyPastedText` to remain inline, become a referenced attachment, or become an ordinary text attachment. While an editor upload batch is busy, text stays inline and does not change tool selection.
+Clipboard files take precedence over clipboard text. Text uses the grades in `classifyPastedText` to remain inline, become an ordinary text attachment, or become a referenced attachment that turns code execution on. Attached text files take the same grades, so a long one turns code execution on too. While an editor upload batch is busy, text stays inline and does not change tool selection.
 
 Pasted-text attachments provide **Show as text**. During upload, this cancels the job and restores its text; in edit mode it cancels the batch. After upload, it restores text and removes the draft attachment. Restored drafts retrieve missing paste content from the uploaded object on demand. Retrieval failure leaves the attachment intact and reports an error. Public attachment hosting must allow the application's origin to fetch these objects.
 
