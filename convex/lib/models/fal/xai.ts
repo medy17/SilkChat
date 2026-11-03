@@ -21,6 +21,33 @@ const GROK_IMAGE_SIZES = [
 
 export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
     {
+        id: "grok-imagine-image-2",
+        name: "Grok Imagine 2.0",
+        addedOn: "2026-11-04",
+        shortName: "Imagine 2.0",
+        releaseOrder: 20260807,
+        adapters: falImageAdapters("xai/grok-imagine-image/v2.0/text-to-image"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 10,
+        supportsReferenceImages: true,
+        maxReferenceImages: 5,
+        customIcon: "xai",
+        supportedImageSizes: [...GROK_IMAGE_SIZES, "21:9"],
+        supportedImageResolutions: ["1K", "2K"],
+        supportedImageQualities: ["low", "medium"],
+        defaultImageQuality: "medium",
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByQualityAndResolution: {
+                low: { "1K": 0.04, "2K": 0.06 },
+                medium: { "1K": 0.06, "2K": 0.08 }
+            },
+            usdPerReferenceImage: 0.01
+        }
+    },
+    {
         id: "grok-imagine-image-pro",
         name: "Grok Imagine Image Pro",
         addedOn: "2026-05-06",
@@ -44,7 +71,11 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
             kind: "fixed",
             usdPerImageByResolution: { "1K": 0.05, "2K": 0.07 },
             usdPerReferenceImage: 0.01
-        }
+        },
+        legacy: true,
+        // xAI retired grok-imagine-image-quality on this date; the slug now serves 2.0 at low quality.
+        sunsetOn: "2026-11-02",
+        replacementId: "grok-imagine-image-2"
     },
     {
         id: "grok-imagine-image",
@@ -70,11 +101,25 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
             kind: "fixed",
             usdPerImageByResolution: { "1K": 0.02, "2K": 0.02 },
             usdPerReferenceImage: 0.002
-        }
+        },
+        legacy: true,
+        replacementId: "grok-imagine-image-2"
     }
 ]
 
 export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
+    {
+        appModelId: "grok-imagine-image-2",
+        endpoint: "xai/grok-imagine-image/v2.0/text-to-image",
+        editEndpoint: "xai/grok-imagine-image/v2.0/edit",
+        supportsReferences: true,
+        usesAspectRatio: true,
+        resolutionMode: "lowercase",
+        usesQuality: true,
+        defaultQuality: "medium",
+        ...SETTLES_AFTER_SAFETY_REJECTION,
+        safety: {}
+    },
     {
         appModelId: "grok-imagine-image",
         endpoint: "xai/grok-imagine-image",

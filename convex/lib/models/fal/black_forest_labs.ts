@@ -38,7 +38,8 @@ export const FAL_BLACK_FOREST_LABS_IMAGE_MODELS: SharedModel[] = [
             usdPerOutputMegapixel: 0.05,
             minimumBillableOutputMegapixels: 1,
             roundOutputMegapixelsUp: true
-        }
+        },
+        legacy: true
     }
 ]
 

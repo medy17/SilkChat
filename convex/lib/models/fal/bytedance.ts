@@ -44,6 +44,28 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
         }
     },
     {
+        id: "seedream-5-flash",
+        name: "Seedream 5 Flash",
+        addedOn: "2026-11-04",
+        shortName: "Seedream 5 Flash",
+        releaseOrder: 20260915,
+        adapters: falImageAdapters("bytedance/seedream/v5/flash/text-to-image"),
+        abilities: [],
+        mode: "image",
+        availableToPickFor: "free",
+        maxPerMessage: 4,
+        supportsReferenceImages: true,
+        maxReferenceImages: 10,
+        openrouterImageModalities: ["image"],
+        supportedImageSizes: [...SEEDREAM_IMAGE_SIZES],
+        supportedImageResolutions: ["1K", "2K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImage: 0.027
+        }
+    },
+    {
         id: "seedream-5-lite",
         name: "Seedream 5 Lite",
         shortName: "Seedream 5 Lite",
@@ -116,6 +138,17 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         appModelId: "seedream-5-pro",
         endpoint: "bytedance/seedream/v5/pro/text-to-image",
         editEndpoint: "bytedance/seedream/v5/pro/edit",
+        supportsReferences: true,
+        imageSizeMode: "seedreamPro",
+        omitOutputFormat: true,
+        safety: {
+            enableSafetyChecker: false
+        }
+    },
+    {
+        appModelId: "seedream-5-flash",
+        endpoint: "bytedance/seedream/v5/flash/text-to-image",
+        editEndpoint: "bytedance/seedream/v5/flash/edit",
         supportsReferences: true,
         imageSizeMode: "seedreamPro",
         omitOutputFormat: true,

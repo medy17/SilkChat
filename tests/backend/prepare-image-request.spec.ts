@@ -39,7 +39,7 @@ describe("validatePreparedImageRequest coercion", () => {
         const freeModels = getSelectableImageModels("free")
         const proModels = getSelectableImageModels("pro")
 
-        expect(freeModels.map((model) => model.id)).toEqual(["seedream-5-lite"])
+        expect(freeModels.map((model) => model.id)).toEqual(["seedream-5-flash", "seedream-5-lite"])
         expect(proModels.length).toBeGreaterThan(freeModels.length)
         expect(proModels).toContainEqual(expect.objectContaining({ id: "seedream-5-pro" }))
     })

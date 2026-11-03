@@ -71,7 +71,8 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
                 medium: 0.008,
                 high: 0.008
             }
-        }
+        },
+        legacy: true
     },
     {
         id: "gpt-5-image-mini",

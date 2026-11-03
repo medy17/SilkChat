@@ -126,7 +126,8 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
             source: "fal",
             kind: "fixed",
             usdPerImageByResolution: { "1K": 0.15, "2K": 0.15, "4K": 0.3 }
-        }
+        },
+        legacy: true
     }
 ]
 
