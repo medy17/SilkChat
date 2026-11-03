@@ -192,9 +192,13 @@ it("shows the ring near the limit, always in the nerd footers, and as dev mode s
     expect(show({ fraction: 0.8, hasByokHint: true })).toBe(false)
     expect(show({ nerdMode: true })).toBe(true)
     expect(show({ fraction: null, nerdMode: true })).toBe(false)
+    // New chats wait for the threshold whatever the footer.
+    expect(show({ nerdMode: true, isNewChat: true })).toBe(false)
+    expect(show({ fraction: 0.8, nerdMode: true, isNewChat: true })).toBe(true)
     // Dev overrides.
     expect(show({ showFromPercent: 40 })).toBe(true)
     expect(show({ visibility: "always", hasByokHint: true })).toBe(true)
+    expect(show({ visibility: "always", nerdMode: true, isNewChat: true })).toBe(true)
     expect(show({ fraction: 1.2, visibility: "never" })).toBe(false)
 })
 

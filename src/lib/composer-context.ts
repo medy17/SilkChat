@@ -153,19 +153,21 @@ export const shouldShowContextRing = ({
     fraction,
     hasByokHint,
     nerdMode,
+    isNewChat = false,
     visibility = "auto",
     showFromPercent
 }: {
     fraction: number | null
     hasByokHint: boolean
     nerdMode: boolean
+    isNewChat?: boolean
     visibility?: ContextRingVisibility
     showFromPercent?: number | null
 }) => {
     if (fraction === null || visibility === "never") return false
     if (visibility === "always") return true
     if (hasByokHint) return false
-    if (nerdMode) return true
+    if (nerdMode && !isNewChat) return true
     const threshold = showFromPercent ?? CONTEXT_RING_VISIBLE_FRACTION * 100
     return fraction * 100 >= threshold
 }

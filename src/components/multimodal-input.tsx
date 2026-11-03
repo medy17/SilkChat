@@ -568,6 +568,7 @@ export const MultimodalInput = forwardRef<
             getActiveRuntimeProvider(displayModel, currentProviders, sharedModels)?.isByok
         )
     }, [openRouterByokEnabled, composerToolbar.selectedDisplayModel, userSettings, sharedModels])
+    const isNewChatComposer = !threadId && messages.length === 0
     const contextRing = useMemo(
         () => resolveContextRing(composerContextUsage, runsOnOwnKey),
         [composerContextUsage, runsOnOwnKey]
@@ -576,6 +577,7 @@ export const MultimodalInput = forwardRef<
         fraction: contextRing?.fraction ?? null,
         hasByokHint: Boolean(byokContextHint),
         nerdMode: footerMode !== "simple",
+        isNewChat: isNewChatComposer,
         visibility: devRingSettings?.visibility,
         showFromPercent: devRingSettings?.showFromPercent
     })
@@ -738,7 +740,6 @@ export const MultimodalInput = forwardRef<
         [pastedText.paste]
     )
 
-    const isNewChatComposer = !threadId && messages.length === 0
     // Focusing opens the keyboard, which shifts the composer up; switching layouts before
     // that settles throws off the composer's layout animations.
     const isInputFocusSettled = useKeyboardSettledValue(isInputFocused, isTouchDevice)
