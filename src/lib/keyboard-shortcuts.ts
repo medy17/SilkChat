@@ -107,6 +107,16 @@ export const SHORTCUTS = {
             default: ["Ctrl", "Alt", "O"]
         }
     }),
+    focusComposer: defineShortcut({
+        id: "focus-composer",
+        title: "Focus composer",
+        category: "Composer",
+        context: "Chat view",
+        display: {
+            mac: ["/"],
+            default: ["/"]
+        }
+    }),
     openModelPicker: defineShortcut({
         id: "open-model-picker",
         title: "Open model picker",
@@ -266,6 +276,7 @@ export const getShortcutHelpSections = (invertSendNewlineBehavior = false) =>
         {
             title: "Composer",
             shortcuts: [
+                SHORTCUTS.focusComposer,
                 SHORTCUTS.openModelPicker,
                 getSubmitPromptShortcut(invertSendNewlineBehavior),
                 getInsertPromptNewlineShortcut(invertSendNewlineBehavior),
@@ -325,6 +336,10 @@ export const matchesSearchChatsShortcut = (event: ShortcutKeyEvent) =>
 
 export const matchesOpenModelPickerShortcut = (event: ShortcutKeyEvent) =>
     event.key === "/" && hasPrimaryModifier(event)
+
+// Shift is allowed: some layouts need it to type a slash.
+export const matchesFocusComposerShortcut = (event: ShortcutKeyEvent) =>
+    event.key === "/" && !isShortcutModifierPressed(event) && !event.altKey
 
 export const matchesNewChatShortcut = (event: ShortcutKeyEvent) => {
     if (event.key.toLowerCase() !== "o") {

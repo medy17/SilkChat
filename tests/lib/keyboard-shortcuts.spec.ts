@@ -4,6 +4,7 @@ import {
     SHORTCUTS,
     getShortcutDisplayTokens,
     getShortcutHelpSections,
+    matchesFocusComposerShortcut,
     matchesDeleteCurrentThreadShortcut,
     matchesInsertPromptNewlineShortcut,
     matchesNewChatShortcut,
@@ -133,6 +134,23 @@ describe("keyboard-shortcuts", () => {
                 altKey: false
             } as KeyboardEvent)
         ).toBe(true)
+    })
+
+    it("focuses the composer on a bare slash, leaving Ctrl + / to the model picker", () => {
+        const slash = (modifiers: Partial<KeyboardEvent>) =>
+            matchesFocusComposerShortcut({
+                key: "/",
+                metaKey: false,
+                ctrlKey: false,
+                shiftKey: false,
+                altKey: false,
+                ...modifiers
+            } as KeyboardEvent)
+
+        expect(slash({})).toBe(true)
+        expect(slash({ shiftKey: true })).toBe(true)
+        expect(slash({ ctrlKey: true })).toBe(false)
+        expect(slash({ metaKey: true })).toBe(false)
     })
 
     it("matches paste as text on the plain-text paste keys, Safari's included", () => {

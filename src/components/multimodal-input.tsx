@@ -119,6 +119,12 @@ import {
     useState
 } from "react"
 import { toast } from "sonner"
+import {
+    OPEN_MODEL_PICKER_SHORTCUT_EVENT,
+    isEditableShortcutTarget,
+    matchesFocusComposerShortcut,
+    matchesOpenModelPickerShortcut
+} from "@/lib/keyboard-shortcuts"
 
 const getAttachmentTelemetryCategory = (file: Pick<File, "name" | "type">) => {
     const info = getFileTypeInfo(file.name, file.type)
@@ -313,6 +319,31 @@ export const MultimodalInput = forwardRef<
         draftSession.setState({ requiredTools: [] })
     }, [draftState.requiredTools, draftSession, isActive, threadId])
     useEffect(() => retainComposerSession(draftSession), [draftSession])
+    // The composer only lives on the new chat, folder and thread pages, and is inactive behind the
+    // Library, so its shortcuts work exactly there. A slash typed anywhere else is still a slash,
+    // and dialogs and menus keep focus.
+    useEffect(() => {
+        if (!isActive) return
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (matchesOpenModelPickerShortcut(event)) {
+                event.preventDefault()
+                document.dispatchEvent(new CustomEvent(OPEN_MODEL_PICKER_SHORTCUT_EVENT))
+                return
+            }
+            if (
+                !matchesFocusComposerShortcut(event) ||
+                event.defaultPrevented ||
+                isEditableShortcutTarget(event.target) ||
+                (event.target instanceof Element &&
+                    event.target.closest("[role='dialog'], [role='menu'], [role='listbox']"))
+            )
+                return
+            event.preventDefault()
+            promptInputRef.current?.focus()
+        }
+        document.addEventListener("keydown", handleKeyDown)
+        return () => document.removeEventListener("keydown", handleKeyDown)
+    }, [isActive])
     const uploadPolicy = queue.policy
     const handleFileUpload = useCallback(
         (files: File[]) => queue.add(files.map((file) => ({ file }))),

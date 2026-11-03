@@ -29,10 +29,6 @@ import { DefaultSettings } from "@/lib/default-user-settings"
 import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
 import { type ThreadPersonaInfo, usePublishThreadDiagnostics } from "@/lib/dev-thread-diagnostics"
 import { canUseDevTools } from "@/lib/dev-tools"
-import {
-    OPEN_MODEL_PICKER_SHORTCUT_EVENT,
-    matchesOpenModelPickerShortcut
-} from "@/lib/keyboard-shortcuts"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
 import {
@@ -109,24 +105,6 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         setSelectedModel,
         setReasoningEffort
     })
-
-    useEffect(() => {
-        if (!isActiveRoute) {
-            return
-        }
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (!matchesOpenModelPickerShortcut(event)) {
-                return
-            }
-
-            event.preventDefault()
-            document.dispatchEvent(new CustomEvent(OPEN_MODEL_PICKER_SHORTCUT_EVENT))
-        }
-
-        document.addEventListener("keydown", handleKeyDown)
-        return () => document.removeEventListener("keydown", handleKeyDown)
-    }, [isActiveRoute])
 
     const projects = useDiskCachedQuery(
         api.folders.getUserProjects,
