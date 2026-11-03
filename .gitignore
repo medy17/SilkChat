@@ -62,3 +62,6 @@ public/silk-app/
 
 # Vitest output (attachments, reports)
 .vitest/
+
+# Wrangler build and dev state (workers/*)
+.wrangler/
