@@ -131,6 +131,17 @@ export const SHORTCUTS = {
         context: "Composer",
         display: getInsertPromptNewlineShortcutDisplay(false)
     }),
+    pasteAsText: defineShortcut({
+        id: "paste-as-text",
+        title: "Paste as text",
+        category: "Composer",
+        context: "Composer",
+        description: "Long pastes stay in the message",
+        display: {
+            mac: ["⌘", "Shift", "V"],
+            default: ["Ctrl", "Shift", "V"]
+        }
+    }),
     formatBold: defineShortcut({
         id: "format-bold",
         title: "Bold",
@@ -258,6 +269,7 @@ export const getShortcutHelpSections = (invertSendNewlineBehavior = false) =>
                 SHORTCUTS.openModelPicker,
                 getSubmitPromptShortcut(invertSendNewlineBehavior),
                 getInsertPromptNewlineShortcut(invertSendNewlineBehavior),
+                SHORTCUTS.pasteAsText,
                 SHORTCUTS.formatBold,
                 SHORTCUTS.formatItalic,
                 SHORTCUTS.saveMessageEdit,
@@ -366,6 +378,13 @@ export const matchesFormatBoldShortcut = (event: ShortcutKeyEvent) =>
 
 export const matchesFormatItalicShortcut = (event: ShortcutKeyEvent) =>
     event.key.toLowerCase() === "i" && hasPrimaryModifier(event)
+
+// The plain-text paste most apps already use, Safari's ⌥⇧⌘V included. It keeps that meaning:
+// composer pastes are read as plain text, and this one also stays in the message.
+export const matchesPasteAsTextShortcut = (event: ShortcutKeyEvent) =>
+    event.key.toLowerCase() === "v" &&
+    event.shiftKey &&
+    hasPrimaryModifier(event, { allowAlt: true, allowShift: true })
 
 export const matchesSaveMessageEditShortcut = (event: ShortcutKeyEvent) =>
     !event.isComposing && event.key === "Enter" && hasPrimaryModifier(event)

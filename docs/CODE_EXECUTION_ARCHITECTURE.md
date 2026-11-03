@@ -56,6 +56,8 @@ Text is graded by the client-side `estimateTokenCount` helper into three grades:
 - Up to `MAX_INLINE_TEXT_ATTACHMENT_TOKENS` (32,000): create a `Pasted Text N.txt` attachment chip and upload it. The model still reads it in full, which costs less than a tool-call loop.
 - Above that: the chip's content goes to the model as a scoped URL/reference that must be inspected with code execution, and code execution turns on.
 
+Paste as text (Ctrl/⌘+Shift+V, the usual plain-text paste) keeps anything up to 32,000 tokens in the composer; above that it still becomes a chip.
+
 Attached text files take the same grades, apart from always being chips: one above 32,000 tokens turns code execution on just as the same text pasted would.
 
 URL references are emitted only when code execution is enabled and the selected model supports function calling. Without that route, text above 32,000 tokens is withheld with a model-visible instruction to ask the user to enable execution or select a capable model.

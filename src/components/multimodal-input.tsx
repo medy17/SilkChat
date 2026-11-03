@@ -1074,6 +1074,7 @@ export const MultimodalInput = forwardRef<
                                 onFocus={() => setIsInputFocused(true)}
                                 onLineCountChange={setLineCount}
                                 onKeyDown={(event) => {
+                                    pastedText.notePasteKeys(event)
                                     if (isExpanded && event.key === "Escape") {
                                         event.preventDefault()
                                         setExpandedHeight(null)

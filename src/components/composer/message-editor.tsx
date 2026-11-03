@@ -352,6 +352,7 @@ const MessageEditor = memo(
         }, [editSession, message.id])
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            pastedText.notePasteKeys(e)
             if (matchesSaveMessageEditShortcut(e)) {
                 e.preventDefault()
                 handleSave()

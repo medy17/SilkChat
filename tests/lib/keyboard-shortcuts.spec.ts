@@ -8,6 +8,7 @@ import {
     matchesInsertPromptNewlineShortcut,
     matchesNewChatShortcut,
     matchesOpenModelPickerShortcut,
+    matchesPasteAsTextShortcut,
     matchesSearchChatsShortcut,
     matchesSidebarToggleShortcut,
     matchesSubmitPromptShortcut
@@ -131,6 +132,27 @@ describe("keyboard-shortcuts", () => {
                 shiftKey: true,
                 altKey: false
             } as KeyboardEvent)
+        ).toBe(true)
+    })
+
+    it("matches paste as text on the plain-text paste keys, Safari's included", () => {
+        const keys = (modifiers: Partial<KeyboardEvent>) =>
+            matchesPasteAsTextShortcut({
+                key: "V",
+                metaKey: false,
+                ctrlKey: false,
+                shiftKey: false,
+                altKey: false,
+                ...modifiers
+            } as KeyboardEvent)
+
+        expect(keys({ ctrlKey: true, shiftKey: true })).toBe(true)
+        expect(keys({ metaKey: true, shiftKey: true, altKey: true })).toBe(true)
+        expect(keys({ ctrlKey: true })).toBe(false)
+        expect(
+            getShortcutHelpSections()
+                .find((section) => section.title === "Composer")
+                ?.shortcuts.some((shortcut) => shortcut.id === "paste-as-text")
         ).toBe(true)
     })
 

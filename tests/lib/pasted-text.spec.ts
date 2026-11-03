@@ -32,6 +32,17 @@ describe("pasted text policy", () => {
         })
     })
 
+    it("keeps paste as text in the message up to what the model reads in full", () => {
+        const asText = (words: number) =>
+            classifyPastedText("word ".repeat(words), {
+                canReferenceLongTextAttachments: true,
+                asText: true
+            }).disposition
+
+        expect(asText(32_000)).toBe("inline")
+        expect(asText(40_000)).toBe("url")
+    })
+
     it("turns code execution on only for a URL reference", () => {
         expect(
             getEnabledToolsForPastedText(

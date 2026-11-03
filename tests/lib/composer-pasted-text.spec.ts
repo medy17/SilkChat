@@ -131,3 +131,29 @@ it("prioritizes clipboard files and leaves text inline while an edit batch is bu
     expect(queue.add.mock.calls[0]).toBeDefined()
     expect(enableTools).toHaveBeenCalledWith(expect.objectContaining({ disposition: "url" }))
 })
+
+it("keeps a medium paste as text only after the paste as text keys", () => {
+    const session = createComposerSession()
+    const queue = { add: vi.fn(async () => {}), remove: vi.fn(async () => {}) }
+    const { result } = renderHook(() =>
+        useComposerPaste(session, {
+            mode: "compose",
+            queue,
+            addFiles: vi.fn(async () => {}),
+            enableTools: vi.fn(),
+            canReferenceLongTextAttachments: true,
+            appendText: vi.fn()
+        })
+    )
+    const text = "word ".repeat(20_000)
+    const keys = (shiftKey: boolean) =>
+        new KeyboardEvent("keydown", { key: shiftKey ? "V" : "v", ctrlKey: true, shiftKey })
+
+    result.current.notePasteKeys(keys(true))
+    expect(result.current.paste({ files: [], text })).toBe(false)
+    // It applies to that paste alone.
+    expect(result.current.paste({ files: [], text })).toBe(true)
+    result.current.notePasteKeys(keys(false))
+    expect(result.current.paste({ files: [], text })).toBe(true)
+    expect(queue.add).toHaveBeenCalledTimes(2)
+})

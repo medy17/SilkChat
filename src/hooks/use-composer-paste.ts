@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import type { UploadedFile } from "@/lib/chat-store"
 import { attachmentsBusy, type ComposerSession } from "@/lib/composer-session"
+import { matchesPasteAsTextShortcut } from "@/lib/keyboard-shortcuts"
 import { classifyPastedText, getPastedTextNames, type PastedTextDecision } from "@/lib/pasted-text"
 import { restorePastedAttachment, restorePastedJob } from "@/lib/composer-pasted-text"
 import type { useComposerAttachments } from "./use-composer-attachments"
@@ -23,6 +24,8 @@ export function useComposerPaste(
     const latestOptions = useRef(options)
     latestOptions.current = options
     const counter = useRef(0)
+    // Paste events don't say which keys fired them, so the keydown before one is kept.
+    const pasteAsText = useRef(false)
     useEffect(() => {
         counter.current = session
             .getState()
@@ -40,6 +43,8 @@ export function useComposerPaste(
                 enableTools,
                 isLocked = unlocked
             } = latestOptions.current
+            const asText = pasteAsText.current
+            pasteAsText.current = false
             if (isLocked() || session.getState().disposed) return true
             if (files.length) {
                 void addFiles(files)
@@ -47,7 +52,8 @@ export function useComposerPaste(
             }
             const decision = classifyPastedText(text, {
                 attachmentQueueBusy: mode === "edit" && attachmentsBusy(session),
-                canReferenceLongTextAttachments
+                canReferenceLongTextAttachments,
+                asText
             })
             if (decision.disposition === "inline") return false
             enableTools(decision)
@@ -65,6 +71,10 @@ export function useComposerPaste(
 
     return {
         paste,
+        /** Call on the editor's keydown so the paste as text shortcut reaches the next paste. */
+        notePasteKeys: useCallback((event: KeyboardEvent) => {
+            pasteAsText.current = matchesPasteAsTextShortcut(event)
+        }, []),
         showUploadingText: (id: string) => {
             const { isLocked = unlocked, appendText } = latestOptions.current
             if (!isLocked()) restorePastedJob(session, id, appendText)

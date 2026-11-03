@@ -18,15 +18,19 @@ export const classifyPastedText = (
     text: string,
     {
         canReferenceLongTextAttachments,
-        attachmentQueueBusy = false
+        attachmentQueueBusy = false,
+        asText = false
     }: {
         canReferenceLongTextAttachments: boolean
         attachmentQueueBusy?: boolean
+        /** Paste as text: keeps anything the model reads in full as typed text. */
+        asText?: boolean
     }
 ): PastedTextDecision => {
     const estimatedTokens = estimateTokenCount(text)
+    const textLimit = asText ? MAX_INLINE_TEXT_ATTACHMENT_TOKENS : PASTED_TEXT_FILE_TOKEN_THRESHOLD
 
-    if (attachmentQueueBusy || estimatedTokens <= PASTED_TEXT_FILE_TOKEN_THRESHOLD) {
+    if (attachmentQueueBusy || estimatedTokens <= textLimit) {
         return { disposition: "inline", estimatedTokens }
     }
 
