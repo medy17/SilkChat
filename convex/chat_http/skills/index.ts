@@ -1,5 +1,5 @@
 import type { AbilityId } from "@/lib/tool-abilities"
-import { tool, type Tool } from "ai"
+import { type ModelMessage, tool, type Tool } from "ai"
 import { z } from "zod"
 import { canvasSkill } from "./canvas"
 import { codeExecutionSkill } from "./code_execution"
@@ -52,7 +52,7 @@ export const buildSkillIndexContext = (
               .join("\n\n")
         : ""
     const loadedContext = preloaded
-        ? `## Preloaded Skills\nThese skills are already loaded for this turn. Their tools are available without calling load_skill. Loading does not require using a tool.\n${preloaded}\n\n`
+        ? `## Preloaded Skills\nThese skills are already loaded. Their tools are available without calling load_skill. Being loaded, or having been used earlier in this conversation, does not authorize using a skill's tools again: use them only when the current message asks for what they do or clearly depends on it, and otherwise answer directly. Loading does not require using a tool.\n${preloaded}\n\n`
         : ""
     if (unloadedSkillIds.length === 0) return loadedContext
 
@@ -61,8 +61,37 @@ export const buildSkillIndexContext = (
         .join("\n")
 
     return `${loadedContext}## Available Skills
-The skills below are available but not loaded. Availability is not a suggestion to use them. Loading a skill is itself a tool call, so answer directly whenever the request does not match a listed positive trigger. Uncertainty, unfamiliarity, or a desire to produce a more authoritative answer does not by itself justify loading a skill. When the current request clearly needs one, call \`load_skill\` first and wait for its result before following its instructions or using its associated tools. A skill's tools become callable only in the step after its load returns, so never call them in the same step as \`load_skill\`, including tools you used in earlier turns: skills load per turn. If a tool call fails because the tool is unavailable or its skill is not loaded, load the skill, or call the tool again once the load has returned, instead of telling the user the tool is unavailable. Loading returns complete, turn-scoped instructions as a tool result. Do not load skills for simple adjacent tasks, and do not claim to have loaded one without calling the tool. You may load another skill later in the same turn if necessary.
+The skills below are available but not loaded. Availability is not a suggestion to use them. Loading a skill is itself a tool call, so answer directly whenever the request does not match a listed positive trigger. Uncertainty, unfamiliarity, or a desire to produce a more authoritative answer does not by itself justify loading a skill. When the current request clearly needs one, call \`load_skill\` first and wait for its result before following its instructions or using its associated tools. A skill's tools become callable only in the step after its load returns, so never call them in the same step as \`load_skill\`. A loaded skill stays loaded for the rest of the conversation. If a tool call fails because the tool is unavailable or its skill is not loaded, load the skill, or call the tool again once the load has returned, instead of telling the user the tool is unavailable. Loading returns complete instructions as a tool result. Do not load skills for simple adjacent tasks, and do not claim to have loaded one without calling the tool. You may load another skill later in the same turn if necessary.
 ${entries}`
+}
+
+// A skill loaded on the selected branch stays loaded so a follow-up does not spend a
+// step reloading it. Opening selections preload without a load_skill call, so a call
+// to one of the skill's tools also counts.
+export const getPreviouslyLoadedSkillIds = (
+    messages: readonly ModelMessage[],
+    availableSkillIds: readonly AppSkillId[]
+): AppSkillId[] => {
+    const loaded = new Set<AppSkillId>()
+    for (const message of messages) {
+        if (message.role !== "assistant" || typeof message.content === "string") continue
+        for (const part of message.content) {
+            if (part.type !== "tool-call") continue
+            const requested =
+                part.toolName === "load_skill"
+                    ? (part.input as { skill?: unknown } | undefined)?.skill
+                    : undefined
+            for (const skillId of availableSkillIds) {
+                if (
+                    requested === skillId ||
+                    APP_SKILLS[skillId].toolNames.includes(part.toolName)
+                ) {
+                    loaded.add(skillId)
+                }
+            }
+        }
+    }
+    return availableSkillIds.filter((skillId) => loaded.has(skillId))
 }
 
 export const getSkillInstructions = (skillId: AppSkillId, context: AppSkillPromptContext) =>
@@ -116,7 +145,7 @@ export const getLoadSkillTool = ({
                     success: true,
                     skill,
                     label: definition.label,
-                    message: `Loaded ${definition.label} skill for this turn.`,
+                    message: `Loaded ${definition.label} skill.`,
                     // Model-only; the public result drops it.
                     ...(definition.toolNames.length > 0
                         ? {
@@ -183,9 +212,6 @@ export const getPublicSkillLoadResult = (output: unknown) => {
         success: value.success === true,
         skill: value.skill,
         label: value.label,
-        message:
-            typeof value.message === "string"
-                ? value.message
-                : `Loaded ${value.label} skill for this turn.`
+        message: typeof value.message === "string" ? value.message : `Loaded ${value.label} skill.`
     }
 }

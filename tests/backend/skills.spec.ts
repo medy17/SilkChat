@@ -4,6 +4,7 @@ import {
     buildSkillIndexContext,
     getActiveSkillToolNames,
     getLoadSkillTool,
+    getPreviouslyLoadedSkillIds,
     getPublicSkillLoadResult,
     guardSkillTools,
     resolveAvailableSkillIds,
@@ -22,7 +23,7 @@ describe("application skills", () => {
             new Set(["web_search"]),
             skillContext
         )
-        expect(index).toContain("already loaded for this turn")
+        expect(index).toContain("These skills are already loaded.")
         expect(index).toContain("## Web Search Tool")
         expect(index).not.toContain("`web_search` —")
         expect(index).toContain("`diagrams` —")
@@ -62,14 +63,14 @@ describe("application skills", () => {
             success: true,
             skill: "diagrams",
             label: "Diagrams",
-            message: "Loaded Diagrams skill for this turn.",
+            message: "Loaded Diagrams skill.",
             instructions: expect.stringContaining("## Mermaid Diagrams")
         })
         expect(getPublicSkillLoadResult(result)).toEqual({
             success: true,
             skill: "diagrams",
             label: "Diagrams",
-            message: "Loaded Diagrams skill for this turn."
+            message: "Loaded Diagrams skill."
         })
     })
 
@@ -144,5 +145,41 @@ describe("application skills", () => {
         await expect(guarded.web_search.execute?.({} as never, {} as never)).resolves.toEqual({
             ok: true
         })
+    })
+
+    it("keeps skills loaded or used earlier on the branch loaded for later turns", () => {
+        const loaded = getPreviouslyLoadedSkillIds(
+            [
+                { role: "user", content: "Look this up" },
+                {
+                    role: "assistant",
+                    content: [
+                        {
+                            type: "tool-call",
+                            toolCallId: "1",
+                            toolName: "load_skill",
+                            input: { skill: "diagrams" }
+                        },
+                        // Opening selections preload without a load call; the tool use counts.
+                        {
+                            type: "tool-call",
+                            toolCallId: "2",
+                            toolName: "web_search",
+                            input: { query: "x" }
+                        },
+                        // No longer enabled this turn.
+                        {
+                            type: "tool-call",
+                            toolCallId: "3",
+                            toolName: "load_skill",
+                            input: { skill: "code_execution" }
+                        }
+                    ]
+                }
+            ],
+            ["diagrams", "math", "web_search"]
+        )
+
+        expect(loaded).toEqual(["diagrams", "web_search"])
     })
 })

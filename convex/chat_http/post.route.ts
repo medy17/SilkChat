@@ -114,6 +114,7 @@ import {
     buildSkillIndexContext,
     getActiveSkillToolNames,
     getLoadSkillTool,
+    getPreviouslyLoadedSkillIds,
     guardSkillTools,
     resolveAvailableSkillIds,
     type AppSkillId
@@ -2237,6 +2238,7 @@ async function handleChatPost(
                 ) {
                     admitSkills(["roleplay"])
                 }
+                admitSkills(getPreviouslyLoadedSkillIds(mapped_messages, availableSkillIdsForTurn))
                 const openingSkillContext = buildSkillIndexContext(
                     availableSkillIdsForTurn,
                     loadedSkillIds,
