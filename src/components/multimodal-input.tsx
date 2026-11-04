@@ -30,6 +30,12 @@ import {
 } from "./composer/attachment-preview-dialog"
 import { IntentGuide } from "@/components/intent-guide"
 import { ContextUsageRing } from "@/components/context-usage-ring"
+import {
+    COMPOSER_CONTENT_IN_CLASS,
+    COMPOSER_CONTENT_OUT_CLASS,
+    COMPOSER_SHAPE_CLASS,
+    composerShapeTransition
+} from "@/components/composer/morph"
 import { ModelSelector, getActiveRuntimeProvider } from "@/components/model-selector"
 import { PersonaSelector } from "@/components/persona-selector"
 import type { PromptEditorHandle } from "@/components/composer/prompt-editor"
@@ -627,6 +633,25 @@ export const MultimodalInput = forwardRef<
             [composerContextUsage, contextRing, devContextOverride]
         )
     )
+    // Pinned in the touch pill, the pill eases the width and the label only crossfades.
+    const renderModelSelector = (pinned: boolean) =>
+        selectedModel ? (
+            <ModelSelector
+                className={pinned ? "bg-transparent" : "hover:bg-glass-control-hover"}
+                easeLabelWidth={!pinned}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+                open={activeComposerOverlay === "model"}
+                onOpenChange={(open) => handleComposerOverlayOpenChange("model", open)}
+                shortcutTarget="composer"
+                telemetrySurface="composer"
+                tooltip="Select model"
+                suppressTooltip={activeComposerOverlay !== null}
+                requiresNativePdf={requiresNativePdfForModelSelection}
+                byokContextHint={byokContextHint}
+            />
+        ) : null
+
     // Rendered in two toolbar slots (after reasoning when wide, before the overflow menu when
     // narrow); CSS shows one. It grows in from the gap so neighbours slide instead of jumping.
     const renderContextRing = (side: "start" | "end", visibilityClassName: string) => {
@@ -639,7 +664,7 @@ export const MultimodalInput = forwardRef<
                         initial={{ width: 0, opacity: 0, [margin]: -8 }}
                         animate={{ width: 32, opacity: 1, [margin]: 0 }}
                         exit={{ width: 0, opacity: 0, [margin]: -8 }}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={composerShapeTransition}
                         className={cn("shrink-0 items-center overflow-hidden", visibilityClassName)}
                     >
                         <ContextUsageRing
@@ -998,7 +1023,8 @@ export const MultimodalInput = forwardRef<
                     invertSendNewlineBehavior={invertSendNewlineBehavior}
                     maxHeight={isExpanded ? "none" : 240}
                     className={cn(
-                        "pointer-events-auto relative mx-auto w-full transition-[padding] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                        "pointer-events-auto relative mx-auto w-full transition-[padding]",
+                        COMPOSER_SHAPE_CLASS,
                         isCompactTouchComposer && "p-2",
                         isNewChatComposer && "rounded-[var(--radius-lg)]",
                         isExpanded && "flex flex-col",
@@ -1065,7 +1091,7 @@ export const MultimodalInput = forwardRef<
                         stretch the text while the composer expands. */}
                     <motion.div
                         layout={!canExpand}
-                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        transition={composerShapeTransition}
                         className={cn(
                             "flex w-full items-start",
                             isCompactTouchComposer && "gap-1",
@@ -1080,7 +1106,7 @@ export const MultimodalInput = forwardRef<
                                     initial={{ width: 0 }}
                                     animate={{ width: 44 }}
                                     exit={{ width: 0 }}
-                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    transition={composerShapeTransition}
                                     className="h-11 shrink-0"
                                 />
                             )}
@@ -1088,7 +1114,7 @@ export const MultimodalInput = forwardRef<
 
                         <motion.div
                             layout={!canExpand}
-                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            transition={composerShapeTransition}
                             className="relative min-w-0 flex-1"
                         >
                             <PromptInputEditor
@@ -1142,7 +1168,7 @@ export const MultimodalInput = forwardRef<
                                     initial={{ width: 0 }}
                                     animate={{ width: 44 }}
                                     exit={{ width: 0 }}
-                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    transition={composerShapeTransition}
                                     className="h-11 shrink-0"
                                 />
                             )}
@@ -1157,26 +1183,35 @@ export const MultimodalInput = forwardRef<
                                 initial="collapsed"
                                 animate="expanded"
                                 exit="collapsed"
-                                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                transition={composerShapeTransition}
                                 // Bottom-aligned so the row stays put while the toolbar opens above it.
                                 className="flex shrink-0 flex-col justify-end overflow-hidden"
                             >
                                 <PromptInputActions className="flex items-center gap-2 pt-2">
-                                    <motion.div
-                                        layout
-                                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                                        className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible"
-                                    >
-                                        {selectedModel && (
-                                            <div
-                                                aria-hidden="true"
-                                                className="h-8 shrink-0"
-                                                style={{ width: modelChipWidth ?? undefined }}
-                                            />
-                                        )}
+                                    {/* No layout animation here: each slot eases its own width, so
+                                        neighbours slide in the real flow instead of being
+                                        transformed into place. */}
+                                    <div className="flex min-w-0 flex-1 items-center @3xl:gap-2 gap-1.5 overflow-hidden @3xl:overflow-visible">
+                                        {/* Touch pins the model chip in a pill shared with the compact
+                                            attach button, so the row only holds its place, easing with
+                                            it so both move as one. Without a compact layout the chip is
+                                            an ordinary chip in the row and its label eases the width. */}
+                                        {selectedModel &&
+                                            (isTouchDevice ? (
+                                                <div
+                                                    aria-hidden="true"
+                                                    className={cn(
+                                                        "h-8 shrink-0 transition-[width] motion-reduce:transition-none",
+                                                        COMPOSER_SHAPE_CLASS
+                                                    )}
+                                                    style={{ width: modelChipWidth ?? undefined }}
+                                                />
+                                            ) : (
+                                                renderModelSelector(false)
+                                            ))}
                                         <motion.div
                                             variants={unfoldFromStartVariants}
-                                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                            transition={composerShapeTransition}
                                             className="flex min-w-0 items-center @3xl:gap-2 gap-1.5"
                                         >
                                             <PersonaSelector
@@ -1201,11 +1236,11 @@ export const MultimodalInput = forwardRef<
                                             />
                                             {renderContextRing("start", "@3xl:flex hidden")}
                                         </motion.div>
-                                    </motion.div>
+                                    </div>
 
                                     <motion.div
                                         variants={unfoldFromEndVariants}
-                                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                        transition={composerShapeTransition}
                                         className="flex shrink-0 items-center gap-2"
                                     >
                                         {renderContextRing("end", "@3xl:hidden flex")}
@@ -1265,71 +1300,62 @@ export const MultimodalInput = forwardRef<
 
                     {/* One pill for the compact attach button and the toolbar's model chip, pinned
                         to the corner both use. It reshapes between them while their contents
-                        crossfade, so neither appears from nowhere. */}
-                    <div
-                        className={cn(
-                            "absolute flex items-center overflow-hidden rounded-[var(--radius-md)] bg-glass-control transition-[width,height,left,bottom,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                            isCompactTouchComposer ? "bottom-2 left-2 h-11" : "bottom-3 left-3 h-8",
-                            modelPillWidth === 0 && "pointer-events-none opacity-0"
-                        )}
-                        style={{ width: modelPillWidth }}
-                    >
-                        {selectedModel && (
-                            <div
-                                ref={measureModelChip}
-                                inert={isCompactTouchComposer}
-                                className={cn(
-                                    "w-max shrink-0 transition-opacity ease-out",
-                                    isCompactTouchComposer
-                                        ? "opacity-0 duration-150"
-                                        : "opacity-100 delay-100 duration-200"
-                                )}
-                            >
-                                <ModelSelector
-                                    className="bg-transparent"
-                                    selectedModel={selectedModel}
-                                    onModelChange={setSelectedModel}
-                                    open={activeComposerOverlay === "model"}
-                                    onOpenChange={(open) =>
-                                        handleComposerOverlayOpenChange("model", open)
-                                    }
-                                    shortcutTarget="composer"
-                                    telemetrySurface="composer"
-                                    tooltip="Select model"
-                                    suppressTooltip={activeComposerOverlay !== null}
-                                    requiresNativePdf={requiresNativePdfForModelSelection}
-                                    byokContextHint={byokContextHint}
-                                />
-                            </div>
-                        )}
-                        {/* Fades on a wrapper: the button's own disabled opacity would override it. */}
+                        crossfade, so neither appears from nowhere. Only touch has a compact layout. */}
+                    {isTouchDevice && (
                         <div
-                            inert={!isCompactTouchComposer}
                             className={cn(
-                                "absolute inset-y-0 left-0 w-11 transition-opacity ease-out",
+                                "absolute flex items-center overflow-hidden rounded-[var(--radius-md)] bg-glass-control transition-[width,height,left,bottom,opacity]",
+                                COMPOSER_SHAPE_CLASS,
                                 isCompactTouchComposer
-                                    ? "opacity-100 delay-100 duration-200"
-                                    : "opacity-0 duration-150"
+                                    ? "bottom-2 left-2 h-11"
+                                    : "bottom-3 left-3 h-8",
+                                modelPillWidth === 0 && "pointer-events-none opacity-0"
                             )}
+                            style={{ width: modelPillWidth }}
                         >
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label="Attach files"
-                                onClick={() => uploadInputRef.current?.click()}
-                                disabled={uploading}
-                                className="size-full text-foreground hover:bg-glass-control-hover"
-                                style={{ borderRadius: "var(--radius-md)" }}
-                            >
-                                {uploading ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <Paperclip className="size-4 -rotate-45" />
+                            {selectedModel && (
+                                <div
+                                    ref={measureModelChip}
+                                    inert={isCompactTouchComposer}
+                                    className={cn(
+                                        "w-max shrink-0 transition-opacity",
+                                        isCompactTouchComposer
+                                            ? COMPOSER_CONTENT_OUT_CLASS
+                                            : COMPOSER_CONTENT_IN_CLASS
+                                    )}
+                                >
+                                    {renderModelSelector(true)}
+                                </div>
+                            )}
+                            {/* Fades on a wrapper: the button's own disabled opacity would override it. */}
+                            <div
+                                inert={!isCompactTouchComposer}
+                                className={cn(
+                                    "absolute inset-y-0 left-0 w-11 transition-opacity",
+                                    isCompactTouchComposer
+                                        ? COMPOSER_CONTENT_IN_CLASS
+                                        : COMPOSER_CONTENT_OUT_CLASS
                                 )}
-                            </Button>
+                            >
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Attach files"
+                                    onClick={() => uploadInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="size-full text-foreground hover:bg-glass-control-hover"
+                                    style={{ borderRadius: "var(--radius-md)" }}
+                                >
+                                    {uploading ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                        <Paperclip className="size-4 -rotate-45" />
+                                    )}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* One button for both layouts, pinned to the corner the compact row and the
                         toolbar share. It only resizes, so it can't drift or leave a copy behind
@@ -1340,7 +1366,8 @@ export const MultimodalInput = forwardRef<
                             size="icon"
                             aria-label={primaryActionLabel}
                             className={cn(
-                                "absolute transition-[width,height,right,bottom] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                "absolute transition-[width,height,right,bottom]",
+                                COMPOSER_SHAPE_CLASS,
                                 isCompactTouchComposer
                                     ? "right-2 bottom-2 size-11"
                                     : "right-3 bottom-3 size-8"

@@ -9,6 +9,7 @@ The composer supports new chats, existing chats, folder chats, and editing user 
 | `src/components/multimodal-input.tsx` | Main and folder composer UI, voice input, context preview, intent shortcuts, and sending. |
 | `src/components/composer/message-editor.tsx` | Message editing, attachment changes, local settings, save/discard, and navigation protection. |
 | `src/components/composer/toolbar.tsx` | Shared desktop/mobile controls and model capability handling. |
+| `src/components/composer/morph.tsx` | The shared composer timing and `ComposerMorph`, which swaps a control's content while its width eases. |
 | `src/components/composer/model-context.tsx` | Settings context, editor initialization, and settings change detection. |
 | `src/components/composer/uploading-attachment-tile.tsx` | Upload progress, errors, and optional cancel or paste-restoration actions. |
 | `src/components/composer/draft-attachment-tile.tsx` | Completed draft attachments, thumbnails, preview requests, removal, and paste-restoration actions. |
@@ -26,6 +27,14 @@ The composer supports new chats, existing chats, folder chats, and editing user 
 | `src/lib/chat-submission.ts` | Correlating a send or edit with backend acknowledgement. |
 | `src/lib/message-edit-recovery.ts` | Handing a saved edit's session, text, removals, and settings back to the editor if the save is rejected. |
 | `src/hooks/use-chat-actions.ts` | Chat SDK operations, optimistic edit recovery, and attachment deletion after acceptance. |
+
+## Control row motion
+
+A control in the toolbar row changes only its own width; it never moves through the layout. A changed label (model, reasoning level, persona) swaps inside a `ComposerMorph` slot: the slot eases to the new width while the old content fades out of the flow, so neighbours slide in the real flow. A control that appears or leaves eases its slot, and the gap after it, open or shut.
+
+Every movement uses the timing in `morph.tsx`, in Motion or as the matching CSS classes. The row and its controls use no Motion `layout` or `AnimatePresence mode="popLayout"`: those move elements with transforms that run apart from the width transitions, which is what made the row jump. The `layout` animations above the row serve the touch-only compact composer.
+
+On touch, the model chip sits in a pill shared with the compact attach button, and the row only reserves its width. On desktop it is an ordinary chip in the row.
 
 ## Draft ownership
 

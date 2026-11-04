@@ -21,6 +21,7 @@ import {
 } from "@/lib/image-generation-defaults"
 import type { ReasoningEffort } from "@/lib/model-store"
 import { useComposerModelStore as useModelStore } from "@/components/composer/model-context"
+import { ComposerMorph } from "@/components/composer/morph"
 import {
     getAllowedReasoningEffortsForModel,
     getReasoningEffortForPlan,
@@ -61,8 +62,7 @@ import {
     SquareTerminal,
     X
 } from "lucide-react"
-import { motion } from "motion/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 export type ComposerOverlay = "model" | "persona" | "tools" | "reasoning" | "mobile-menu"
@@ -121,6 +121,12 @@ export const ReasoningEffortSelector = ({
     const isReasoningOff = isInstantReasoningEffortForModel(selectedSharedModel, reasoningEffort)
     const reasoningLabel = getReasoningEffortLabelForModel(selectedSharedModel, reasoningEffort)
     const ReasoningIcon = getReasoningEffortIcon(reasoningEffort, selectedSharedModel)
+    // Only a keyboard pick hands focus back to the trigger. After a pointer pick that focus would
+    // pop the trigger's tooltip, and its focus ring on the next keypress.
+    const usedKeyboardRef = useRef(false)
+    const noteKeyboard = () => {
+        usedKeyboardRef.current = true
+    }
 
     if (!modelSupportsReasoningControl) return null
 
@@ -150,6 +156,10 @@ export const ReasoningEffortSelector = ({
                     }}
                 >
                     <SelectTrigger
+                        onPointerDown={() => {
+                            usedKeyboardRef.current = false
+                        }}
+                        onKeyDown={noteKeyboard}
                         className={cn(
                             "!h-8 w-auto gap-0.5 px-1.5 font-normal text-xs transition-colors sm:text-sm",
                             tone === "on-primary"
@@ -159,15 +169,24 @@ export const ReasoningEffortSelector = ({
                                 : "border-0 bg-glass-control hover:bg-accent"
                         )}
                     >
-                        <div className="hidden items-center gap-1.5 sm:flex">
-                            <ReasoningIcon className="size-4" />
-                            <span>{reasoningLabel}</span>
+                        <div className="hidden sm:flex">
+                            <ComposerMorph contentKey={`${reasoningEffort}:${reasoningLabel}`}>
+                                <span className="flex items-center gap-1.5">
+                                    <ReasoningIcon className="size-4" />
+                                    <span>{reasoningLabel}</span>
+                                </span>
+                            </ComposerMorph>
                         </div>
                         <span className="flex items-center gap-1 sm:hidden">
                             <ReasoningIcon className="size-4" />
                         </span>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                        onKeyDown={noteKeyboard}
+                        onCloseAutoFocus={(event) => {
+                            if (!usedKeyboardRef.current) event.preventDefault()
+                        }}
+                    >
                         {allowedEfforts.map((effort) => {
                             const EffortIcon = getReasoningEffortIcon(effort, selectedSharedModel)
                             const isEffortLocked =
@@ -998,14 +1017,7 @@ export function ComposerDesktopActions({
     const suppressTooltips = activeOverlay !== null
 
     return (
-        <motion.div
-            layout
-            transition={{
-                duration: 0.2,
-                ease: [0.16, 1, 0.3, 1]
-            }}
-            className="@3xl:flex hidden items-center gap-2"
-        >
+        <div className="@3xl:flex hidden items-center gap-2">
             {state.isImageModel ? null : (
                 <>
                     <PromptInputAction
@@ -1065,7 +1077,7 @@ export function ComposerDesktopActions({
                     />
                 </>
             )}
-        </motion.div>
+        </div>
     )
 }
 

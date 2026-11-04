@@ -37,6 +37,7 @@ import {
     getPersonaFavoritesStorageKey
 } from "@/lib/persona-favorites"
 import { useSharedModels } from "@/lib/shared-models"
+import { COMPOSER_SHAPE_CLASS, ComposerMorph } from "@/components/composer/morph"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -55,7 +56,7 @@ import {
     Star,
     UserRound
 } from "lucide-react"
-import { AnimatePresence, LayoutGroup, motion } from "motion/react"
+import { LayoutGroup, motion } from "motion/react"
 import { nanoid } from "nanoid"
 import type { CSSProperties, ReactNode } from "react"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -83,10 +84,6 @@ type PersonaOption = {
 const getSelectValue = (source: "default" | "builtin" | "user", id?: string) =>
     source === "default" ? "default" : `${source}:${id}`
 
-const personaChromeTransition = {
-    duration: 0.2,
-    ease: [0.16, 1, 0.3, 1]
-} as const
 const PERSONA_PICKER_REVALIDATION_DELAY_MS = 240
 const PERSONA_TOOLBAR_SAFETY_SPACE_PX = 24
 const PERSONA_DESCRIPTION_PREVIEW_LENGTH = 68
@@ -1075,8 +1072,22 @@ export function PersonaSelector({
             </div>
         )
 
+    const slotKey = !threadId
+        ? "persona-picker"
+        : lockedPersonaName
+          ? `thread-persona:${lockedPersonaName}`
+          : null
+
     return (
-        <motion.div ref={selectorRootRef} layout className="shrink-0 overflow-hidden">
+        // An empty slot eases shut along with the toolbar gap after it, so nothing is left behind.
+        <div
+            ref={selectorRootRef}
+            className={cn(
+                "flex shrink-0 transition-[margin] motion-reduce:transition-none",
+                COMPOSER_SHAPE_CLASS,
+                slotKey === null && "-mr-1.5 @3xl:-mr-2"
+            )}
+        >
             {selectedOption && (
                 <span
                     aria-hidden="true"
@@ -1086,230 +1097,199 @@ export function PersonaSelector({
                     <span ref={shortLabelMeasureRef}>{selectedOption.shortName}</span>
                 </span>
             )}
-            <AnimatePresence initial={false} mode="popLayout">
+            <ComposerMorph contentKey={slotKey} offset={12}>
                 {!threadId ? (
-                    <motion.div
-                        key="persona-picker"
-                        layout
-                        initial={{ opacity: 0, x: -12, scale: 0.96 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -12, scale: 0.96 }}
-                        transition={personaChromeTransition}
+                    <PersonaPicker
+                        isMobile={isMobile}
+                        open={isPickerOpen}
+                        onOpenChange={setIsPickerOpen}
+                        desktopAlignOffset={desktopAlignOffset}
+                        desktopPopoverWidth={desktopPopoverWidth}
+                        trigger={
+                            <span ref={pickerTriggerRef} className="inline-flex">
+                                <button
+                                    type="button"
+                                    className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-glass-control px-1.5 @3xl:text-sm text-xs transition-colors hover:bg-glass-control-hover min-[390px]:gap-2 min-[390px]:px-2"
+                                    aria-label="Select persona"
+                                    title="Select persona"
+                                    onClick={() => {
+                                        if (isMobile) setIsPickerOpen(true)
+                                    }}
+                                >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        {selectedOption ? (
+                                            <PersonaAvatar
+                                                name={selectedOption.name}
+                                                avatarKind={selectedOption.avatarKind}
+                                                avatarValue={selectedOption.avatarValue}
+                                                className="size-5"
+                                            />
+                                        ) : (
+                                            <Sparkles className="size-4 shrink-0" />
+                                        )}
+                                        <span className="hidden whitespace-nowrap min-[390px]:block">
+                                            {selectedLabel}
+                                        </span>
+                                    </div>
+                                    <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                </button>
+                            </span>
+                        }
                     >
-                        <PersonaPicker
-                            isMobile={isMobile}
-                            open={isPickerOpen}
-                            onOpenChange={setIsPickerOpen}
-                            desktopAlignOffset={desktopAlignOffset}
-                            desktopPopoverWidth={desktopPopoverWidth}
-                            trigger={
-                                <span ref={pickerTriggerRef} className="inline-flex">
+                        <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-transparent">
+                            <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-transparent sm:p-3 sm:pb-2">
+                                <div className="flex items-center gap-2">
+                                    <div className="relative min-w-0 flex-1">
+                                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            value={searchValue}
+                                            onChange={(event) => setSearchValue(event.target.value)}
+                                            placeholder="Search personas..."
+                                            className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
+                                        />
+                                    </div>
                                     <button
                                         type="button"
-                                        className="flex h-8 min-w-0 items-center justify-between gap-0.5 rounded-[var(--radius-md)] border bg-glass-control px-1.5 @3xl:text-sm text-xs transition-colors hover:bg-glass-control-hover min-[390px]:gap-2 min-[390px]:px-2"
-                                        aria-label="Select persona"
-                                        title="Select persona"
+                                        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-secondary/60 px-3 font-medium text-foreground text-sm transition-colors hover:bg-secondary/80"
                                         onClick={() => {
-                                            if (isMobile) setIsPickerOpen(true)
+                                            setIsPickerOpen(false)
+
+                                            let didNavigate = false
+                                            let fallbackTimeoutId: number | null = null
+                                            const doNavigate = () => {
+                                                if (didNavigate) return
+                                                didNavigate = true
+                                                window.removeEventListener("popstate", doNavigate)
+                                                if (fallbackTimeoutId !== null) {
+                                                    window.clearTimeout(fallbackTimeoutId)
+                                                    fallbackTimeoutId = null
+                                                }
+                                                void navigate({ to: "/settings/personas" })
+                                            }
+
+                                            if (isMobile) {
+                                                window.addEventListener("popstate", doNavigate, {
+                                                    once: true
+                                                })
+                                                fallbackTimeoutId = window.setTimeout(
+                                                    doNavigate,
+                                                    150
+                                                )
+                                            } else {
+                                                doNavigate()
+                                            }
                                         }}
                                     >
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            {selectedOption ? (
-                                                <PersonaAvatar
-                                                    name={selectedOption.name}
-                                                    avatarKind={selectedOption.avatarKind}
-                                                    avatarValue={selectedOption.avatarValue}
-                                                    className="size-5"
-                                                />
-                                            ) : (
-                                                <Sparkles className="size-4 shrink-0" />
-                                            )}
-                                            <span className="hidden whitespace-nowrap min-[390px]:block">
-                                                {selectedLabel}
-                                            </span>
-                                        </div>
-                                        <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                        <Plus className="size-4" />
+                                        <span className="hidden sm:inline">Create persona</span>
                                     </button>
-                                </span>
-                            }
-                        >
-                            <div className="flex min-h-0 flex-1 flex-col bg-background sm:bg-transparent">
-                                <div className="shrink-0 bg-background px-4 pt-3 pb-3 sm:bg-transparent sm:p-3 sm:pb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="relative min-w-0 flex-1">
-                                            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input
-                                                value={searchValue}
-                                                onChange={(event) =>
-                                                    setSearchValue(event.target.value)
-                                                }
-                                                placeholder="Search personas..."
-                                                className="h-10 border-0 bg-secondary/60 pl-9 shadow-none focus-visible:ring-2"
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-[var(--radius-md)] border border-border bg-secondary/60 px-3 font-medium text-foreground text-sm transition-colors hover:bg-secondary/80"
-                                            onClick={() => {
-                                                setIsPickerOpen(false)
-
-                                                let didNavigate = false
-                                                let fallbackTimeoutId: number | null = null
-                                                const doNavigate = () => {
-                                                    if (didNavigate) return
-                                                    didNavigate = true
-                                                    window.removeEventListener(
-                                                        "popstate",
-                                                        doNavigate
-                                                    )
-                                                    if (fallbackTimeoutId !== null) {
-                                                        window.clearTimeout(fallbackTimeoutId)
-                                                        fallbackTimeoutId = null
-                                                    }
-                                                    void navigate({ to: "/settings/personas" })
-                                                }
-
-                                                if (isMobile) {
-                                                    window.addEventListener(
-                                                        "popstate",
-                                                        doNavigate,
-                                                        { once: true }
-                                                    )
-                                                    fallbackTimeoutId = window.setTimeout(
-                                                        doNavigate,
-                                                        150
-                                                    )
-                                                } else {
-                                                    doNavigate()
-                                                }
-                                            }}
-                                        >
-                                            <Plus className="size-4" />
-                                            <span className="hidden sm:inline">Create persona</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:grid-cols-[4rem_minmax(0,1fr)]">
-                                    <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
-                                        <LayoutGroup id={personaRailLayoutGroupId}>
-                                            <div
-                                                className={cn(
-                                                    "relative flex flex-col items-center gap-1",
-                                                    isMobile ? "px-1 pt-3 pb-2" : "px-2 pt-3 pb-2"
-                                                )}
-                                            >
-                                                {personaSections.map((section) => {
-                                                    const isActive = activeSection === section.id
-                                                    return (
-                                                        <Tooltip key={section.id}>
-                                                            <TooltipTrigger asChild>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        setActiveSection(section.id)
-                                                                    }
-                                                                    className={cn(
-                                                                        "relative isolate flex size-11 min-w-0 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 text-left transition-colors",
-                                                                        isActive
-                                                                            ? "text-foreground"
-                                                                            : "text-muted-foreground hover:bg-muted/50"
-                                                                    )}
-                                                                    aria-label={section.label}
-                                                                >
-                                                                    {isActive && (
-                                                                        <motion.span
-                                                                            aria-hidden="true"
-                                                                            layoutId="persona-selector-section-indicator"
-                                                                            className={cn(
-                                                                                "pointer-events-none absolute inset-0 -z-10 rounded-[inherit] ring-1 ring-foreground/20 ring-inset",
-                                                                                isMobile
-                                                                                    ? "bg-background"
-                                                                                    : "bg-popover"
-                                                                            )}
-                                                                            transition={{
-                                                                                duration: 0.25,
-                                                                                ease: [
-                                                                                    0.16, 1, 0.3, 1
-                                                                                ]
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                    <span className="relative z-10 flex size-7 items-center justify-center rounded-[var(--radius-md)]">
-                                                                        {section.icon}
-                                                                    </span>
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent
-                                                                side="left"
-                                                                className="z-[90]"
-                                                            >
-                                                                {section.label}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    )
-                                                })}
-                                            </div>
-                                        </LayoutGroup>
-                                    </div>
-
-                                    <div
-                                        className={cn(
-                                            "flex min-h-0 flex-col p-3",
-                                            isMobile && "bg-background"
-                                        )}
-                                    >
-                                        {isMobile ? (
-                                            <div
-                                                className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"
-                                                onTouchMoveCapture={(event) =>
-                                                    event.stopPropagation()
-                                                }
-                                            >
-                                                {personaList}
-                                            </div>
-                                        ) : (
-                                            <ScrollArea className="min-h-0 flex-1 pr-1">
-                                                {personaList}
-                                            </ScrollArea>
-                                        )}
-                                    </div>
                                 </div>
                             </div>
-                        </PersonaPicker>
-                    </motion.div>
-                ) : null}
 
-                {lockedPersonaName ? (
-                    <motion.div
-                        key={`thread-persona:${lockedPersonaName}`}
-                        layout
-                        initial={{ opacity: 0, x: -12, scale: 0.96 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -12, scale: 0.96 }}
-                        transition={personaChromeTransition}
+                            <div className="grid min-h-0 flex-1 grid-cols-[3.5rem_minmax(0,1fr)] grid-rows-1 overflow-hidden md:grid-cols-[4rem_minmax(0,1fr)]">
+                                <div className="flex min-h-0 min-w-0 flex-col rounded-tr-[var(--radius-md)] border-t border-r bg-muted/50">
+                                    <LayoutGroup id={personaRailLayoutGroupId}>
+                                        <div
+                                            className={cn(
+                                                "relative flex flex-col items-center gap-1",
+                                                isMobile ? "px-1 pt-3 pb-2" : "px-2 pt-3 pb-2"
+                                            )}
+                                        >
+                                            {personaSections.map((section) => {
+                                                const isActive = activeSection === section.id
+                                                return (
+                                                    <Tooltip key={section.id}>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setActiveSection(section.id)
+                                                                }
+                                                                className={cn(
+                                                                    "relative isolate flex size-11 min-w-0 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-transparent p-0 text-left transition-colors",
+                                                                    isActive
+                                                                        ? "text-foreground"
+                                                                        : "text-muted-foreground hover:bg-muted/50"
+                                                                )}
+                                                                aria-label={section.label}
+                                                            >
+                                                                {isActive && (
+                                                                    <motion.span
+                                                                        aria-hidden="true"
+                                                                        layoutId="persona-selector-section-indicator"
+                                                                        className={cn(
+                                                                            "pointer-events-none absolute inset-0 -z-10 rounded-[inherit] ring-1 ring-foreground/20 ring-inset",
+                                                                            isMobile
+                                                                                ? "bg-background"
+                                                                                : "bg-popover"
+                                                                        )}
+                                                                        transition={{
+                                                                            duration: 0.25,
+                                                                            ease: [0.16, 1, 0.3, 1]
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                                <span className="relative z-10 flex size-7 items-center justify-center rounded-[var(--radius-md)]">
+                                                                    {section.icon}
+                                                                </span>
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent
+                                                            side="left"
+                                                            className="z-[90]"
+                                                        >
+                                                            {section.label}
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                )
+                                            })}
+                                        </div>
+                                    </LayoutGroup>
+                                </div>
+
+                                <div
+                                    className={cn(
+                                        "flex min-h-0 flex-col p-3",
+                                        isMobile && "bg-background"
+                                    )}
+                                >
+                                    {isMobile ? (
+                                        <div
+                                            className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1"
+                                            onTouchMoveCapture={(event) => event.stopPropagation()}
+                                        >
+                                            {personaList}
+                                        </div>
+                                    ) : (
+                                        <ScrollArea className="min-h-0 flex-1 pr-1">
+                                            {personaList}
+                                        </ScrollArea>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </PersonaPicker>
+                ) : lockedPersonaName ? (
+                    <Badge
+                        variant="secondary"
+                        className="flex h-8 items-center gap-2 rounded-[var(--radius-md)] bg-glass-control px-2"
+                        title="Thread persona"
                     >
-                        <Badge
-                            variant="secondary"
-                            className="flex h-8 items-center gap-2 rounded-[var(--radius-md)] bg-glass-control px-2"
-                            title="Thread persona"
-                        >
-                            {lockedAvatarKind && lockedAvatarValue ? (
-                                <PersonaAvatar
-                                    name={lockedPersonaName}
-                                    avatarKind={lockedAvatarKind}
-                                    avatarValue={lockedAvatarValue}
-                                    className="size-5"
-                                />
-                            ) : (
-                                <Sparkles className="size-4 shrink-0" />
-                            )}
-                            <span className="max-w-[8.75rem] truncate">{lockedPersonaName}</span>
-                        </Badge>
-                    </motion.div>
+                        {lockedAvatarKind && lockedAvatarValue ? (
+                            <PersonaAvatar
+                                name={lockedPersonaName}
+                                avatarKind={lockedAvatarKind}
+                                avatarValue={lockedAvatarValue}
+                                className="size-5"
+                            />
+                        ) : (
+                            <Sparkles className="size-4 shrink-0" />
+                        )}
+                        <span className="max-w-[8.75rem] truncate">{lockedPersonaName}</span>
+                    </Badge>
                 ) : null}
-            </AnimatePresence>
-        </motion.div>
+            </ComposerMorph>
+        </div>
     )
 }
 import { useCurrentUserSettings } from "@/hooks/use-current-user-settings"
