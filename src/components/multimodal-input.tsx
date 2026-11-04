@@ -182,6 +182,8 @@ export const MultimodalInput = forwardRef<
         showIntentShortcuts?: boolean
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
+        // False while the thread is still loading behind the route skeleton.
+        isThreadHydrated?: boolean
         onInputActivityChange?: (isActive: boolean) => void
         onExpandedChange?: (isExpanded: boolean) => void
         // Defaults to centered for an empty chat and docked otherwise.
@@ -197,6 +199,7 @@ export const MultimodalInput = forwardRef<
         showIntentShortcuts = false,
         threadHasPdfAttachments = false,
         messages = [],
+        isThreadHydrated = true,
         onInputActivityChange,
         onExpandedChange,
         expandAnchor
@@ -531,23 +534,28 @@ export const MultimodalInput = forwardRef<
     // The thread is estimated only when it settles: not while a reply is generating (its messages
     // update every ~50ms, and its real count only arrives at the end) and never per keystroke.
     // Re-estimating an unanchored 1M-character thread costs ~40ms.
+    // Outside a reply it reads the live messages, so the ring resolves in the same render as the
+    // messages the route skeleton waits for. A switched-to thread is read once even mid-reply, so
+    // the previous thread's count never carries over.
     const isGeneratingReply = status === "submitted" || status === "streaming"
-    const [settledMessages, setSettledMessages] = useState(messages)
+    const [settled, setSettled] = useState({ threadId, messages })
     useEffect(() => {
-        if (!isGeneratingReply) setSettledMessages(messages)
-    }, [isGeneratingReply, messages])
+        if (!isGeneratingReply || settled.threadId !== threadId) setSettled({ threadId, messages })
+    }, [isGeneratingReply, messages, settled.threadId, threadId])
+    const contextMessages =
+        isGeneratingReply && settled.threadId === threadId ? settled.messages : messages
     const threadContext = useMemo(
         () =>
             estimateComposerThreadContext({
                 model: selectedSharedModel,
-                messages: settledMessages,
+                messages: contextMessages,
                 providerModelId,
                 hostedContextPolicy,
                 contextOverride: devContextOverride
             }),
         [
             selectedSharedModel,
-            settledMessages,
+            contextMessages,
             providerModelId,
             hostedContextPolicy,
             devContextOverride
@@ -652,6 +660,16 @@ export const MultimodalInput = forwardRef<
             />
         ) : null
 
+    // The ring only grows and shrinks for changes made in view. Whatever it settles to while a
+    // thread loads behind the skeleton, including the render that finishes loading, applies
+    // instantly, so the reveal shows it in place rather than growing in.
+    const [canAnimateContextRing, setCanAnimateContextRing] = useState(isThreadHydrated)
+    useEffect(() => {
+        setCanAnimateContextRing(isThreadHydrated)
+    }, [isThreadHydrated])
+    const contextRingTransition =
+        canAnimateContextRing && isThreadHydrated ? composerShapeTransition : { duration: 0 }
+
     // Rendered in two toolbar slots (after reasoning when wide, before the overflow menu when
     // narrow); CSS shows one. It grows in from the gap so neighbours slide instead of jumping.
     const renderContextRing = (side: "start" | "end", visibilityClassName: string) => {
@@ -664,7 +682,7 @@ export const MultimodalInput = forwardRef<
                         initial={{ width: 0, opacity: 0, [margin]: -8 }}
                         animate={{ width: 32, opacity: 1, [margin]: 0 }}
                         exit={{ width: 0, opacity: 0, [margin]: -8 }}
-                        transition={composerShapeTransition}
+                        transition={contextRingTransition}
                         className={cn("shrink-0 items-center overflow-hidden", visibilityClassName)}
                     >
                         <ContextUsageRing

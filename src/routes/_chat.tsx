@@ -28,6 +28,7 @@ import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
+import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { consumeSuppressedChatTransitionForPath } from "@/lib/chat-transition-override"
@@ -300,10 +301,13 @@ function ComposerTextareaSkeleton({ className }: { className?: string }) {
 
 function ChatComposerSkeleton({
     className,
-    isCompact = false
+    isCompact = false,
+    showContextRing = false
 }: {
     className?: string
     isCompact?: boolean
+    // The real ring's slot, for when it is known to show before the thread loads.
+    showContextRing?: boolean
 }) {
     // Mirrors isCompactTouchComposer in multimodal-input.tsx: a single row of
     // attach, placeholder, and primary action with the toolbar collapsed away.
@@ -340,12 +344,23 @@ function ChatComposerSkeleton({
                         <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
                         <ChatSkeletonBlock className="h-8 w-24 rounded-[var(--radius-md)]" />
                     </div>
+                    {showContextRing && <ContextRingSkeleton className="@3xl:flex hidden" />}
                 </div>
+                {showContextRing && <ContextRingSkeleton className="flex @3xl:hidden" />}
                 <div className="@3xl:hidden shrink-0">
                     <ChatSkeletonBlock className="size-8 rounded-[var(--radius-md)]" />
                 </div>
                 <ChatSkeletonBlock className="size-8 shrink-0 rounded-[var(--radius-md)]" />
             </div>
+        </div>
+    )
+}
+
+// The ring is a bare glyph in a 32px slot, with no chip behind it.
+function ContextRingSkeleton({ className }: { className: string }) {
+    return (
+        <div className={cn("size-8 shrink-0 items-center justify-center", className)}>
+            <ChatSkeletonBlock className="size-4 rounded-full" />
         </div>
     )
 }
@@ -402,6 +417,9 @@ function ThreadSkeletonBody() {
     // Threads open with an unfocused composer, so touch devices land in the
     // compact layout unless a draft is restored.
     const isTouchDevice = useIsTouchDevice()
+    // Stats for nerds is stored on the device, so it is known before the thread loads. A ring
+    // shown for a nearly full context can't be known yet; it appears with the thread instead.
+    const showsContextRing = useMessageFooterStore((state) => state.footerMode !== "simple")
 
     return (
         // No overflow clipping here: like the real chat column, the composer hangs
@@ -437,6 +455,7 @@ function ThreadSkeletonBody() {
                     <ChatComposerSkeleton
                         className={cn("mx-auto w-full", widthClass)}
                         isCompact={isTouchDevice}
+                        showContextRing={showsContextRing}
                     />
                 </div>
                 {/* Same backdrop chat.tsx draws behind the thread composer, so it

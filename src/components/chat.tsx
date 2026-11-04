@@ -641,6 +641,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         showIntentShortcuts={isEmpty && selectedPersona.source === "default"}
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}
+                        isThreadHydrated={isHydrationSettled}
                         onInputActivityChange={setIsComposerActive}
                         onExpandedChange={setIsComposerExpanded}
                     />
