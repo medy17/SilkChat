@@ -30,6 +30,10 @@ const normalizeOrigin = (value?: string) => {
         : `https://${trimmedValue}`
 }
 
+const DAY_SECONDS = 60 * 60 * 24
+const SESSION_EXPIRES_IN_SECONDS = 30 * DAY_SECONDS
+const SESSION_UPDATE_AGE_SECONDS = DAY_SECONDS
+
 const isDefined = <T>(value: T | undefined): value is T => value !== undefined
 
 const getEnv = (name: keyof NodeJS.ProcessEnv) => {
@@ -168,6 +172,11 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         secret: betterAuthSecret,
         baseURL: authBaseURLConfig.baseURL,
         basePath: "/api/auth",
+        session: {
+            // Sliding window: any visit after updateAge pushes expiry out again.
+            expiresIn: SESSION_EXPIRES_IN_SECONDS,
+            updateAge: SESSION_UPDATE_AGE_SECONDS
+        },
         rateLimit: {
             enabled: !isLocalAuthRuntime
         },
