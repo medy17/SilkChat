@@ -1,4 +1,9 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+    DETAIL_TOOLTIP_DELAY_MS,
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
+} from "@/components/ui/tooltip"
 import type { SharedModel } from "@/convex/lib/models"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getModelCostLevel } from "@/lib/model-cost"
@@ -37,7 +42,7 @@ export function ModelCostIndicator({
         : `${COST_LABELS[level]} model cost`
 
     return (
-        <Tooltip>
+        <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
             <TooltipTrigger asChild>
                 <span
                     className="inline-flex shrink-0 font-mono font-semibold text-[0.6875rem] tracking-tight"

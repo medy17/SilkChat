@@ -86,7 +86,7 @@ import * as React from "react"
 import { LayoutGroup, motion } from "motion/react"
 import { toast } from "sonner"
 import "./model-selector.css"
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
+import { DETAIL_TOOLTIP_DELAY_MS, Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 import { ModelExpiryBadge } from "@/components/model-expiry-badge"
 import { RETIRED_MODEL_REASON } from "@/convex/lib/openrouter_catalog"
 
@@ -238,7 +238,7 @@ const CapabilityPill = ({ ability }: { ability: string }) => {
     const featureColor = FEATURE_COLORS[ability] ?? "var(--primary)"
 
     return (
-        <Tooltip>
+        <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
             <TooltipTrigger asChild>
                 <div
                     className="flex size-7 items-center justify-center rounded-[var(--radius-md)] border border-[color-mix(in_oklab,var(--feature-color)_28%,transparent)] bg-[color-mix(in_oklab,var(--feature-color)_12%,transparent)] text-[color-mix(in_oklab,var(--feature-color)_72%,var(--foreground))]"
@@ -963,6 +963,7 @@ const FavoriteToggle = ({
 
     return (
         <Tooltip
+            delayDuration={DETAIL_TOOLTIP_DELAY_MS}
             open={tooltipOpen}
             onOpenChange={(nextOpen) => setTooltipOpen(isRemovalArmed ? true : nextOpen)}
         >
@@ -1740,7 +1741,7 @@ export function ModelSelector({
                         <span className="hidden md:block">{selectedModelData.name}</span>
                         {selectedSharedModel && <ModelCostIndicator model={selectedSharedModel} />}
                         {showByokContextHint && byokContextHint && (
-                            <Tooltip>
+                            <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
                                 <TooltipTrigger asChild>
                                     <span
                                         className={cn(
@@ -1756,7 +1757,7 @@ export function ModelSelector({
                             </Tooltip>
                         )}
                         {activeRuntimeProvider?.isByok && byokContextHint && (
-                            <Tooltip>
+                            <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
                                 <TooltipTrigger asChild>
                                     <span
                                         className={cn(
@@ -1868,7 +1869,10 @@ export function ModelSelector({
                                         const isActive = section.id === visibleSection?.id
                                         const hasNewModels = newProviderSectionIds.has(section.id)
                                         return (
-                                            <Tooltip key={section.id}>
+                                            <Tooltip
+                                                key={section.id}
+                                                delayDuration={DETAIL_TOOLTIP_DELAY_MS}
+                                            >
                                                 <TooltipTrigger asChild>
                                                     <button
                                                         type="button"
