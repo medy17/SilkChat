@@ -327,6 +327,15 @@ export const pricingOptions: PricingOption[] = [
     }
 ]
 
+// Counts of live registry models (convex/lib/models.ts), rounded down where they
+// carry a plus. Revisit them when the catalog moves.
+export const landingStats = [
+    { value: "60+", label: "Chat models" },
+    { value: "12", label: "AI labs" },
+    { value: "11", label: "Image models" },
+    { value: pricingOptions[1].price, label: "Pro per month" }
+]
+
 export const testimonials: Testimonial[] = [
     {
         quote: "Going from maintaining two $20 subscriptions to a single $8.99 plan made an AI sub feel so much more worth it.",
