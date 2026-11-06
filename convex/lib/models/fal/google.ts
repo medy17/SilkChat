@@ -139,7 +139,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         usesAspectRatio: true,
         safety: {
-            safetyTolerance: "1"
+            safetyTolerance: "6"
         }
     },
     {
@@ -150,7 +150,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         usesAspectRatio: true,
         resolutionMode: "uppercase",
         safety: {
-            safetyTolerance: "1"
+            safetyTolerance: "6"
         }
     },
     {
@@ -161,7 +161,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         usesAspectRatio: true,
         resolutionMode: "uppercase",
         safety: {
-            safetyTolerance: "1"
+            safetyTolerance: "6"
         }
     },
     {
@@ -171,7 +171,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         supportsReferences: true,
         usesAspectRatio: true,
         safety: {
-            safetyTolerance: "1"
+            safetyTolerance: "6"
         }
     },
     {
@@ -182,7 +182,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         usesAspectRatio: true,
         resolutionMode: "uppercase",
         safety: {
-            safetyTolerance: "1"
+            safetyTolerance: "6"
         }
     }
 ]

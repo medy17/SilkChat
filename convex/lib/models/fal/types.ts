@@ -2,7 +2,8 @@ import type { ImageQuality, ImageReasoningEffort, ImageResolution, ImageSize } f
 
 export type FalSafetyMode = {
     enableSafetyChecker?: boolean
-    safetyTolerance?: "1"
+    /** Lower is stricter: 1 is fal's strictest level, and 6 its loosest on Google models. */
+    safetyTolerance?: "1" | "6"
 }
 
 export const SETTLES_AFTER_SAFETY_REJECTION = {

@@ -144,7 +144,7 @@ describe("fal image model payloads", () => {
         expect(sharedModel("gemini-2.5-flash-image").supportedImageSizes).toContain("21:9")
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
-            safety_tolerance: "1"
+            safety_tolerance: "6"
         })
         expect(input).not.toHaveProperty("resolution")
     })
@@ -164,7 +164,7 @@ describe("fal image model payloads", () => {
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
             resolution: "4K",
-            safety_tolerance: "1"
+            safety_tolerance: "6"
         })
         expect(input).not.toHaveProperty("enable_safety_checker")
     })
@@ -184,7 +184,7 @@ describe("fal image model payloads", () => {
         expect(sharedModel("gemini-3.1-flash-lite-image").supportedImageResolutions).toBeUndefined()
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
-            safety_tolerance: "1"
+            safety_tolerance: "6"
         })
         expect(input).not.toHaveProperty("resolution")
     })
@@ -203,7 +203,7 @@ describe("fal image model payloads", () => {
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
             resolution: "2K",
-            safety_tolerance: "1"
+            safety_tolerance: "6"
         })
     })
 
