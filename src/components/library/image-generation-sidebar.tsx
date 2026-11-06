@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
-import type { ImageQuality, SharedModel } from "@/convex/lib/models"
+import type { ImageQuality, ImageReasoningEffort, SharedModel } from "@/convex/lib/models"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import {
@@ -217,6 +217,19 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         return quality && quality !== "auto" && model.supportedImageQualities.includes(quality)
             ? quality
             : undefined
+    }
+    const imageReasoningEffortOverrides = useDevOverridesStore(
+        (state) => state.imageReasoningEffortOverrides
+    )
+    const setImageReasoningEffortOverride = useDevOverridesStore(
+        (state) => state.setImageReasoningEffortOverride
+    )
+    const getImageReasoningEffortOverride = (
+        model: SharedModel | undefined
+    ): ImageReasoningEffort | undefined => {
+        if (!model?.supportedImageReasoningEfforts?.length) return undefined
+        const effort = imageReasoningEffortOverrides[model.id] ?? model.defaultImageReasoningEffort
+        return effort && model.supportedImageReasoningEfforts.includes(effort) ? effort : undefined
     }
     const setImageVariantMax = useDevOverridesStore((state) => state.setImageVariantMax)
     const setImageReferenceMax = useDevOverridesStore((state) => state.setImageReferenceMax)
@@ -1013,6 +1026,10 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                 ...(canSelectImageQuality && model?.supportedImageQualities?.length
                                     ? { quality: getImageQualityOverride(model) }
                                     : {}),
+                                ...(canSelectImageQuality &&
+                                model?.supportedImageReasoningEfforts?.length
+                                    ? { reasoningEffort: getImageReasoningEffortOverride(model) }
+                                    : {}),
                                 ...(model?.supportsTransparentBackground &&
                                 transparentBackgroundModelIds.includes(modelId)
                                     ? { transparentBackground: true }
@@ -1433,6 +1450,51 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                                                                     className="px-2 text-[0.625rem] capitalize"
                                                                                 >
                                                                                     {quality}
+                                                                                </TabsTrigger>
+                                                                            )
+                                                                        )}
+                                                                    </TabsList>
+                                                                </Tabs>
+                                                            </div>
+                                                        )}
+                                                    {canSelectImageQuality &&
+                                                        Boolean(
+                                                            model.supportedImageReasoningEfforts
+                                                                ?.length
+                                                        ) && (
+                                                            <div className="flex flex-col gap-2 px-1 py-2">
+                                                                <span className="text-[0.625rem] uppercase tracking-wider opacity-70">
+                                                                    Reasoning
+                                                                </span>
+                                                                <Tabs
+                                                                    value={getImageReasoningEffortOverride(
+                                                                        model
+                                                                    )}
+                                                                    onValueChange={(value) => {
+                                                                        const effort =
+                                                                            model.supportedImageReasoningEfforts?.find(
+                                                                                (effort) =>
+                                                                                    effort === value
+                                                                            )
+                                                                        if (!effort) return
+                                                                        setImageReasoningEffortOverride(
+                                                                            model.id,
+                                                                            effort
+                                                                        )
+                                                                    }}
+                                                                >
+                                                                    <TabsList
+                                                                        className="h-7 w-full"
+                                                                        aria-label={`${model.name} reasoning effort`}
+                                                                    >
+                                                                        {model.supportedImageReasoningEfforts?.map(
+                                                                            (effort) => (
+                                                                                <TabsTrigger
+                                                                                    key={effort}
+                                                                                    value={effort}
+                                                                                    className="px-2 text-[0.625rem] capitalize"
+                                                                                >
+                                                                                    {effort}
                                                                                 </TabsTrigger>
                                                                             )
                                                                         )}

@@ -24,7 +24,7 @@ import {
     resolveGeneratedImageReferenceSource,
     validatePreparedImageRequest
 } from "./lib/image_generation/shared"
-import { type ImageQuality, MODELS_SHARED } from "./lib/models"
+import { type ImageQuality, type ImageReasoningEffort, MODELS_SHARED } from "./lib/models"
 import {
     type FalReferenceImage,
     buildFalImageInput,
@@ -359,6 +359,7 @@ const submitImageGenerationJob = async (
         creditEventKey,
         reservedMicrousd: providedReservedMicrousd,
         quality,
+        reasoningEffort,
         transparentBackground
     }: {
         userId: string
@@ -377,6 +378,7 @@ const submitImageGenerationJob = async (
         creditEventKey?: string
         reservedMicrousd?: number
         quality?: Exclude<ImageQuality, "auto">
+        reasoningEffort?: ImageReasoningEffort
         transparentBackground?: boolean
     }
 ) => {
@@ -441,6 +443,7 @@ const submitImageGenerationJob = async (
             referenceImages,
             maxAssets: 1,
             quality,
+            reasoningEffort,
             transparentBackground: validated.transparentBackground
         })
         const createdJobId: Id<"imageGenerationJobs"> = await ctx.runMutation(
@@ -532,6 +535,15 @@ export const generateStandaloneImage = action({
                 v.literal("max")
             )
         ),
+        reasoningEffort: v.optional(
+            v.union(
+                v.literal("low"),
+                v.literal("medium"),
+                v.literal("high"),
+                v.literal("xhigh"),
+                v.literal("max")
+            )
+        ),
         transparentBackground: v.optional(v.boolean()),
         referenceImageIds: v.optional(v.array(v.string()))
     },
@@ -543,11 +555,15 @@ export const generateStandaloneImage = action({
         const model = MODELS_SHARED.find((model) => model.id === args.modelId)
         const isSupportedQualityRequest =
             args.quality !== undefined && model?.supportedImageQualities?.includes(args.quality)
-        const access = isSupportedQualityRequest
-            ? await ctx.runQuery(internal.credits.getUserCreditStateInternal, {
-                  userId: user.id
-              })
-            : null
+        const isSupportedReasoningRequest =
+            args.reasoningEffort !== undefined &&
+            model?.supportedImageReasoningEfforts?.includes(args.reasoningEffort)
+        const access =
+            isSupportedQualityRequest || isSupportedReasoningRequest
+                ? await ctx.runQuery(internal.credits.getUserCreditStateInternal, {
+                      userId: user.id
+                  })
+                : null
         const canOverrideImageQuality =
             process.env.DEV_CREDIT_LAB_ENABLED === "1" || access?.isStaff === true
 
@@ -560,6 +576,10 @@ export const generateStandaloneImage = action({
             resolution: args.resolution,
             quality:
                 isSupportedQualityRequest && canOverrideImageQuality ? args.quality : undefined,
+            reasoningEffort:
+                isSupportedReasoningRequest && canOverrideImageQuality
+                    ? args.reasoningEffort
+                    : undefined,
             transparentBackground: args.transparentBackground,
             references: toReferenceSources(args.referenceImageIds)
         })

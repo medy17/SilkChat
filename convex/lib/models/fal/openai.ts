@@ -12,12 +12,51 @@ const GPT_IMAGE_2_SIZES = [
     "21:9"
 ] satisfies SharedModel["supportedImageSizes"]
 
+const GPT_IMAGE_VARIANTS = ["flare", "sunburst"] as const
+const variantLabel = (variant: (typeof GPT_IMAGE_VARIANTS)[number]) =>
+    variant === "flare" ? "Flare" : "Sunburst"
+
 export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
-    ...(["flare", "sunburst"] as const).map(
+    ...GPT_IMAGE_VARIANTS.map(
+        (variant): SharedModel => ({
+            id: `gpt-image-2.6-${variant}`,
+            name: `GPT Image 2.6 ${variantLabel(variant)}`,
+            shortName: `Image 2.6 ${variantLabel(variant)}`,
+            addedOn: "2026-11-05",
+            releaseOrder: variant === "flare" ? 20261103 : 20261104,
+            adapters: falImageAdapters(`openai/gpt-image-2.6/${variant}/text-to-image`),
+            abilities: [],
+            mode: "image",
+            maxPerMessage: 10,
+            supportsReferenceImages: true,
+            maxReferenceImages: 16,
+            customIcon: "openai",
+            supportsTransparentBackground: true,
+            supportedImageSizes: [...GPT_IMAGE_2_SIZES],
+            supportedImageResolutions: ["1K", "2K", "4K"],
+            // Live requests reject xhigh/max, even though fal's schema and OpenAI's docs list them.
+            supportedImageQualities: ["low", "medium", "high"],
+            defaultImageQuality: "high",
+            // OpenAI's `complexity`. Documented with no separate fee, so it isn't in the estimate.
+            supportedImageReasoningEfforts: ["low", "medium", "high"],
+            defaultImageReasoningEffort: "high",
+            imagePricing: {
+                source: "fal",
+                kind: "gpt_image_2_5",
+                // OpenAI's calculator: 2.6 multiplies the 2.5 token grid at low and medium.
+                // https://developers.openai.com/api/docs/guides/image-generation#calculating-costs
+                outputTokenMultiplierByQuality: { low: 4.2, medium: 3.3 },
+                // Reference allowance for reservations; fal billing events settle actual input usage.
+                usdPerReferenceImage: 0.008,
+                roundRequestUsdUpTo: 0.0001
+            }
+        })
+    ),
+    ...GPT_IMAGE_VARIANTS.map(
         (variant): SharedModel => ({
             id: `gpt-image-2.5-${variant}`,
-            name: `GPT Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
-            shortName: `Image 2.5 ${variant === "flare" ? "Flare" : "Sunburst"}`,
+            name: `GPT Image 2.5 ${variantLabel(variant)}`,
+            shortName: `Image 2.5 ${variantLabel(variant)}`,
             addedOn: "2026-09-08",
             releaseOrder: variant === "flare" ? 20261101 : 20261102,
             adapters: falImageAdapters(`openai/gpt-image-2.5/${variant}/text-to-image`),
@@ -38,7 +77,8 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
                 // Reference allowance for reservations; fal billing events settle actual input usage.
                 usdPerReferenceImage: 0.008,
                 roundRequestUsdUpTo: 0.0001
-            }
+            },
+            replacementId: `gpt-image-2.6-${variant}`
         })
     ),
     {
@@ -144,19 +184,22 @@ export const FAL_OPENAI_IMAGE_MODELS: SharedModel[] = [
 ]
 
 export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
-    ...(["flare", "sunburst"] as const).map(
-        (variant): FalImageDescriptor => ({
-            appModelId: `gpt-image-2.5-${variant}`,
-            endpoint: `openai/gpt-image-2.5/${variant}/text-to-image`,
-            editEndpoint: `openai/gpt-image-2.5/${variant}/edit`,
-            supportsReferences: true,
-            imageSizeMode: "standard",
-            editImageSizeMode: "explicit",
-            usesQuality: true,
-            usesBackground: true,
-            defaultQuality: "high",
-            safety: {}
-        })
+    ...(["2.6", "2.5"] as const).flatMap((version) =>
+        GPT_IMAGE_VARIANTS.map(
+            (variant): FalImageDescriptor => ({
+                appModelId: `gpt-image-${version}-${variant}`,
+                endpoint: `openai/gpt-image-${version}/${variant}/text-to-image`,
+                editEndpoint: `openai/gpt-image-${version}/${variant}/edit`,
+                supportsReferences: true,
+                imageSizeMode: "standard",
+                editImageSizeMode: "explicit",
+                usesQuality: true,
+                usesBackground: true,
+                defaultQuality: "high",
+                ...(version === "2.6" ? { defaultReasoningEffort: "high" as const } : {}),
+                safety: {}
+            })
+        )
     ),
     {
         appModelId: "gpt-5.4-image-2",

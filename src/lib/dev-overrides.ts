@@ -1,4 +1,4 @@
-import type { ImageQuality } from "@/convex/lib/models"
+import type { ImageQuality, ImageReasoningEffort } from "@/convex/lib/models"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
@@ -25,6 +25,7 @@ export type DevOverridesState = {
     aspectRatioOverride: string | null
     disableImageCompression: boolean
     imageQualityOverrides: Partial<Record<string, Exclude<ImageQuality, "auto">>>
+    imageReasoningEffortOverrides: Partial<Record<string, ImageReasoningEffort>>
     // Chat hosted/model context-limit overrides (Wave 3). null = use the real limits.
     hostedContextLimitOverride: number | null
     modelContextLimitOverride: number | null
@@ -42,6 +43,7 @@ export type DevOverridesState = {
     setDisableImageCompression: (value: boolean) => void
     resetImageQualityOverrides: () => void
     setImageQualityOverride: (modelId: string, value: Exclude<ImageQuality, "auto">) => void
+    setImageReasoningEffortOverride: (modelId: string, value: ImageReasoningEffort) => void
     setHostedContextLimitOverride: (value: number | null) => void
     setModelContextLimitOverride: (value: number | null) => void
     setContextRingVisibility: (value: ContextRingVisibility) => void
@@ -62,6 +64,7 @@ const OVERRIDE_DEFAULTS = {
     aspectRatioOverride: null,
     disableImageCompression: false,
     imageQualityOverrides: {},
+    imageReasoningEffortOverrides: {},
     hostedContextLimitOverride: null,
     modelContextLimitOverride: null,
     contextRingVisibility: "auto",
@@ -78,6 +81,7 @@ const OVERRIDE_DEFAULTS = {
     | "setAspectRatioOverride"
     | "setDisableImageCompression"
     | "setImageQualityOverride"
+    | "setImageReasoningEffortOverride"
     | "resetImageQualityOverrides"
     | "setHostedContextLimitOverride"
     | "setModelContextLimitOverride"
@@ -100,10 +104,18 @@ export const useDevOverridesStore = create<DevOverridesState>()(
             setAspectRatioOverride: (aspectRatioOverride) => set({ aspectRatioOverride }),
             setDisableImageCompression: (disableImageCompression) =>
                 set({ disableImageCompression }),
-            resetImageQualityOverrides: () => set({ imageQualityOverrides: {} }),
+            resetImageQualityOverrides: () =>
+                set({ imageQualityOverrides: {}, imageReasoningEffortOverrides: {} }),
             setImageQualityOverride: (modelId, quality) =>
                 set((state) => ({
                     imageQualityOverrides: { ...state.imageQualityOverrides, [modelId]: quality }
+                })),
+            setImageReasoningEffortOverride: (modelId, reasoningEffort) =>
+                set((state) => ({
+                    imageReasoningEffortOverrides: {
+                        ...state.imageReasoningEffortOverrides,
+                        [modelId]: reasoningEffort
+                    }
                 })),
             setHostedContextLimitOverride: (hostedContextLimitOverride) =>
                 set({ hostedContextLimitOverride }),

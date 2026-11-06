@@ -34,6 +34,7 @@ export type AllAspects = (BaseAspects | `${BaseAspects}-hd`) & {}
 export type ImageSize = (AllAspects | BaseResolution) & {}
 export type ImageResolution = ("1K" | "2K" | "4K") & {}
 export type ImageQuality = ("low" | "medium" | "high" | "xhigh" | "max" | "auto") & {}
+export type ImageReasoningEffort = ("low" | "medium" | "high" | "xhigh" | "max") & {}
 export type TranscriptionAudioFormat = "wav" | "mp3" | "ogg" | "flac" | "webm" | "m4a" | "aac"
 
 export type TranscriptionConfig = {
@@ -71,6 +72,8 @@ export type ImagePricing = {
     usdPerReferenceImage?: number
     usdPerReferenceImageByQuality?: Partial<Record<ImageQuality, number>>
     freeReferenceImages?: number
+    /** gpt_image_2_5 only: scales calculator output tokens per quality (GPT Image 2.6). */
+    outputTokenMultiplierByQuality?: Partial<Record<ImageQuality, number>>
     /** Provider request totals are rounded up to this USD increment. */
     roundRequestUsdUpTo?: number
 }
@@ -148,6 +151,8 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     supportedImageResolutions?: ImageResolution[]
     supportedImageQualities?: Exclude<ImageQuality, "auto">[]
     defaultImageQuality?: ImageQuality
+    supportedImageReasoningEfforts?: ImageReasoningEffort[]
+    defaultImageReasoningEffort?: ImageReasoningEffort
     /** fal endpoint accepts `background: "transparent"` (PNG with alpha). */
     supportsTransparentBackground?: boolean
     imagePricing?: ImagePricing

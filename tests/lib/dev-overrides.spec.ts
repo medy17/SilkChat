@@ -42,9 +42,11 @@ describe("dev overrides store", () => {
         const store = useDevOverridesStore.getState()
         store.setImageQualityOverride("model-a", "low")
         store.setImageQualityOverride("model-b", "max")
+        store.setImageReasoningEffortOverride("model-a", "xhigh")
         store.setRawMarkdown(true)
         store.resetImageQualityOverrides()
         expect(useDevOverridesStore.getState().imageQualityOverrides).toEqual({})
+        expect(useDevOverridesStore.getState().imageReasoningEffortOverrides).toEqual({})
         expect(useDevOverridesStore.getState().rawMarkdown).toBe(true)
     })
 

@@ -1,4 +1,4 @@
-import type { ImageQuality, ImageResolution, ImageSize } from "../types"
+import type { ImageQuality, ImageReasoningEffort, ImageResolution, ImageSize } from "../types"
 
 export type FalSafetyMode = {
     enableSafetyChecker?: boolean
@@ -22,6 +22,8 @@ export type FalImageDescriptor = {
     /** Endpoint takes `background`; we always send it so the model never picks for itself. */
     usesBackground?: boolean
     defaultQuality?: string
+    /** Endpoint takes `reasoning_effort`; sent on every request so the level is never implicit. */
+    defaultReasoningEffort?: ImageReasoningEffort
     usesMaxImages?: boolean
     omitOutputFormat?: boolean
     safety: FalSafetyMode
@@ -40,6 +42,7 @@ export type FalImageRequest = {
     referenceImages: FalReferenceImage[]
     maxAssets?: number
     quality?: Exclude<ImageQuality, "auto">
+    reasoningEffort?: ImageReasoningEffort
     transparentBackground?: boolean
 }
 

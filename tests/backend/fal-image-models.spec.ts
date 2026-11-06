@@ -348,6 +348,33 @@ describe("fal image model payloads", () => {
 })
 
 it.each(["flare", "sunburst"])(
+    "sends GPT Image 2.6 %s reasoning effort separately from quality",
+    (variant) => {
+        const model = descriptor(`gpt-image-2.6-${variant}`)
+        expect(getFalEndpointForRequest(model, 0)).toBe(
+            `openai/gpt-image-2.6/${variant}/text-to-image`
+        )
+        expect(getFalEndpointForRequest(model, 1)).toBe(`openai/gpt-image-2.6/${variant}/edit`)
+        const request = {
+            prompt: "A portrait",
+            imageSize: "3:4" as const,
+            imageResolution: "1K" as const,
+            referenceImages: []
+        }
+        expect(buildFalImageInput(model, request)).toMatchObject({
+            quality: "high",
+            reasoning_effort: "high"
+        })
+        expect(
+            buildFalImageInput(model, { ...request, quality: "low", reasoningEffort: "medium" })
+        ).toMatchObject({ quality: "low", reasoning_effort: "medium" })
+        expect(
+            buildFalImageInput(descriptor(`gpt-image-2.5-${variant}`), request)
+        ).not.toHaveProperty("reasoning_effort")
+    }
+)
+
+it.each(["flare", "sunburst"])(
     "routes GPT Image 2.5 %s generation and edits with high as default",
     (variant) => {
         const model = descriptor(`gpt-image-2.5-${variant}`)

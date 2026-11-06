@@ -266,6 +266,10 @@ export const buildFalImageInput = (descriptor: FalImageDescriptor, request: FalI
         input.quality = request.quality ?? descriptor.defaultQuality
     }
 
+    if (descriptor.defaultReasoningEffort) {
+        input.reasoning_effort = request.reasoningEffort ?? descriptor.defaultReasoningEffort
+    }
+
     if (request.referenceImages.length > 0) {
         input.image_urls = request.referenceImages.map((image) => image.url)
     }

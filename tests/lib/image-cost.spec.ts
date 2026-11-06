@@ -155,6 +155,21 @@ describe("GPT Image 2.5 output estimates", () => {
         }
     )
 
+    it.each([
+        // OpenAI's calculator at 1024×1024: 196 × 4.2 → 823 tokens, 439 × 3.3 → 1,449.
+        ["low", 0.0247],
+        ["medium", 0.0435],
+        ["high", 0.0527]
+    ] as const)("estimates GPT Image 2.6 %s from the scaled 2.5 grid", (quality, expected) => {
+        for (const id of ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst"]) {
+            const model = MODELS_SHARED.find((model) => model.id === id)!
+            expect(
+                estimateImageCost({ model, quality, aspectRatio: "1:1", resolution: "1K" })
+                    ?.totalUsd
+            ).toBeCloseTo(expected, 8)
+        }
+    })
+
     it("defaults to high and reserves references for each variant", () => {
         const model = MODELS_SHARED.find((model) => model.id === "gpt-image-2.5-flare")!
         expect(estimateImageCost({ model, referenceCount: 2, variants: 3 })?.totalUsd).toBeCloseTo(

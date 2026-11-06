@@ -95,9 +95,12 @@ export const estimateImageCost = ({
         // The provider calculator rounds exact halves to the nearest even integer.
         const roundedShortSide =
             shortSide - floor === 0.5 ? floor + (floor % 2) : Math.round(shortSide)
-        const outputTokens = Math.ceil(
+        const baseOutputTokens = Math.ceil(
             (gridSide * roundedShortSide * (2_000_000 + width * height)) / 4_000_000
         )
+        // GPT Image 2.6 shares the grid but scales tokens by quality (OpenAI's calculator).
+        const multiplier = pricing.outputTokenMultiplierByQuality?.[normalizedQuality] ?? 1
+        const outputTokens = Math.round(baseOutputTokens * multiplier)
         usdPerImage = (outputTokens * 30) / 1_000_000
     } else if (pricing.usdPerOutputMegapixel !== undefined) {
         let megapixels = getOutputMegapixels(model, aspectRatio, resolution)
