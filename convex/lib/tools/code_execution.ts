@@ -1,8 +1,9 @@
 import { tool } from "ai"
 import { z } from "zod"
 import { internal } from "../../_generated/api"
-import { PERSISTENT_SANDBOX_CONFIRMATION_TTL_MS } from "../persistent_sandbox_policy"
-import { defaultSandboxRuntimeVersion } from "../sandbox_runtime"
+import type { Doc } from "../../_generated/dataModel"
+import { describeComputerKeys } from "../computer_keys"
+import { COMPUTER_COMMAND_MAX_TIMEOUT_MS, COMPUTER_REQUEST_TTL_MS } from "../computer_policy"
 import type { ToolAdapter } from "../toolkit"
 
 const DEFAULT_EXECUTION_TIMEOUT_MS = 20_000
@@ -35,13 +36,6 @@ export const codeExecutionInputSchema = z.object({
     language: z.enum(["javascript", "python"]),
     code: z.string().min(1).max(100_000),
     dependencies: z.array(packageSchema).max(10).optional().default([]),
-    sandboxMode: z
-        .enum(["ephemeral", "persistent"])
-        .optional()
-        .default("ephemeral")
-        .describe(
-            "Use persistent after approval. The server always routes execution to a compatible active persistent sandbox, even if ephemeral is requested."
-        ),
     timeoutMs: z
         .number()
         .int()
@@ -51,104 +45,111 @@ export const codeExecutionInputSchema = z.object({
         .default(DEFAULT_EXECUTION_TIMEOUT_MS)
 })
 
+export const computerRunInputSchema = z.object({
+    purpose: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .describe(
+            "A short user-facing active phrase for this step, such as 'Running the tests'. Do not claim an outcome that has not been established yet."
+        ),
+    command: z.string().min(1).max(100_000),
+    cwd: z
+        .string()
+        .trim()
+        .max(500)
+        .optional()
+        .describe("Working directory inside /vercel/workspace. Defaults to /vercel/workspace."),
+    timeoutMs: z.number().int().min(1_000).max(COMPUTER_COMMAND_MAX_TIMEOUT_MS).optional()
+})
+
 export const CodeExecutionAdapter: ToolAdapter = async (params) => {
     if (!params.enabledTools.includes("code_execution")) return {}
     if (!params.toolAvailability.code_execution.enabled) return {}
 
+    const computerKeys: Doc<"computerKeys">[] = await params.ctx.runQuery(
+        internal.computer_keys.listEnabledComputerKeys,
+        { userId: params.userSettings.userId }
+    )
+
+    const computer: Doc<"computers"> | null = await params.ctx.runQuery(
+        internal.computers.getComputerForUser,
+        { userId: params.userSettings.userId }
+    )
+
     return {
-        release_persistent_sandbox: tool({
+        request_computer: tool({
             description: [
-                "Permanently release the account's active persistent code workspace once all work is complete.",
-                "Call this only after required results and artifacts have been returned and no follow-up execution is needed.",
-                "This cleanup operation is idempotent and does not consume the tool-call budget."
-            ].join("\n"),
-            inputSchema: z.object({}),
-            execute: async () =>
-                await params.ctx.runAction(
-                    internal.persistent_sandboxes_node.releasePersistentSandboxForUser,
-                    { userId: params.userSettings.userId }
-                )
-        }),
-        request_persistent_sandbox: tool({
-            description: [
-                "Request user approval for one account-wide persistent code workspace.",
-                "Use this only when multiple code executions must share filesystem state and an ephemeral execution cannot complete the task.",
-                "This tool only prepares an Allow/Deny card; it does not create a sandbox. After a successful call, stop the turn."
+                "One-time setup of your own computer, a long-lived Linux machine that keeps its files between chats.",
+                "Call this when computer_run reports that your computer isn't set up. It shows the user an Allow card once; after that the computer is simply yours to use.",
+                "After a successful call, stop the turn."
             ].join("\n"),
             inputSchema: z.object({
-                // The card ellipsizes long titles; the max only stops a runaway one.
-                title: z
-                    .string()
-                    .trim()
-                    .min(1)
-                    .max(60)
-                    .describe(
-                        'A short, human-friendly title for the work this workspace is for (2-5 words), shown as the card heading. Name the task or data, not the tool. E.g. "Drug deaths by year", "Changelog diff", "Crop yield model".'
-                    ),
                 purpose: z
                     .string()
                     .trim()
                     .min(1)
                     .max(160)
-                    .describe("A concise explanation of why filesystem persistence is required."),
-                runtime: z
-                    .enum(["node", "python"])
-                    .describe("Runtime required by the persistent workspace."),
-                ttlMinutes: z
-                    .union([
-                        z.literal(3),
-                        z.literal(5),
-                        z.literal(10),
-                        z.literal(15),
-                        z.literal(30)
-                    ])
-                    .describe("Requested lifetime in minutes. Choose the shortest sufficient TTL.")
+                    .describe("What you want your computer for, in one short plain sentence.")
             }),
-            execute: async ({ title, purpose, runtime, ttlMinutes }) => {
-                const active = await params.ctx.runQuery(
-                    internal.persistent_sandboxes.getActivePersistentSandboxForUser,
-                    { userId: params.userSettings.userId }
-                )
-                if (active) {
+            execute: async ({ purpose }) => {
+                const existing = await params.ctx.runQuery(internal.computers.getComputerForUser, {
+                    userId: params.userSettings.userId
+                })
+                if (existing) {
                     return {
                         success: false,
-                        code: "persistent_sandbox_already_active",
-                        error: "This account already has an active persistent sandbox. Reuse it or ask the user to kill it before requesting another."
+                        code: "computer_already_exists",
+                        error: "Your computer is already set up. Use computer_run."
                     }
                 }
                 const requestedAt = Date.now()
-                const runtimeVersion = defaultSandboxRuntimeVersion(runtime)
                 return {
                     success: true,
-                    kind: "persistent_sandbox_request",
+                    kind: "computer_request",
                     status: "pending_confirmation",
                     cardId: crypto.randomUUID(),
-                    title: title.trim(),
                     purpose: purpose.trim(),
-                    runtime,
-                    runtimeVersion,
-                    ttlMinutes,
                     requestedAt,
-                    confirmationExpiresAt: requestedAt + PERSISTENT_SANDBOX_CONFIRMATION_TTL_MS
+                    confirmationExpiresAt: requestedAt + COMPUTER_REQUEST_TTL_MS
                 }
             }
         }),
+        computer_run: tool({
+            description: [
+                "Run a bash command on your own computer, a persistent Ubuntu machine with git, gh, Node 24, npm, pnpm, bun, and Python 3.14. It is yours to use whenever it helps.",
+                "Files under /vercel/workspace stay between commands and chats. Commands start there. Anything outside the workspace, including system packages, can be lost after a reset or a long break.",
+                "Running processes stop about 90 seconds after your last command. To give the user a file, write it under the directory in SILKCHAT_ARTIFACT_DIR.",
+                computer
+                    ? "Your computer is set up and ready."
+                    : "Your computer isn't set up yet. Call request_computer before using this tool.",
+                describeComputerKeys(computerKeys)
+            ].join("\n"),
+            inputSchema: computerRunInputSchema,
+            execute: async ({ command, cwd, timeoutMs }) =>
+                await params.ctx.runAction(internal.computers_node.executeOnComputer, {
+                    userId: params.userSettings.userId,
+                    command,
+                    cwd,
+                    timeoutMs
+                })
+        }),
         execute_code: tool({
             description: [
-                "Execute JavaScript (Node.js 24) or Python 3.14 in an isolated Linux sandbox with public internet access.",
-                "This is the general-purpose executor. When execute_math is also available, prefer execute_math for mathematical, scientific, statistical, unit, data-analysis, and graph-algorithm work covered by its included libraries.",
+                "One-off execution: run JavaScript (Node.js 24) or Python 3.14 in a throwaway Linux sandbox with public internet access. Nothing is kept after the call, so use computer_run on your own computer for work that should last.",
+                "When execute_math is also available, prefer execute_math for mathematical, scientific, statistical, unit, data-analysis, and graph-algorithm work covered by its included libraries.",
                 "Standard libraries are available; declare third-party npm or PyPI packages in dependencies.",
                 "To give the user downloadable files, write them under the directory in SILKCHAT_ARTIFACT_DIR. Supported outputs include PDF, CSV/TSV, JSON/text/Markdown, XLSX/DOCX/PPTX, ZIP, SQLite, Parquet, PNG, JPEG, and WebP. Do not print binary data or base64.",
                 "Successful artifacts are attached to the response automatically. Refer to them by filename in prose. If a Markdown link is genuinely useful, copy the artifact's returned HTTPS url exactly; never link to a sandbox:, file:, /vercel/sandbox, or other local path."
             ].join("\n"),
             inputSchema: codeExecutionInputSchema,
-            execute: async ({ language, code, dependencies, sandboxMode, timeoutMs }) =>
+            execute: async ({ language, code, dependencies, timeoutMs }) =>
                 await params.ctx.runAction(internal.lib.tools.code_execution_node.executeCode, {
                     userId: params.userSettings.userId,
                     language,
                     code,
                     dependencies,
-                    sandboxMode,
                     timeoutMs
                 })
         })

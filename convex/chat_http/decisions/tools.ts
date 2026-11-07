@@ -15,7 +15,7 @@ const SKILL_SELECTION_RULES: Record<AppSkillId, string> = {
     web_search:
         "Does the user explicitly request a web search, browsing, external verification, or external sources/citations in `request`? A request to search for a historical fact still counts.",
     code_execution:
-        "Does the user ask to actually execute or test code, process files, or produce a downloadable file? Code Execution runs JavaScript or Python and creates file artifacts. Explicit requests to run code qualify even if the operation is simple. Exclude requests only to write, explain, or review code without execution, and ordinary factual or mental-arithmetic questions. Dataset computation is evaluated separately.",
+        "Does the user ask to actually execute or test code, process files, or produce a downloadable file? Code Execution runs JavaScript or Python, creates file artifacts, and includes a persistent computer. Explicit requests to run code qualify even if the operation is simple. Exclude requests only to write, explain, or review code without execution, and ordinary factual or mental-arithmetic questions. Dataset computation and hands-on project work are evaluated separately.",
     math: "Does the request require non-trivial symbolic algebra, numerical methods, statistical inference, unit analysis, graph algorithms, or rendering a numeric chart or relationship network? Math Kit can execute scientific Python and render native interactive charts. Exclude trivial arithmetic and plain factual comparisons. Dataset retrieval and routine tabular aggregation alone belong to Code Execution; do not select Math Kit as a duplicate unless mathematical analysis or a chart is also needed.",
     memory: "Does the user explicitly ask to remember, update, or forget a personal fact or preference for future conversations, or retrieve personal information from previous conversations that is missing here? Memory stores and retrieves user-specific context across chats. Exclude public factual research, information already supplied in this request, and ordinary conversation that does not need stored personal context.",
     image_generation:
@@ -44,7 +44,7 @@ export const createOpeningToolsCaller = ({
     enabledTools?: AbilityId[]
     chatModel: Pick<SharedModel, "id" | "knowledgeCutoff">
 }): DecisionCaller<Record<string, NoulQuestion>, OpeningToolsDecision> => {
-    const { thresholds, prohibitionThresholds } = model.skillSelection
+    const { thresholds, computerWorkThreshold, prohibitionThresholds } = model.skillSelection
     const questions: Record<string, NoulQuestion> = Object.fromEntries(
         availableSkillIds.map((id) => [
             id,
@@ -96,6 +96,12 @@ export const createOpeningToolsCaller = ({
                 "Does fulfilling the request involve processing a dataset or a series of observations to calculate aggregates, extrema, ranges, rankings, or comparisons across groups or time periods? Count computation on data that must first be retrieved, not only attached or supplied data. Code execution should be selected when programmatic processing materially improves accuracy or reproducibility. Exclude a single simple arithmetic operation, ordinary factual lookup with no dataset analysis, conceptual explanations, and requests to write code without running it." +
                 SKILL_REQUEST_RULES
         }
+        questions.code_execution_computer = {
+            type: "noul",
+            instructions:
+                "Would fulfilling the request mean the assistant itself doing hands-on work on a software project, a code repository, or the user's account with an online service, rather than advising or writing something to read in chat? That means changing, inspecting, or building one, or continuing such work from earlier. Code Execution includes a persistent computer that keeps the user's projects and can reach their services. Judge the work required, even if the user never mentions code or running anything. Exclude questions about how to do something, advice, plans, explanations, and code or text the user only wants to read or copy. Other skills handle creating or editing images, what the assistant remembers about the user, including their profile with it, and interactive apps used inside this conversation, so those do not count." +
+                SKILL_REQUEST_RULES
+        }
         questions.code_execution_forbidden = {
             type: "noul",
             instructions:
@@ -142,7 +148,9 @@ export const createOpeningToolsCaller = ({
                 if (id === "code_execution")
                     return (
                         permits("code_execution_forbidden", prohibitionThresholds.code_execution) &&
-                        need("code_execution", "code_execution_data") >= thresholds.code_execution
+                        (need("code_execution", "code_execution_data") >=
+                            thresholds.code_execution ||
+                            need("code_execution_computer") >= computerWorkThreshold)
                     )
                 return answers[id] !== undefined && noulProbability(answers[id]) >= thresholds[id]
             })

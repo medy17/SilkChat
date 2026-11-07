@@ -86,6 +86,7 @@ describe("opening tool decisions", () => {
                         math: 0.7,
                         diagrams: 0.9
                     },
+                    computerWorkThreshold: 0.4,
                     prohibitionThresholds: {
                         web_search: prohibitionThreshold,
                         code_execution: prohibitionThreshold
@@ -197,6 +198,36 @@ describe("opening tool decisions", () => {
             ).toEqual(forbidden ? ["code_execution"] : ["web_search", "code_execution"])
         }
     )
+
+    it.each([
+        [0.45, ["code_execution"]],
+        [0.3, []]
+    ])("treats hands-on project work at %s on its own threshold", async (score, expected) => {
+        fetchMock.mockResolvedValue(
+            answer({
+                code_execution: { type: "noul", noul: 0.1 },
+                code_execution_data: { type: "noul", noul: 0.05 },
+                code_execution_computer: { type: "noul", noul: score },
+                code_execution_forbidden: { type: "noul", noul: 0.04 }
+            })
+        )
+        expect(
+            await selectOpeningSkills({ ...options(), availableSkillIds: ["code_execution"] })
+        ).toEqual(expected)
+    })
+
+    it("respects a prohibition even when the request is clearly hands-on work", async () => {
+        fetchMock.mockResolvedValue(
+            answer({
+                code_execution: { type: "noul", noul: 0.1 },
+                code_execution_computer: { type: "noul", noul: 0.95 },
+                code_execution_forbidden: { type: "noul", noul: 0.9 }
+            })
+        )
+        expect(
+            await selectOpeningSkills({ ...options(), availableSkillIds: ["code_execution"] })
+        ).toEqual([])
+    })
 
     it("respects a code-execution prohibition even when data processing scores highly", async () => {
         fetchMock.mockResolvedValue(

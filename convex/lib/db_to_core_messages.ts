@@ -245,7 +245,7 @@ export const dbMessagesToCore = async (
                                             url: fileUrl,
                                             estimatedTokens,
                                             requestHeaders
-                                        })}\nUse code execution to fetch and inspect this attachment programmatically. Do not print the entire file into the conversation.</long-attachment>`
+                                        })}\nFetch and inspect this attachment with code. Do not print the entire file into the conversation.</long-attachment>`
                                     })
                                 } else if (estimatedTokens > maxInlineTextAttachmentTokens) {
                                     mapped_content.push({

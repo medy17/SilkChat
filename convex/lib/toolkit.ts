@@ -49,7 +49,8 @@ export type ToolCallBudgetController = {
 const toToolExecutionError = (error: unknown) =>
     error instanceof Error ? error.message : "Unknown error"
 
-const BUDGET_EXEMPT_TOOLS = new Set(["release_persistent_sandbox"])
+// A computer session is metered as a whole, and one piece of work takes many small commands.
+const BUDGET_EXEMPT_TOOLS = new Set(["request_computer", "computer_run"])
 
 export const wrapToolsWithExecutionLimits = (
     tools: Record<string, Tool>,

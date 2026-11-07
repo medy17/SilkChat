@@ -487,7 +487,8 @@ export const manualStreamTransform = (
 
                     if (
                         resolvedToolName === "execute_code" ||
-                        resolvedToolName === "execute_math"
+                        resolvedToolName === "execute_math" ||
+                        resolvedToolName === "computer_run"
                     ) {
                         for (const artifact of getCodeExecutionArtifactsFromToolOutput(
                             chunk.output,

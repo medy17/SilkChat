@@ -1381,6 +1381,8 @@ export const processAccountDeletionJob = internalAction({
 
             await deleteSupermemoryContainer(userId)
 
+            await ctx.runAction(internal.computers_node.deleteComputerForUser, { userId })
+
             await deleteAuthUser(ctx, prepared.authId ?? auth?.authId)
 
             try {

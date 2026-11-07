@@ -18,6 +18,7 @@ import {
     useComposerToolbarState,
     type ComposerOverlay
 } from "./composer/toolbar"
+import { ComputerComposerControl } from "./computer-composer-control"
 import { DraftAttachmentTile } from "./composer/draft-attachment-tile"
 import { UploadingAttachmentTile } from "./composer/uploading-attachment-tile"
 import { ModelNudgeBanner } from "./composer/model-nudge-banner"
@@ -46,7 +47,6 @@ import {
     PromptInputEditor
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { VoiceRecorder } from "@/components/voice-recorder"
 import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
@@ -102,18 +102,8 @@ import { usePublishComposerContextDiagnostics } from "@/lib/dev-thread-diagnosti
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import type { useChat } from "@ai-sdk/react"
 import type { UIMessage } from "ai"
-import { useAction, useConvexAuth, usePaginatedQuery, useQuery } from "convex/react"
-import {
-    ArrowUp,
-    Loader2,
-    Maximize2,
-    Mic,
-    Minimize2,
-    OctagonX,
-    Paperclip,
-    Square,
-    X
-} from "lucide-react"
+import { useConvexAuth, usePaginatedQuery } from "convex/react"
+import { ArrowUp, Loader2, Maximize2, Mic, Minimize2, Paperclip, Square } from "lucide-react"
 import { AnimatePresence, type Variants, motion } from "motion/react"
 import {
     forwardRef,
@@ -208,11 +198,6 @@ export const MultimodalInput = forwardRef<
 ) {
     const session = useSession()
     const auth = useConvexAuth()
-    const killPersistentSandbox = useAction(api.persistent_sandboxes_node.killMyPersistentSandbox)
-    const activePersistentSandbox = useQuery(
-        api.persistent_sandboxes.getMyActivePersistentSandbox,
-        session.user?.id && !auth.isLoading ? {} : "skip"
-    )
     const isTouchDevice = useIsTouchDevice()
     const isMobile = useIsMobile()
     const composerToolbar = useComposerToolbarState()
@@ -366,23 +351,6 @@ export const MultimodalInput = forwardRef<
     )
     const [dialogFile, setDialogFile] = useState<AttachmentPreview | null>(null)
     const [dialogOpen, setDialogOpen] = useState(false)
-    const [isKillingPersistentSandbox, setIsKillingPersistentSandbox] = useState(false)
-
-    const handleKillPersistentSandbox = async () => {
-        if (!activePersistentSandbox) return
-        setIsKillingPersistentSandbox(true)
-        try {
-            await killPersistentSandbox({ sandboxId: activePersistentSandbox._id })
-            toast.success("Persistent sandbox killed")
-        } catch (error) {
-            toast.error(
-                error instanceof Error ? error.message : "Failed to kill persistent sandbox"
-            )
-        } finally {
-            setIsKillingPersistentSandbox(false)
-        }
-    }
-
     const {
         state: voiceState,
         startRecording,
@@ -1271,42 +1239,9 @@ export const MultimodalInput = forwardRef<
                                             }
                                         />
 
-                                        {activePersistentSandbox && (
-                                            <PromptInputAction tooltip="Kill persistent sandbox">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-8 shrink-0 gap-1.5 text-destructive hover:text-destructive"
-                                                    style={{ borderRadius: "var(--radius-md)" }}
-                                                    disabled={
-                                                        isKillingPersistentSandbox ||
-                                                        activePersistentSandbox.status ===
-                                                            "stopping"
-                                                    }
-                                                    onClick={() =>
-                                                        void handleKillPersistentSandbox()
-                                                    }
-                                                    type="button"
-                                                >
-                                                    {isKillingPersistentSandbox ||
-                                                    activePersistentSandbox.status ===
-                                                        "stopping" ? (
-                                                        <Loader2
-                                                            className="size-4 animate-spin"
-                                                            aria-hidden="true"
-                                                        />
-                                                    ) : (
-                                                        <OctagonX
-                                                            className="size-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                    )}
-                                                    <span className="@4xl:inline hidden">
-                                                        Kill sandbox
-                                                    </span>
-                                                </Button>
-                                            </PromptInputAction>
-                                        )}
+                                        <ComputerComposerControl
+                                            enabled={Boolean(session.user?.id && !auth.isLoading)}
+                                        />
 
                                         {/* The send button's place; it is pinned below. */}
                                         <div aria-hidden="true" className="size-8 shrink-0" />

@@ -469,6 +469,18 @@ function TermsOfServicePage() {
                             your use of the Services.
                         </TermsItem>
                         <TermsItem>
+                            Silky's computer is archived after 14 days without use, which removes
+                            installed software, and its files are permanently deleted after 90 days
+                            without use. We will email you before deletion. Time the computer is
+                            awake and the files it stores count toward your usage limits, and
+                            storage counts while it is asleep or archived. If it stays over your
+                            plan's storage limit for 35 days, its files are permanently deleted, and
+                            we will email you first. You are responsible for keeping your own copy
+                            of anything you need. Silky can use any key you add while that key is
+                            turned on, without asking first, and you are responsible for the access
+                            you give it and for any resulting actions or charges on those services.
+                        </TermsItem>
+                        <TermsItem>
                             Any provisions of these Terms that by their nature should survive
                             termination will survive, including ownership, disclaimers, liability
                             limitations, indemnity, and dispute-related provisions.

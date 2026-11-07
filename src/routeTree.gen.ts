@@ -40,6 +40,8 @@ import { Route as SettingsAppearanceRouteImport } from './routes/settings/appear
 import { Route as SettingsAttachmentsRouteImport } from './routes/settings/attachments'
 import { Route as SettingsBehaviorRouteImport } from './routes/settings/behavior'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
+import { Route as SettingsComputerRouteImport } from './routes/settings/computer'
+import { Route as SettingsComputerGuideRouteImport } from './routes/settings/computer-guide'
 import { Route as SettingsCustomizationRouteImport } from './routes/settings/customization'
 import { Route as SettingsFilesRouteImport } from './routes/settings/files'
 import { Route as SettingsMemoryRouteImport } from './routes/settings/memory'
@@ -229,6 +231,16 @@ const SettingsBillingRoute = SettingsBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsComputerRoute = SettingsComputerRouteImport.update({
+  id: '/computer',
+  path: '/computer',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
+const SettingsComputerGuideRoute = SettingsComputerGuideRouteImport.update({
+  id: '/computer-guide',
+  path: '/computer-guide',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsCustomizationRoute = SettingsCustomizationRouteImport.update({
   id: '/customization',
   path: '/customization',
@@ -360,6 +372,8 @@ export interface FileRoutesByFullPath {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/computer': typeof SettingsComputerRoute
+  '/settings/computer-guide': typeof SettingsComputerGuideRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
@@ -410,6 +424,8 @@ export interface FileRoutesByTo {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/computer': typeof SettingsComputerRoute
+  '/settings/computer-guide': typeof SettingsComputerGuideRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
@@ -463,6 +479,8 @@ export interface FileRoutesById {
   '/settings/attachments': typeof SettingsAttachmentsRoute
   '/settings/behavior': typeof SettingsBehaviorRoute
   '/settings/billing': typeof SettingsBillingRoute
+  '/settings/computer': typeof SettingsComputerRoute
+  '/settings/computer-guide': typeof SettingsComputerGuideRoute
   '/settings/customization': typeof SettingsCustomizationRoute
   '/settings/files': typeof SettingsFilesRoute
   '/settings/memory': typeof SettingsMemoryRoute
@@ -517,6 +535,8 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/behavior'
     | '/settings/billing'
+    | '/settings/computer'
+    | '/settings/computer-guide'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/memory'
@@ -567,6 +587,8 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/behavior'
     | '/settings/billing'
+    | '/settings/computer'
+    | '/settings/computer-guide'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/memory'
@@ -619,6 +641,8 @@ export interface FileRouteTypes {
     | '/settings/attachments'
     | '/settings/behavior'
     | '/settings/billing'
+    | '/settings/computer'
+    | '/settings/computer-guide'
     | '/settings/customization'
     | '/settings/files'
     | '/settings/memory'
@@ -888,6 +912,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsBillingRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/computer': {
+      id: '/settings/computer'
+      path: '/computer'
+      fullPath: '/settings/computer'
+      preLoaderRoute: typeof SettingsComputerRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
+    '/settings/computer-guide': {
+      id: '/settings/computer-guide'
+      path: '/computer-guide'
+      fullPath: '/settings/computer-guide'
+      preLoaderRoute: typeof SettingsComputerGuideRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/customization': {
       id: '/settings/customization'
       path: '/customization'
@@ -1065,6 +1103,8 @@ interface SettingsRouteLazyRouteChildren {
   SettingsAttachmentsRoute: typeof SettingsAttachmentsRoute
   SettingsBehaviorRoute: typeof SettingsBehaviorRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsComputerRoute: typeof SettingsComputerRoute
+  SettingsComputerGuideRoute: typeof SettingsComputerGuideRoute
   SettingsCustomizationRoute: typeof SettingsCustomizationRoute
   SettingsFilesRoute: typeof SettingsFilesRoute
   SettingsMemoryRoute: typeof SettingsMemoryRoute
@@ -1088,6 +1128,8 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsAttachmentsRoute: SettingsAttachmentsRoute,
   SettingsBehaviorRoute: SettingsBehaviorRoute,
   SettingsBillingRoute: SettingsBillingRoute,
+  SettingsComputerRoute: SettingsComputerRoute,
+  SettingsComputerGuideRoute: SettingsComputerGuideRoute,
   SettingsCustomizationRoute: SettingsCustomizationRoute,
   SettingsFilesRoute: SettingsFilesRoute,
   SettingsMemoryRoute: SettingsMemoryRoute,

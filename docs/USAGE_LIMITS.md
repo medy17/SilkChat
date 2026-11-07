@@ -42,6 +42,12 @@ Because Free and Pro periods have different keys, changing plan starts a fresh m
 
 A settled event keeps its reservation's `createdAt`, so a message counts from when it started.
 
+Computer storage is a background charge: `chargeComputerStorage` adds a daily event with
+`pricingSource: "storage_reported"`. It counts toward the month only, so it can't open or fill a
+5-hour window. It's never refused, so storage can take an account over its monthly limit, which
+stops new usage until the period ends and leaves files alone. The computer's storage limit is a
+separate rule, covered in [Code Execution Architecture](./CODE_EXECUTION_ARCHITECTURE.md).
+
 ## Where limits are enforced
 
 Every check goes through `getHostedUsageState`, called from `evaluateHostedUsageReservation`:

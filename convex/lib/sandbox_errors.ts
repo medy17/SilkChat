@@ -17,6 +17,14 @@ export const isSandboxHttpError = (error: unknown, status: number) => {
     return new RegExp(`(?:status(?:\\s+code)?|http)\\s*${status}\\b`, "i").test(message)
 }
 
+/** After a VM crash the session still reads as running and every command returns a 5xx. */
+export const isSandboxUnresponsiveError = (error: unknown) => {
+    const status = getNumericStatus(error)
+    if (status !== undefined) return status >= 500
+    const message = error instanceof Error ? error.message : String(error)
+    return /(?:status(?:\s+code)?|http)\s*5\d\d\b/i.test(message)
+}
+
 export const isMissingSandboxError = (error: unknown) => {
     if (isSandboxHttpError(error, 404)) return true
     const message = error instanceof Error ? error.message : String(error)

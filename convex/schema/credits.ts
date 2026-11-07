@@ -62,6 +62,7 @@ export const PrototypeCreditEvent = v.object({
             v.literal("fal_manual"),
             v.literal("fal_reported"),
             v.literal("tool_flat"),
+            v.literal("storage_reported"),
             v.literal("sandbox_estimate"),
             v.literal("sandbox_reported")
         )

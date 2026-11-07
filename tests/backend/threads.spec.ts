@@ -155,11 +155,6 @@ const createMessageQuery = (
         )
 })
 
-// Edits and retries look for a workspace their deleted history requested; these chats have none.
-const noPersistentSandboxes = {
-    withIndex: () => ({ order: () => ({ take: async () => [] }) })
-}
-
 const createCtx = (options?: {
     thread?: ThreadDoc
     messages?: MessageDoc[]
@@ -176,10 +171,8 @@ const createCtx = (options?: {
             delete: vi.fn(),
             query: vi
                 .fn()
-                .mockImplementation((table: string) =>
-                    table === "persistentSandboxes"
-                        ? noPersistentSandboxes
-                        : createMessageQuery(options?.messages ?? [], options?.messagesByMessageId)
+                .mockImplementation(() =>
+                    createMessageQuery(options?.messages ?? [], options?.messagesByMessageId)
                 )
         }
     } as ThreadsCtx

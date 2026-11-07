@@ -485,7 +485,10 @@ function PrivacyPolicyPage() {
                                 <strong>Vercel Sandbox</strong>: Used to run code when a chat uses
                                 code execution. Code written for your request runs in an isolated
                                 environment operated by Vercel, and files it produces are stored
-                                with your account.
+                                with your account. Silky's computer, once you allow it, also runs on
+                                Vercel Sandbox and keeps its files on Vercel's storage between
+                                chats. Keys you add for other services are stored encrypted and sent
+                                to Vercel so that they can be added to traffic to those services.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -506,6 +509,17 @@ function PrivacyPolicyPage() {
                         <PolicyItem>
                             <strong>Generated images and image prompts</strong>: Retained until you
                             delete them or until related account data is removed.
+                        </PolicyItem>
+                        <PolicyItem>
+                            <strong>Silky's computer</strong>: After 14 days without use it is
+                            archived, which removes installed software and keeps project files.
+                            After 90 days without use its files are permanently deleted. We email
+                            you 7 days and 1 day before deletion. Its files are also permanently
+                            deleted if it stays over your plan's storage limit for 35 days, and we
+                            email you when it goes over and at the same two points. You can ask
+                            Silky to send you any of them, or delete them from Settings at any time,
+                            and they are deleted with your account. They are not included in account
+                            exports.
                         </PolicyItem>
                         <PolicyItem>
                             <strong>User settings and provider configuration</strong>: Retained

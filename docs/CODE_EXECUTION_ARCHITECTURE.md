@@ -4,19 +4,15 @@
 
 SilkChat will use Vercel Sandbox to execute model-generated JavaScript and Python, inspect large attachments programmatically, and return compact answers or generated artifacts without placing entire source files in model context.
 
-The product rule is **ephemeral first**. A normal execution receives a fresh, non-persistent sandbox and is deleted after the call. If a task genuinely needs filesystem state across multiple tool calls, the assistant may request a short-lived persistent workspace with the shortest sufficient time-to-live (TTL) between 3 and 30 minutes. The user must approve that exact request.
+There are two execution environments, and the assistant picks per task. `execute_code` is always ephemeral: a fresh sandbox that is deleted after the call. `computer_run` runs on the assistant's own computer, which keeps its files between chats. See [The assistant's computer](#the-assistants-computer).
 
-Once a persistent workspace is active, it becomes the account's exclusive code-execution environment until killed or expired. The server routes compatible executions to it even if the model omits `sandboxMode` or asks for `ephemeral`. A mismatched runtime is rejected rather than escaping into a new ephemeral sandbox.
-
-The model should call the budget-exempt `release_persistent_sandbox` control tool after it has returned all required results and no follow-up execution is needed. Independently, an activity lease suspends the Vercel session after 90 seconds without a command; the next execution resumes the persistent filesystem without extending its hard TTL.
-
-Sandbox billing uses Vercel's published Pro rates. Persistent workspace approval reserves a worst-case compute amount for the selected TTL, then cleanup settles the reservation to measured provider usage in microdollars.
+Sandbox billing uses Vercel's published Pro rates. Computer sessions reserve a bounded amount when they wake and settle to measured provider usage when they sleep.
 
 ## Product principles
 
 1. **Do not spend context on bulk data.** Files above the context threshold are represented by a compact manifest and inspected with code.
 2. **Do not make storage mechanics part of the UI.** Long pasted text and ordinary eligible attachments share one attachment area even though their model-delivery routes may differ.
-3. **Do not grant persistence silently.** Persistent state is an explicit, time-bounded capability escalation.
+3. **Do not grant persistence silently.** Setting up the computer takes one explicit Allow. After that it is the assistant's to use.
 4. **Do not trust model-provided resource identifiers.** The server resolves user, thread, attachment, and sandbox ownership.
 5. **Bound every resource.** Code size, dependencies, runtime, output, file transfer, concurrency, and retained state all have enforced limits.
 6. **Prefer recoverable results.** Tool failures should be structured so the model can make one meaningful correction without creating loops.
@@ -34,14 +30,7 @@ flowchart TD
     G --> H["Server verifies and stages files"]
     H --> I["Run bounded code in Vercel Sandbox"]
     I --> J["Return compact output and artifacts"]
-    G --> K{"State required across calls?"}
-    K -->|"No"| L["Delete ephemeral sandbox"]
-    K -->|"Yes"| M["Request persistent workspace"]
-    M --> N{"User decision"}
-    N -->|"Deny"| O["Resume without persistence"]
-    N -->|"Allow requested TTL"| P["Create account-scoped workspace"]
-    P --> Q["Reuse until expiresAt"]
-    Q --> R["Delete sandbox and snapshots"]
+    J --> L["Delete ephemeral sandbox"]
 ```
 
 ## Attachment context policy
@@ -143,7 +132,7 @@ No SilkChat, database, model-provider, or storage credentials are placed in the 
 
 Output is a combined bounded budget, collected while streaming rather than fetched fully and truncated afterward. The result includes exit status, duration, truncation status, and a small stdout/stderr payload. Scripts that produce large or binary results write artifacts; SilkChat uploads those artifacts and returns attachment handles instead of model-context bytes.
 
-Each execution receives a unique directory through `SILKCHAT_ARTIFACT_DIR`. Files written beneath it are treated as untrusted staging output and are exported before the sandbox is stopped, deleted, suspended, or released. Persistent workspaces receive a fresh directory for every call so files from an earlier execution are never republished implicitly.
+Each execution receives a unique directory through `SILKCHAT_ARTIFACT_DIR`. Files written beneath it are treated as untrusted staging output and are exported before the sandbox is stopped, deleted, suspended, or released. The computer receives a fresh directory for every call so files from an earlier execution are never republished implicitly.
 
 The export bridge:
 
@@ -161,52 +150,63 @@ Before deletion, stop the sandbox and record active CPU, per-session provisioned
 
 ### Billing policy
 
-Persistent approval reserves against the requested TTL using the fixed 1-vCPU/2-GB shape. The reservation assumes 100% active CPU and provisioned memory for the full TTL plus one sandbox creation. This is the maximum compute exposure implied by the request; network and snapshot usage are not TTL-bounded and are therefore settled from actual metrics instead of guessed into the reservation.
+Ephemeral calls reserve the bounded per-call tool estimate before execution, and that provisional event is reconciled immediately after the VM stops using the measured-cost calculator. If final metrics cannot be retrieved, the conservative reserved amount is settled rather than silently releasing consumed infrastructure usage.
 
-At final cleanup, SilkChat stops the current session, enumerates all sessions and snapshots, and calculates:
+## The assistant's computer
 
-- active CPU at the published per-hour rate;
-- provisioned memory at the per-GB-hour rate, with Vercel's one-minute minimum per session;
-- ingress plus egress at the data-transfer rate;
-- snapshot byte-duration at the GB-month rate; and
-- one creation charge.
+Each account gets one computer, and it belongs to the assistant. The prompt and tool descriptions say "your computer" on purpose: framed as the user's property, a model treats it as off limits and asks permission for ordinary work. The display name defaults to "Silky's computer" and users can rename it.
 
-The resulting amount is rounded once to integer microdollars. Provider rates have environment overrides so a Vercel pricing change does not require a code deploy. If final metrics cannot be retrieved, the conservative reserved amount is settled rather than silently releasing consumed infrastructure usage.
+Owned by `convex/computers.ts` (state) and `convex/computers_node.ts` (Vercel calls), with the pure rules in `convex/lib/computer_policy.ts`.
 
-Ephemeral calls continue to reserve the bounded per-call tool estimate before execution, but that provisional event is reconciled immediately after the VM stops using the same measured-cost calculator. Executions routed into a persistent workspace settle their per-call event to zero because their provider usage is accounted for by the workspace lifecycle reservation.
+### Pieces
 
-## Persistent workspaces
+- **Sandbox**: a named, persistent Vercel sandbox on the managed `universal` image, which holds installed tools. Snapshots never expire on Vercel's side (`snapshotExpiration: 0`) because an expired snapshot silently yields an empty computer. SilkChat owns retention instead.
+- **Drive**: mounted at `/vercel/workspace`, which holds project files. It outlives the sandbox, which is what makes Reset and archiving possible.
+- **Project notes**: the assistant keeps working notes in `/vercel/workspace/project_memories/<project_name>/`. They are on the Drive so they survive Reset and archiving, and outside each repository so they are never committed. Regular memory holds facts about the user; these hold the state of a project.
+- **`computers` table**: one row per account, with the session state, the single execution lock, the open billing window, and the last storage reading. Keys live in `computerKeys`.
 
-Persistence is requested through a separate approval-gated tool:
+### Tools
 
-```ts
-request_persistent_sandbox({
-    ttlMinutes: 3 | 5 | 10 | 15 | 30,
-    purpose: string,
-    runtime: "node24" | "python3.13"
-})
-```
+- `request_computer` shows the one-time Allow card and stops the turn. Allow does not continue the reply on its own, so the user sends the next message.
+- `computer_run` runs a bash command with a four-minute ceiling. The working directory must stay inside the workspace. One command runs at a time per account; a second call gets a busy error.
 
-The tool produces a SilkChat-specific Allow/Deny card and stops the assistant turn. Approval atomically claims the account-wide slot and starts the TTL; denial is recorded in the card result. Unanswered confirmation cards expire after ten minutes. The assistant must not repeat the same request without materially changed circumstances. Automatic assistant continuation after approval is a follow-up enhancement; until then, the user can continue the conversation after the workspace becomes active.
+### Lifecycle
 
-### Ownership and lifecycle
+- **Sleep**: 90 seconds after the last command, a lease-guarded job stops the session. The next command resumes in about two seconds.
+- **Crash**: after a VM crash the session still reads as running and commands return a 5xx. It does not recover alone. `withComputerSession` stops and retries the preflight once, and only then marks it stuck and offers Restart. The command itself never retries, because it acts on the user's real accounts: if the VM stops answering during a command, the model is told the result is unknown.
+- **Reset**: deletes the sandbox and keeps the Drive. The next command rebuilds on the current image. Snapshots pin an old image and `sandbox.update` cannot change it, so this is also the upgrade path.
+- **Archive**: at 14 unused days the sandbox and snapshot go and the Drive stays. The next command rebuilds it.
+- **Delete**: warning emails go out 7 days and 1 day before, and files are deleted at 90 unused days. A missed run delays deletion rather than skipping a warning.
+- **Account deletion**: `processAccountDeletionJob` deletes the sandbox, snapshots, and Drive.
+- **Thread deletion** does not touch the computer, because it is not owned by a thread.
 
-Initially, allow one active workspace per account across all threads. The model does not receive or submit its Vercel name. SilkChat resolves the active workspace from authenticated account context. Both the originating card and the composer expose a manual kill control.
+`reconcileComputers` runs every 15 minutes and repairs records left by a dead action, and it finishes abandoned setups and deletions.
 
-Convex stores:
+### Billing
 
-- internal workspace ID;
-- server-generated Vercel sandbox name;
-- account ownership and originating thread/message/card identifiers;
-- status (`provisioning`, `active`, `stopping`, `stopped`, `expired`, `failed`, or `denied`);
-- requested TTL and authoritative `expiresAt`;
-- runtime and resource configuration;
-- latest provider usage totals; and
-- cleanup attempt metadata.
+A billing window opens when a session starts, reserving 30 minutes of memory and a quarter of the CPU, and settles to measured use when the computer sleeps. The reservation assumes a mostly idle CPU because a worst-case figure would refuse the computer on a small free allowance. A window that reaches 25 minutes is closed before the next command: the session stops, the window settles, and a new reservation re-checks credit. That keeps every command inside a session, so nothing extends the timeout. `computer_run` has no per-call charge and doesn't use the turn's tool budget.
 
-Vercel `timeout` limits a running session. It does not replace `expiresAt`, because persistent filesystem snapshots have an independent lifetime. At approval, set the session timeout to the remaining TTL, retain only the latest snapshot, and schedule an internal cleanup at `expiresAt`. A one-minute reconciliation job queries the lifecycle table for expired, stuck-stopping, stale-provisioning, or unconditionally over-30-minute records and deletes resources missed by scheduled cleanup. A separate five-minute provider sweep lists Vercel sandboxes bearing the exact SilkChat persistent-workspace tags and deletes every persistent provider resource older than 30 minutes, including orphans whose database write never completed.
+Storage is charged daily from the last reading, taken as the computer goes to sleep, when the Drive and snapshot can't change. `df` gives the Drive's used size, since Vercel's API only reports the maximum, and `stop()` returns the snapshot size.
 
-Cleanup must also run when a thread or account is deleted.
+Every Drive is created at 20 GB, which is the hard limit: writes past it fail with `No space left on device` and recover once files are removed. A Drive's size can't change, and asking for an existing Drive at a different size is an error, but Vercel bills only what's used, so the bigger size costs nothing. The plan limit is a soft limit applied in code, so upgrades and downgrades take effect at once with no copying. It's half the plan's monthly allowance at Vercel's storage rate, from 1 GiB up to the hard limit.
+
+Overshoot is allowed, because a tool-level lock can't tell `rm` from `git clone`, and cleanup has to go through Silky. A reading over the limit starts a 35-day countdown, longer than any credit period, so an account out of credit gets a fresh allowance in time to clean up. Commands keep working, and each result carries a `storageWarning`. Emails go out when it's noticed and at 7 days and 1 day left. If it's still over, the computer is purged. A reading back under the limit, or an upgrade, ends the countdown, and an awake computer is skipped because its reading may be stale.
+
+The Drive limit doesn't cover anything written outside the workspace, which lands in the snapshot at a higher rate. A snapshot over a quarter of the allowance, from 2 GB to 10 GB, is dropped at sleep, and the next command rebuilds on the same Drive.
+
+### Keys
+
+Users add keys for GitHub and other services under Settings, Computer. `convex/lib/computer_keys.ts` holds the service presets and validation, shared with the settings UI. `convex/computer_keys.ts` stores them encrypted in `computerKeys`.
+
+Keys that are on become a network policy, so Vercel's egress proxy adds them to matching traffic and they never enter the VM. Each host can have only one key on. A key's environment variable holds a placeholder, because tools such as `gh` refuse to start without one; the proxy overwrites the header it produces. Toggling a key updates a running session live, and a sleeping sandbox picks it up when it wakes. A key change is recorded before it's applied, and a command won't run until the sandbox has the latest policy, so a failed update can't leave a turned-off key active.
+
+The model sees key names and hosts in the `computer_run` description, never values, and may use any listed key without asking. Code on the computer can still use whatever a key allows, which is why the settings page and guide push limited keys. The key stays out of the VM but is not unreadable: an endpoint on the key's host that echoes request headers hands it back, which a live test against an echo service confirmed. Custom keys carry this risk most, since the user picks the host. Only HTTP header authentication is supported, so database passwords and SSH keys are not. Deleting the computer keeps keys; deleting the account removes them.
+
+A key can carry an optional expiry date, which the user enters because services don't report it. From 7 days out, the settings row shows a warning and the `computer_run` description marks the key, and asks the model to tell the user once. The extra line only appears when a key is expiring, so ordinary tool descriptions stay stable. Expiry never turns a key off; the service decides when it stops working.
+
+### Old timed workspaces
+
+The computer replaced 3 to 30 minute persistent workspaces, and that system has been removed. Old messages still hold `request_persistent_sandbox` parts, so `LegacyWorkspaceCard` renders them as one read-only line. It makes no queries and offers no actions. Keep it for as long as those messages exist.
 
 ## Security boundaries
 
@@ -214,7 +214,7 @@ Cleanup must also run when a thread or account is deleted.
 - Revalidate attachment ownership immediately before staging.
 - Never accept raw R2 keys, sandbox names, snapshot IDs, environment variables, or credentials from tool input.
 - Sanitize staged filenames and prevent path traversal and symlink escapes.
-- Serialize execution within one persistent workspace until concurrent command semantics are explicitly designed.
+- Serialize execution on the computer until concurrent command semantics are explicitly designed.
 - Treat attachment content as untrusted and susceptible to prompt injection.
 - Enforce expiry before every provider call, not only in the cleanup job.
 - Cap output at collection time and reject unexpected artifact count or size.
@@ -222,64 +222,24 @@ Cleanup must also run when a thread or account is deleted.
 
 ## Observability and provisional billing
 
-Record an execution event for every attempted call, including failed provisioning and dependency installation. Event fields should distinguish ephemeral and persistent sessions and include provider-reported CPU/network metrics when available.
+Record an execution event for every attempted call, including failed provisioning and dependency installation. Event fields should distinguish ephemeral and computer sessions and include provider-reported CPU/network metrics when available.
 
 The UI can continue using the provisional flat credit reservation while the feature is experimental. Settlement should later use measured cost plus a documented margin, with a hard per-user spend and concurrency ceiling independent of credit balance.
 
-## Delivery phases
-
-### Phase 1 — Pasted-text UX
-
-- Grade plain-text paste as inline, a file read in full, or an execution-backed URL (8,000 and 32,000 estimated tokens).
-- Render the URL-backed paste in the normal attachment area.
-- Support converting a pasted attachment back into textarea content.
-- Abort or delete the backing upload during conversion.
-- Add focused tests for classification and draft merging.
-
-### Phase 2 — Long-attachment routing
-
-- Persist trusted token/size metadata.
-- Add the attachment manifest to model context.
-- Pass validated attachment URLs to execution.
-- Stage files server-side and add dataset formats.
-- Update context estimation so referenced files pay only the manifest-token cost.
-
-### Phase 3 — Execution hardening
-
-- Replace command timeout fields with abort signals supported by the installed SDK.
-- Stream into a combined output cap.
-- Add network-policy staging and artifact upload.
-- Capture Vercel usage before deletion and settle persistent reservations to measured cost.
-- Add provider lifecycle integration tests.
-
-### Phase 4 — Approval and persistence
-
-- Preserve AI SDK approval request/response parts through stream persistence.
-- Build the persistent-workspace confirmation card.
-- Add the Convex lifecycle table, idempotent provisioning, scheduled deletion, and reconciliation cron.
-- Auto-continue the assistant after Allow or Deny.
-
-### Phase 5 — Performance and billing
-
-- Create prewarmed data-analysis snapshots or custom images.
-- Evaluate sandbox forks for isolated prepared environments.
-- Measure creation, package installation, attachment transfer, and execution latency.
-
 ## Non-goals for the first release
 
-- Arbitrary shell access as a model-facing tool.
 - User-selectable sandbox identifiers.
-- Long-lived development environments.
-- Vercel Drives, exposed ports, or live app previews.
-- Indefinite persistence or persistence shared between threads.
+- Exposed ports or live app previews.
+- A live desktop or web terminal.
+- Jobs that outlast the four-minute command ceiling.
 - Finalized customer billing.
 
 ## Acceptance criteria for the sprint
 
 - Large supported attachments no longer enter model context in full.
 - The model can inspect them without receiving storage credentials.
-- Code calls use ephemeral sandboxes unless an approved persistent workspace is active; while active, all compatible calls route through it.
-- Persistent workspaces cannot exist without recorded approval and expire within the selected TTL.
+- `execute_code` is always ephemeral, and `computer_run` always uses the assistant's computer.
+- A computer cannot exist without a recorded Allow.
 - Users see one consistent attachment UI regardless of model delivery strategy.
 - Output and provider spend are bounded and observable.
 - Failure, denial, expiry, retry, and cleanup paths are covered by focused state-transition tests.

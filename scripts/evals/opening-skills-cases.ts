@@ -358,5 +358,350 @@ export const selectionCases: SelectionCase[] = [
         id: "holdout-manual",
         text: "Do not run code. Describe how to remove duplicate rows from a CSV.",
         forbidden: ["code_execution"]
+    },
+    // Hands-on work on a real project or account. Keep phrasing varied: these never say "run".
+    {
+        id: "computer-fix-issue",
+        text: "Fix issue #3 on medy17/silky-computer-test and open a PR.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-issue-link",
+        text: "https://github.com/medy17/silky-computer-test/issues/3\n\nFix this",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-clone",
+        text: "Clone github.com/acme/api, add rate limiting to the login route, and push it to a new branch.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-continue",
+        text: "Can you pick up where we left off on my notes app and finish the delete button?",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-debug-repo",
+        text: "Here's my repo: https://github.com/acme/site. The homepage crashes on mobile, find out why and fix it.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-dependencies",
+        text: "Bump the dependencies in my project and make sure nothing broke.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-new-project",
+        text: "Start a new Next.js site for my bakery. We'll keep building on it over the next few weeks.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-keep-files",
+        text: "I'll send you one of these every month. Keep them together so we can track how sales change.",
+        attachments: [{ type: "file", filename: "sales-october.csv", mimeType: "text/csv" }],
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-commit",
+        text: "Add the v2 notes to CHANGELOG.md in acme/api and commit it to main.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-review-prs",
+        text: "Go through the open PRs on acme/api and leave review comments.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-account",
+        text: "Use my Stripe key to pull last month's failed payments.",
+        required: ["code_execution"]
+    },
+    // Holdouts, written after the question and never used to tune it.
+    {
+        id: "computer-holdout-deploy",
+        text: "my vercel build keeps failing on github.com/acme/shop, sort it out",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-refactor",
+        text: "Move the auth module in our monorepo over to the new session API.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-new-repo",
+        text: "Make a new GitHub repo for a little Python CLI that renames photos by date, and push a first version.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-tests",
+        text: "The billing module in my repo has no tests. Write some and get them green.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-migrate",
+        text: "Switch github.com/acme/tool from npm to pnpm.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-dns",
+        text: "Check my Cloudflare account and tell me which DNS records still point at the old server.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-merge",
+        text: "Merge the dependabot PRs on acme/web if CI is green.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout-resume",
+        text: "Back to the survey cleanup from Tuesday. Where did we get to?",
+        exploratory: true
+    },
+    {
+        id: "computer-holdout-document",
+        text: "Hold on to this thesis draft. We'll go through it chapter by chapter this month.",
+        attachments: [{ type: "file", filename: "thesis.docx", mimeType: "application/msword" }],
+        exploratory: true
+    },
+    {
+        id: "computer-holdout-explain-repo",
+        text: "What does github.com/acme/tool actually do?",
+        exploratory: true
+    },
+    // Decoys: the same subjects, but the user wants an answer rather than the work done.
+    {
+        id: "computer-decoy-hook",
+        text: "Write a React hook that debounces a value.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-how-pr",
+        text: "How do I open a pull request on GitHub?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-git-error",
+        text: "What does this mean: fatal: refusing to merge unrelated histories",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-rebase",
+        text: "What's the difference between rebase and merge?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-snippet-bug",
+        text: "Is there a bug in this? function add(a, b) { return a - b }",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-monorepo",
+        text: "Should my startup use a monorepo?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-workflow",
+        text: "Write me a GitHub Actions workflow that runs tests on push.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-plan",
+        text: "Give me a plan for moving our repo from npm to pnpm. We'll do the work ourselves.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-conflict",
+        text: "I've got a merge conflict in my project, how do I resolve it?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-snippet-edit",
+        text: "Add error handling to this: const data = await fetch(url).then((r) => r.json())",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-bakery",
+        text: "What pages should a website for my bakery have?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-blog",
+        text: "Write a short blog post about how our team fixed a nasty login bug last week.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-remember",
+        text: "Remember that my main repo is acme/api.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-stripe",
+        text: "How do Stripe failed payment retries work?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-commit-message",
+        text: "Write a commit message for a change that adds rate limiting to login.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-forbidden",
+        text: "Don't touch anything, just tell me how you'd approach issue #3 on acme/api.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy-roleplay",
+        text: "Pretend you're a grumpy senior engineer reviewing my first pull request.",
+        forbidden: ["code_execution"]
+    },
+    // Second holdout round, written after the first scores and before choosing a threshold.
+    {
+        id: "computer-holdout2-link-only",
+        text: "https://github.com/acme/api/pull/88 can you finish this off",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-terse",
+        text: "acme/web: dark mode is broken on the settings page",
+        exploratory: true
+    },
+    {
+        id: "computer-holdout2-same-project",
+        text: "Same project as yesterday. Add CSV export to the reports page.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-lint",
+        text: "Get the linter passing on my repo.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-release",
+        text: "Tag a 1.4.0 release on acme/cli with notes from the last ten commits.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-scrape",
+        text: "Build me a small scraper for these three job boards and keep it around so I can ask you to rerun it each week.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-openai-key",
+        text: "Using my OpenAI key, see how much we spent on the API this month.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-typo",
+        text: "theres a typo on the about page of my site repo, fix it pls",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-readme",
+        text: "Write a proper README for github.com/acme/tool and commit it.",
+        required: ["code_execution"]
+    },
+    {
+        id: "computer-holdout2-where-left",
+        text: "What was the last thing we changed in the billing repo?",
+        exploratory: true
+    },
+    {
+        id: "computer-decoy2-how-you-would",
+        text: "How would you structure the folders in a large Express project?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-my-code",
+        text: "My login route returns 500 when the password is empty. What usually causes that?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-pasted-diff",
+        text: "Review this diff:\n- const limit = 10\n+ const limit = req.query.limit",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-readme-paste",
+        text: "Write a README for a CLI that renames photos by date. I'll paste it in myself.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-pr-description",
+        text: "Write a PR description for a change that adds dark mode to the settings page.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-issue-template",
+        text: "Draft a GitHub issue reporting that login fails on Safari.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-compare-hosts",
+        text: "Is Vercel or Cloudflare better for a small Next.js site?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-account-howto",
+        text: "How do I check which DNS records point at my old server in Cloudflare?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-key-safety",
+        text: "Is it safe to put my Stripe key in a GitHub repo?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-about-feature",
+        text: "Do you have a computer of your own?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-recap",
+        text: "Summarise what a pull request review should cover.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-project-idea",
+        text: "I want to build an app for tracking my plants. What should the first version do?",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy2-story",
+        text: "Write a scene where a developer merges to main on a Friday and everything breaks.",
+        forbidden: ["code_execution"]
+    },
+    // Hands-on work that belongs to another skill. The first wording of the computer question
+    // selected these, because a photo is as real as a repository.
+    {
+        id: "computer-decoy3-photo",
+        text: "Take the person out of the background of this picture.",
+        attachments: [{ type: "image", filename: "beach.jpg", mimeType: "image/jpeg" }],
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy3-recolor",
+        text: "Make the sofa in this image green.",
+        attachments: [{ type: "image", filename: "room.png", mimeType: "image/png" }],
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy3-illustration",
+        text: "Draw a poster of a fox reading under a tree.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy3-forget",
+        text: "Delete what you know about my old job.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy3-remember",
+        text: "Update my profile: I moved to Lisbon.",
+        forbidden: ["code_execution"]
+    },
+    {
+        id: "computer-decoy3-widget",
+        text: "Give me a tip calculator I can play with right here.",
+        forbidden: ["code_execution"]
     }
 ]

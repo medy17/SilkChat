@@ -22,7 +22,7 @@ describe("buildPrompt", () => {
         )
         expect(basePrompt).not.toContain("## Mermaid Diagrams")
         expect(basePrompt).not.toContain("## Web Search Tool")
-        expect(basePrompt).not.toContain("## Code Execution Tool")
+        expect(basePrompt).not.toContain("## Running Code")
     })
 
     it("aligns math delimiter guidance with Streamdown defaults", () => {
@@ -244,18 +244,20 @@ describe("buildPrompt", () => {
             enabledTools: ["code_execution"]
         })
 
-        expect(prompt).toContain("## Code Execution Tool")
+        expect(prompt).toContain("You have two separate places to run code")
         expect(prompt).toContain("Node.js 24")
-        expect(prompt).toContain("Python 3.13")
+        expect(prompt).toContain("Python 3.14")
         expect(prompt).toContain("No third-party library is guaranteed")
         expect(prompt).toContain("Give every execute_code call a concise, user-facing purpose")
         expect(prompt).toContain("Request(url, headers=requestHeaders)")
         expect(prompt).toContain("excerpts of at most 1,000 characters each")
         expect(prompt).toContain("public internet access")
-        expect(prompt).toContain("filesystem is discarded after each call")
-        expect(prompt).toContain("call release_persistent_sandbox")
-        expect(prompt).toContain("suspend automatically")
-        expect(prompt).toContain("receives no SilkChat or provider credentials")
+        expect(prompt).toContain("execute_code forgets everything after each call")
+        expect(prompt).toContain("You have a computer of your own")
+        expect(prompt).toContain("you never need permission to use it")
+        expect(prompt).toContain("Choose by whether the work should last")
+        expect(prompt).toContain("/vercel/workspace/project_memories/")
+        expect(prompt).toContain("no credentials of any kind")
     })
 
     it("explains whether a missing capability can be enabled by the user", () => {

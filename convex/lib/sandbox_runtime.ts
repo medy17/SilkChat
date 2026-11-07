@@ -12,17 +12,6 @@ export type SandboxRuntimeVersion = string
 export const sandboxRuntimeForLanguage = (language: SandboxLanguage): SandboxRuntime =>
     language === "javascript" ? "node" : "python"
 
-export const sandboxLanguageForRuntime = (runtime: SandboxRuntime): SandboxLanguage =>
-    runtime === "node" ? "javascript" : "python"
-
-export const parseSandboxRuntime = (runtime: unknown): SandboxRuntime | null =>
-    runtime === "node" || runtime === "python" ? runtime : null
-
-export const parseSandboxRuntimeVersion = (runtimeVersion: unknown): string | null =>
-    typeof runtimeVersion === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(runtimeVersion)
-        ? runtimeVersion
-        : null
-
 export const defaultSandboxRuntimeVersion = (runtime: SandboxRuntime): string =>
     DEFAULT_SANDBOX_RUNTIME_VERSIONS[runtime]
 

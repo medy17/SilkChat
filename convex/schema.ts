@@ -29,7 +29,8 @@ import {
     ModerationEscalation,
     ModerationIdentityBlock
 } from "./schema/moderation"
-import { PersistentSandbox } from "./schema/persistent_sandbox"
+import { Computer } from "./schema/computer"
+import { ComputerKey } from "./schema/computer_key"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
 import { ResumableStream } from "./schema/streams"
@@ -61,7 +62,8 @@ export {
     GeneratedImage,
     GeneratedImageFacets,
     ImageGenerationJob,
-    PersistentSandbox,
+    Computer,
+    ComputerKey,
     UserAccess,
     LemonSqueezySubscription,
     LemonSqueezyWebhookEvent,
@@ -435,10 +437,12 @@ export default defineSchema({
         .index("byUserIdAndUsedAt", ["userId", "usedAt"])
         .index("byUsedAt", ["usedAt"]),
 
-    persistentSandboxes: defineTable(PersistentSandbox)
-        .index("byUserIdAndUpdatedAt", ["userId", "updatedAt"])
-        .index("bySourceCardId", ["sourceCardId"])
-        .index("byExpiresAt", ["expiresAt"])
-        .index("byCreatedAt", ["createdAt"])
-        .index("byStatusAndUpdatedAt", ["status", "updatedAt"])
+    computers: defineTable(Computer)
+        .index("byUserId", ["userId"])
+        .index("byStatusAndLastUsedAt", ["status", "lastUsedAt"])
+        .index("bySessionStateAndUpdatedAt", ["sessionState", "updatedAt"])
+        .index("byExecutionAndUpdatedAt", ["executionInProgress", "updatedAt"])
+        .index("byOperationAndUpdatedAt", ["operation", "updatedAt"])
+        .index("byOverLimitSince", ["overLimitSince"]),
+    computerKeys: defineTable(ComputerKey).index("byUserId", ["userId"])
 })

@@ -75,6 +75,7 @@ const BLOCKED_REASONS = new Set<BlockedToolReason>([
 const TOOL_PRESENTATION: Record<string, { ability: AbilityId; label: string }> = {
     web_search: { ability: "web_search", label: "Web search" },
     execute_code: { ability: "code_execution", label: "Code execution" },
+    computer_run: { ability: "code_execution", label: "Silky's computer" },
     execute_math: { ability: "mathematical_instruments", label: "Math execution" },
     render_chart: { ability: "mathematical_instruments", label: "Chart renderer" },
     render_network: { ability: "mathematical_instruments", label: "Network renderer" },

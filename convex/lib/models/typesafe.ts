@@ -30,6 +30,10 @@ export const DECISION_MODEL = {
             // chat model's own load_skill.
             canvas: 0.65
         },
+        // Live evals: clear work on a repo or account scores 0.64-0.93, and decoys on the same
+        // subjects at most 0.31. It sits low because a miss is costly: with the tool off,
+        // load_skill can't recover it, and preloading forces nothing.
+        computerWorkThreshold: 0.4,
         prohibitionThresholds: {
             web_search: 0.5,
             code_execution: 0.5

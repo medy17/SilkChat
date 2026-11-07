@@ -6,22 +6,16 @@ import type { GenericActionCtx } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "../../_generated/api"
 import type { DataModel } from "../../_generated/dataModel"
-import type { Id } from "../../_generated/dataModel"
 import { internalAction } from "../../_generated/server"
 import { r2 } from "../../attachments"
-import { PERSISTENT_SANDBOX_IDLE_SUSPEND_MS } from "../persistent_sandbox_policy"
 import {
     calculateSandboxUsageMicrousd,
     collectSandboxBillableUsage,
     sandboxSessionNeedsStop
 } from "../sandbox_billing"
 import {
-    type SandboxLanguage,
-    type SandboxRuntime,
     defaultSandboxRuntimeVersion,
-    parseSandboxRuntime,
     sandboxImageForRuntime,
-    sandboxLanguageForRuntime,
     sandboxRuntimeForLanguage
 } from "../sandbox_runtime"
 import {
@@ -43,6 +37,7 @@ import {
 const DEPENDENCY_INSTALL_TIMEOUT_MS = 90_000
 const SANDBOX_SESSION_TIMEOUT_MS = 140_000
 const MAX_OUTPUT_CHARS_PER_STREAM = 32_000
+const OUTPUT_HEAD_SHARE = 0.25
 const MAX_CODE_CHARS = 100_000
 const MAX_DEPENDENCIES = 10
 const PACKAGE_SPECIFIER = /^[a-zA-Z0-9@._+\-/[\],=<>!~^]+$/
@@ -61,13 +56,17 @@ export const truncateCodeExecutionOutput = (
     maxChars = MAX_OUTPUT_CHARS_PER_STREAM
 ): { value: string; truncated: boolean } => {
     if (value.length <= maxChars) return { value, truncated: false }
+    // Builds and test runs report what went wrong last, so most of the budget goes to the end.
+    const head = Math.floor(maxChars * OUTPUT_HEAD_SHARE)
+    const tail = maxChars - head
+    const omitted = value.length - maxChars
     return {
-        value: `${value.slice(0, maxChars)}\n[output truncated]`,
+        value: `${value.slice(0, head)}\n[${omitted} characters truncated]\n${value.slice(-tail)}`,
         truncated: true
     }
 }
 
-const collectCommandOutput = async (command: {
+export const collectCommandOutput = async (command: {
     stdout: () => Promise<string>
     stderr: () => Promise<string>
 }) => {
@@ -109,7 +108,7 @@ const readSandboxFileBounded = async (sandbox: Sandbox, path: string) => {
     return Buffer.concat(chunks, size)
 }
 
-const exportSandboxArtifacts = async ({
+export const exportSandboxArtifacts = async ({
     sandbox,
     artifactDirectory,
     userId,
@@ -269,71 +268,15 @@ const validateExecutionInput = (code: string, dependencies: string[]) => {
     }
 }
 
-type PersistentSandboxCandidate = {
-    status: string
-    runtime: string
-    sandboxName?: string
-    expiresAt?: number
-}
-
-export const resolveCodeSandbox = ({
-    requestedMode,
-    language,
-    activeSandbox,
-    now
-}: {
-    requestedMode: "ephemeral" | "persistent"
-    language: SandboxLanguage
-    activeSandbox: PersistentSandboxCandidate | null
-    now: number
-}):
-    | { mode: "ephemeral"; runtime: SandboxRuntime }
-    | { mode: "persistent"; runtime: SandboxRuntime; sandboxName: string }
-    | { error: string } => {
-    const requestedRuntime = sandboxRuntimeForLanguage(language)
-    const available =
-        activeSandbox?.status === "active" &&
-        Boolean(activeSandbox.sandboxName) &&
-        typeof activeSandbox.expiresAt === "number" &&
-        activeSandbox.expiresAt > now
-
-    if (available && activeSandbox) {
-        const activeRuntime = parseSandboxRuntime(activeSandbox.runtime)
-        if (!activeRuntime) {
-            return {
-                error: "The active persistent sandbox uses an unsupported runtime. Kill it before starting another execution."
-            }
-        }
-        if (sandboxLanguageForRuntime(activeRuntime) !== language) {
-            return {
-                error: `The active persistent sandbox uses ${activeSandbox.runtime}; ${requestedRuntime} execution cannot use an ephemeral sandbox until the active sandbox is killed.`
-            }
-        }
-        return {
-            mode: "persistent",
-            runtime: activeRuntime,
-            sandboxName: activeSandbox.sandboxName as string
-        }
-    }
-
-    if (requestedMode === "persistent") {
-        return {
-            error: "No active persistent sandbox is available. Ask the user to approve one first."
-        }
-    }
-    return { mode: "ephemeral", runtime: requestedRuntime }
-}
-
 export const executeCode = internalAction({
     args: {
         userId: v.string(),
         language: v.union(v.literal("javascript"), v.literal("python")),
         code: v.string(),
         dependencies: v.array(v.string()),
-        sandboxMode: v.union(v.literal("ephemeral"), v.literal("persistent")),
         timeoutMs: v.number()
     },
-    handler: async (ctx, { userId, language, code, dependencies, sandboxMode, timeoutMs }) => {
+    handler: async (ctx, { userId, language, code, dependencies, timeoutMs }) => {
         validateExecutionInput(code, dependencies)
         const credentials = getVercelSandboxCredentials()
         if (!credentials) {
@@ -350,14 +293,8 @@ export const executeCode = internalAction({
         const filename = `main-${executionId}.${extension}`
         const artifactDirectory = `${SANDBOX_ARTIFACT_ROOT}/${executionId}`
         let sandbox: Sandbox | undefined
-        let persistent = false
-        let effectiveSandboxMode: "ephemeral" | "persistent" = sandboxMode
-        let persistentSandboxId: Id<"persistentSandboxes"> | undefined
-        let activityLeaseId: string | undefined
 
         const finalizeToolBilling = async () => {
-            if (persistent)
-                return { settledMicrousd: 0, pricingSource: "sandbox_reported" as const }
             if (!sandbox) return { settledMicrousd: 0, pricingSource: "sandbox_reported" as const }
 
             const ephemeralSandbox = sandbox
@@ -381,68 +318,16 @@ export const executeCode = internalAction({
         }
 
         try {
-            const activeSandbox = await ctx.runQuery(
-                internal.persistent_sandboxes.getActivePersistentSandboxForUser,
-                { userId }
-            )
-            const selection = resolveCodeSandbox({
-                requestedMode: sandboxMode,
-                language,
-                activeSandbox,
-                now: Date.now()
+            const runtime = sandboxRuntimeForLanguage(language)
+            sandbox = await Sandbox.create({
+                ...credentials,
+                image: sandboxImageForRuntime(runtime, defaultSandboxRuntimeVersion(runtime)),
+                resources: { vcpus: 1 },
+                timeout: SANDBOX_SESSION_TIMEOUT_MS,
+                persistent: false,
+                networkPolicy: "allow-all",
+                tags: { app: "silkchat", feature: "code-execution" }
             })
-            if ("error" in selection) {
-                return {
-                    success: false,
-                    phase: "sandbox",
-                    language,
-                    sandboxMode,
-                    error: selection.error,
-                    __toolBilling: await finalizeToolBilling()
-                }
-            }
-            effectiveSandboxMode = selection.mode
-            const runtime = selection.runtime
-
-            if (selection.mode === "persistent") {
-                if (!activeSandbox) throw new Error("Persistent sandbox record disappeared")
-                activityLeaseId = crypto.randomUUID()
-                const executionRecord = await ctx.runMutation(
-                    internal.persistent_sandboxes.beginPersistentSandboxExecution,
-                    {
-                        sandboxId: activeSandbox._id,
-                        userId,
-                        activityLeaseId,
-                        now: Date.now()
-                    }
-                )
-                if (!executionRecord) {
-                    throw new Error(
-                        "The persistent sandbox is expiring or being suspended. Retry once shortly."
-                    )
-                }
-                persistentSandboxId = activeSandbox._id
-                if (executionRecord.scheduledIdleStopId) {
-                    await ctx.scheduler
-                        .cancel(executionRecord.scheduledIdleStopId)
-                        .catch(() => undefined)
-                }
-                sandbox = await Sandbox.get({
-                    ...credentials,
-                    name: selection.sandboxName
-                })
-                persistent = true
-            } else {
-                sandbox = await Sandbox.create({
-                    ...credentials,
-                    image: sandboxImageForRuntime(runtime, defaultSandboxRuntimeVersion(runtime)),
-                    resources: { vcpus: 1 },
-                    timeout: SANDBOX_SESSION_TIMEOUT_MS,
-                    persistent: false,
-                    networkPolicy: "allow-all",
-                    tags: { app: "silkchat", feature: "code-execution" }
-                })
-            }
 
             if (!sandbox) throw new Error("Sandbox failed to initialize")
             await sandbox.fs.mkdir(artifactDirectory, { recursive: true })
@@ -477,7 +362,6 @@ export const executeCode = internalAction({
                         phase: "dependency_install",
                         language,
                         dependencies,
-                        sandboxMode: effectiveSandboxMode,
                         exitCode: installResult.exitCode,
                         durationMs: installResult.durationMs,
                         ...(await collectCommandOutput(installResult)),
@@ -504,7 +388,6 @@ export const executeCode = internalAction({
                 phase: "execution",
                 language,
                 dependencies,
-                sandboxMode: effectiveSandboxMode,
                 networkAccess: "public-internet",
                 exitCode: result.exitCode,
                 durationMs: result.durationMs,
@@ -517,43 +400,11 @@ export const executeCode = internalAction({
                 success: false,
                 phase: "sandbox",
                 language,
-                sandboxMode: effectiveSandboxMode,
                 error: error instanceof Error ? error.message : "Sandbox execution failed",
                 __toolBilling: await finalizeToolBilling()
             }
         } finally {
-            if (sandbox && persistent) {
-                await sandbox.fs
-                    .rm(artifactDirectory, { recursive: true, force: true })
-                    .catch((error) =>
-                        console.error("Failed to clean persistent artifact directory", error)
-                    )
-            }
-            if (persistentSandboxId && activityLeaseId) {
-                let scheduledIdleStopId: Id<"_scheduled_functions"> | undefined
-                try {
-                    scheduledIdleStopId = await ctx.scheduler.runAfter(
-                        PERSISTENT_SANDBOX_IDLE_SUSPEND_MS,
-                        internal.persistent_sandboxes_node.suspendIdlePersistentSandbox,
-                        { sandboxId: persistentSandboxId, activityLeaseId }
-                    )
-                } catch (error) {
-                    console.error("Failed to schedule persistent sandbox idle suspension", error)
-                }
-                const scheduled = await ctx.runMutation(
-                    internal.persistent_sandboxes.finishPersistentSandboxExecution,
-                    {
-                        sandboxId: persistentSandboxId,
-                        activityLeaseId,
-                        scheduledIdleStopId,
-                        now: Date.now()
-                    }
-                )
-                if (!scheduled && scheduledIdleStopId) {
-                    await ctx.scheduler.cancel(scheduledIdleStopId).catch(() => undefined)
-                }
-            }
-            if (sandbox && !persistent) {
+            if (sandbox) {
                 await sandbox.delete().catch(async (error) => {
                     console.error("Failed to delete code execution sandbox", error)
                     await sandbox

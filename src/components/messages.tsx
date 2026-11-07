@@ -15,6 +15,7 @@ import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
 import { getMessageCodeExecutions } from "@/lib/message-code-executions"
+import { getMessageComputerRuns } from "@/lib/message-computer-runs"
 import type { AssistantMessageMetadata } from "@/lib/message-footer-stats"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
 import { getVirtualizedMessageCount, shouldVirtualizeMessageList } from "@/lib/message-list-mode"
@@ -73,13 +74,14 @@ import { PdfFilePreview } from "./pdf-file-preview"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning"
 import { BlockedToolCard } from "./renderers/blocked-tool-card"
 import { CodeExecutionGroupRenderer } from "./renderers/code-execution-group"
+import { ComputerRequestCard, ComputerRunCard } from "./renderers/computer-card"
 import { GenericToolRenderer } from "./renderers/generic-tool"
 import { ImageGenerationToolRenderer } from "./renderers/image-generation-ui"
 import { MemoryRetrievalToolRenderer } from "./renderers/memory-retrieval-tool"
 import { MemoryToolRenderer } from "./renderers/memory-tool"
 import { NativeChartToolRenderer } from "./renderers/native-chart-tool"
 import { NativeNetworkToolRenderer } from "./renderers/native-network-tool"
-import { PersistentSandboxCard } from "./renderers/persistent-sandbox-card"
+import { LegacyWorkspaceCard } from "./renderers/legacy-workspace-card"
 import { WebSearchGroupRenderer } from "./renderers/web-search-ui"
 import { TabularFilePreview } from "./tabular-file-preview"
 import { Button } from "./ui/button"
@@ -374,15 +376,16 @@ const PartsRenderer = memo(
                     </Reasoning>
                 )
             }
-            case "tool-request_persistent_sandbox":
+            case "tool-request_computer":
                 return (
-                    <PersistentSandboxCard
+                    <ComputerRequestCard
                         toolInvocation={part as UIToolInvocation<Tool>}
                         threadId={threadId}
                         messageId={messageId}
-                        isStreaming={isStreaming}
                     />
                 )
+            case "tool-request_persistent_sandbox":
+                return <LegacyWorkspaceCard toolInvocation={part as UIToolInvocation<Tool>} />
             case "tool-load_skill":
                 return <SkillLoaderRenderer toolInvocation={part as UIToolInvocation<Tool>} />
             case "tool-assign_roleplay_portrait":
@@ -521,6 +524,7 @@ const MessageRowComponent = ({
     const executions = getMessageCodeExecutions(message)
     const codeExecutions = executions.filter((execution) => execution.kind === "code")
     const mathExecutions = executions.filter((execution) => execution.kind === "math")
+    const computerRuns = getMessageComputerRuns(message)
     const webSearches = getMessageWebSearches(message)
     const imageSearches = getMessageImageSearches(message)
     const toolFailureAttempts = getToolFailureAttempts(message)
@@ -575,6 +579,16 @@ const MessageRowComponent = ({
                   }
               ]
             : []),
+        ...(computerRuns.length > 0
+            ? [
+                  {
+                      type: "computer" as const,
+                      firstPartIndex: message.parts.findIndex(
+                          (part) => part.type === "tool-computer_run"
+                      )
+                  }
+              ]
+            : []),
         ...(mathExecutions.length > 0
             ? [
                   {
@@ -614,6 +628,7 @@ const MessageRowComponent = ({
             part.type !== "reasoning" &&
             part.type !== "tool-execute_code" &&
             part.type !== "tool-execute_math" &&
+            part.type !== "tool-computer_run" &&
             part.type !== "tool-web_search" &&
             part.type !== "tool-image_search" &&
             part.type !== "tool-load_skill"
@@ -929,6 +944,12 @@ const MessageRowComponent = ({
                                                 key={`${message.id}-code-executions`}
                                                 executions={codeExecutions}
                                                 kind="code"
+                                            />
+                                        ) : activity.type === "computer" ? (
+                                            <ComputerRunCard
+                                                key={`${message.id}-computer-runs`}
+                                                runs={computerRuns}
+                                                isStreaming={isStreamingMessage}
                                             />
                                         ) : activity.type === "math-kit" ? (
                                             <CodeExecutionGroupRenderer

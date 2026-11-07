@@ -7,6 +7,7 @@ import {
     AccountExportEmailTemplate,
     SUPPORT_ACCOUNT_EXPORT_PASSWORD_COPY
 } from "./email-templates/account-export"
+import { ComputerDeletionNoticeEmailTemplate } from "./email-templates/computer-deletion-notice"
 import { InactiveAccountNoticeEmailTemplate } from "./email-templates/inactive-account-notice"
 import { ModerationBanEmailTemplate } from "./email-templates/moderation-ban"
 import { getRemainingStrikesCopy } from "../../convex/lib/moderation"
@@ -364,6 +365,40 @@ class EmailService {
         })
     }
 
+    async sendComputerDeletionNoticeEmail(data: {
+        email: string
+        name?: string
+        daysLeft: number
+        reason: "dormant" | "storage"
+        idempotencyKey?: string
+    }) {
+        const computerUrl = `${this.getAppUrl().replace(/\/$/, "")}/settings/computer`
+        const supportEmail = this.getSupportEmail()
+        const when = data.daysLeft === 1 ? "tomorrow" : `in ${data.daysLeft} days`
+        const html = await render(
+            ComputerDeletionNoticeEmailTemplate({
+                name: data.name,
+                when,
+                reason: data.reason,
+                computerUrl,
+                logoUrl: this.getLogoUrl(),
+                supportEmail
+            })
+        )
+        const explanation =
+            data.reason === "storage"
+                ? `Silky's computer is over your plan's storage limit, so the files on it will be deleted ${when}.\n\nAsk Silky to clear out what you don't need, or upgrade your plan, to keep them.`
+                : `Silky's computer hasn't been used for a while, so the files on it will be deleted ${when}.\n\nAsk Silky to send you anything you want to keep, or to use its computer again, which keeps the files.`
+
+        await this.sendEmail({
+            to: data.email,
+            subject: `The files on Silky's computer will be deleted ${when}`,
+            html,
+            idempotencyKey: data.idempotencyKey,
+            text: `${data.name ? `Hi ${data.name},` : "Hi,"}\n\n${explanation}\n\nManage it here: ${computerUrl} If you need help, contact us at ${supportEmail}.\n\nThe SilkChat Team`
+        })
+    }
+
     private getTermsUrl() {
         return `${this.getAppUrl().replace(/\/$/, "")}/terms-of-service`
     }
@@ -527,6 +562,8 @@ export const sendWelcomeEmail = emailService.sendWelcomeEmail.bind(emailService)
 export const sendAccountExportEmail = emailService.sendAccountExportEmail.bind(emailService)
 export const sendInactiveAccountNoticeEmail =
     emailService.sendInactiveAccountNoticeEmail.bind(emailService)
+export const sendComputerDeletionNoticeEmail =
+    emailService.sendComputerDeletionNoticeEmail.bind(emailService)
 export const sendModerationWarningEmail = emailService.sendModerationWarningEmail.bind(emailService)
 export const sendModerationStrikeEmail = emailService.sendModerationStrikeEmail.bind(emailService)
 export const sendModerationBanEmail = emailService.sendModerationBanEmail.bind(emailService)

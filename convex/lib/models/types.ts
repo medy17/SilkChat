@@ -201,6 +201,8 @@ export const isChatModel = (model: {
 // Other decision models need not participate in skill selection.
 export type SkillSelectionCalibration = {
     thresholds: Record<AppSkillId, number>
+    /** Hands-on project work, which qualifies for Code Execution on its own score. */
+    computerWorkThreshold: number
     prohibitionThresholds: Record<"web_search" | "code_execution", number>
 }
 

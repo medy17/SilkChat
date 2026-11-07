@@ -21,19 +21,21 @@ crons.interval(
     {}
 )
 
-// Per-sandbox expiry and retry work is scheduled when the sandbox is created.
-// This is only a fallback for missed or interrupted lifecycle work.
+crons.interval("reconcile computers", { minutes: 15 }, internal.computers_node.reconcileComputers)
+
+// What each computer stored since the last run, against the owner's monthly allowance.
 crons.interval(
-    "reconcile persistent sandboxes",
-    { hours: 1 },
-    internal.persistent_sandboxes_node.reconcilePersistentSandboxes
+    "charge computer storage",
+    { hours: 24 },
+    internal.computers.chargeComputerStorage,
+    {}
 )
 
-// Provider-wide listing is a last-resort guard for sandboxes with no usable DB record.
+// Archiving, warning emails, and deletion for dormant computers.
 crons.interval(
-    "sweep orphaned persistent sandboxes",
-    { hours: 6 },
-    internal.persistent_sandboxes_node.sweepOrphanedPersistentSandboxes
+    "run computer retention",
+    { hours: 24 },
+    internal.computers_node.runComputerRetention
 )
 
 crons.interval(

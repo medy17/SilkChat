@@ -153,7 +153,6 @@ export const NativeChartAdapter: ToolAdapter = async (params) => {
                 language: "python",
                 code,
                 dependencies: [...MATH_PYTHON_DEPENDENCIES],
-                sandboxMode: "ephemeral",
                 timeoutMs
             })
     })

@@ -1165,7 +1165,12 @@ async function handleChatPost(
     let canReferenceLongTextAttachments = callableEnabledTools.includes("code_execution")
     const getToolFundingSource = (toolName: string): ToolFundingSource => {
         if (toolName === "web_search") return toolAvailability.web_search.fundingSource
-        if (toolName === "execute_code" || toolName === "execute_math") {
+        if (
+            toolName === "execute_code" ||
+            toolName === "execute_math" ||
+            toolName === "computer_run" ||
+            toolName === "request_computer"
+        ) {
             return toolAvailability.code_execution.fundingSource
         }
         if (toolName === "render_chart" || toolName === "render_network") {

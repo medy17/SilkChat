@@ -19,6 +19,7 @@ import {
     CreditCard,
     Fingerprint,
     Gavel,
+    Laptop,
     PaintBucket,
     Paperclip,
     Shield,
@@ -73,6 +74,11 @@ const settingsNavItems = [
         icon: Paperclip
     },
     {
+        title: "Computer",
+        href: "/settings/computer",
+        icon: Laptop
+    },
+    {
         title: "Privacy",
         href: "/settings/privacy",
         icon: ShieldCheck
@@ -109,6 +115,7 @@ const settingsNavItems = [
 type SettingsNavHref = (typeof settingsNavItems)[number]["href"]
 
 const legacySettingsRouteMap: Record<string, SettingsNavHref> = {
+    "/settings/computer-guide": "/settings/computer",
     "/settings/profile": "/settings/account",
     "/settings/providers": "/settings/ai-setup",
     "/settings/models": "/settings/ai-setup",

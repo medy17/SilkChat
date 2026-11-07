@@ -280,6 +280,25 @@ function SkeletonSectionHeaderWithAction() {
     )
 }
 
+export function ComputerSettingsSkeleton() {
+    return (
+        <SettingsSkeleton label="Loading Silky's computer">
+            <div className="overflow-hidden rounded-[var(--radius-lg)] border bg-card">
+                <Skeleton className="h-40 w-full" />
+                <div className="space-y-3 p-5">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-5 w-20" />
+                </div>
+            </div>
+            <div className="space-y-3">
+                <SkeletonSectionHeading />
+                <SkeletonCardRow trailing="switch" />
+                <SkeletonCardRow trailing="switch" />
+            </div>
+        </SettingsSkeleton>
+    )
+}
+
 export function ProviderListSkeleton() {
     return (
         <SettingsSkeleton label="Loading providers" className="space-y-8">

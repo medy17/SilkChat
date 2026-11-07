@@ -92,7 +92,7 @@ describe("wrapToolsWithExecutionLimits", () => {
         const consumeToolCall = vi.fn().mockResolvedValue({ allowed: false, remainingCalls: 0 })
         const tools = wrapToolsWithExecutionLimits(
             {
-                release_persistent_sandbox: {
+                request_computer: {
                     description: "Release workspace",
                     execute
                 } as any
@@ -100,13 +100,31 @@ describe("wrapToolsWithExecutionLimits", () => {
             { consumeToolCall }
         )
 
-        const result = await tools.release_persistent_sandbox.execute?.({}, {
+        const result = await tools.request_computer.execute?.({}, {
             toolCallId: "release-1"
         } as any)
 
         expect(consumeToolCall).not.toHaveBeenCalled()
         expect(execute).toHaveBeenCalled()
         expect(result).toEqual({ success: true, released: true })
+    })
+
+    it("doesn't spend the turn's tool budget on computer commands", async () => {
+        const consumeToolCall = vi.fn().mockResolvedValue({ allowed: false, remainingCalls: 0 })
+        const tools = wrapToolsWithExecutionLimits(
+            {
+                computer_run: {
+                    description: "Run a command",
+                    execute: vi.fn().mockResolvedValue({ success: true })
+                } as any
+            },
+            { consumeToolCall }
+        )
+
+        const result = await tools.computer_run.execute?.({}, { toolCallId: "run-1" } as any)
+
+        expect(consumeToolCall).not.toHaveBeenCalled()
+        expect(result).toEqual({ success: true })
     })
 
     it("settles measured tool usage without exposing internal billing metadata", async () => {

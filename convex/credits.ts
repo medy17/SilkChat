@@ -349,6 +349,8 @@ export const ensureCreditAccountRecord = async (
 type UsageWindowRecord = {
     createdAt: number
     amountMicrousd: number
+    /** Background charges count toward the month, but must not open or fill a 5-hour window. */
+    monthlyOnly?: boolean
 }
 
 const getUsageEventAmountMicrousd = (event: {
@@ -459,7 +461,8 @@ export const getHostedUsageState = async (
     const records: UsageWindowRecord[] = [
         ...monthlyEvents.map((event) => ({
             createdAt: event.createdAt,
-            amountMicrousd: getUsageEventAmountMicrousd(event)
+            amountMicrousd: getUsageEventAmountMicrousd(event),
+            monthlyOnly: event.pricingSource === "storage_reported"
         })),
         ...monthlyReservations.map((reservation) => ({
             createdAt: reservation.createdAt,
@@ -495,7 +498,11 @@ export const getHostedUsageState = async (
     ].filter((at): at is number => at !== undefined)
     const fiveHourBoundaryAt =
         fiveHourBoundaries.length > 0 ? Math.max(...fiveHourBoundaries) : undefined
-    const activeFiveHourWindow = getActiveFiveHourUsageWindow(records, now, fiveHourBoundaryAt)
+    const activeFiveHourWindow = getActiveFiveHourUsageWindow(
+        records.filter((record) => !record.monthlyOnly),
+        now,
+        fiveHourBoundaryAt
+    )
 
     return {
         limits,
@@ -572,6 +579,39 @@ export const getUserCreditAccountInternal = internalQuery({
         return await getCreditAccount(ctx, userId)
     }
 })
+
+/**
+ * Charges storage that has already been used. Unlike a reservation it can't be refused: going over
+ * the limit stops new usage, and never touches the user's files.
+ */
+export const recordStorageUsage = async (
+    ctx: MutationCtx,
+    {
+        userId,
+        messageKey,
+        amountMicrousd,
+        now
+    }: { userId: string; messageKey: string; amountMicrousd: number; now: number }
+) => {
+    const account = await getCreditAccount(ctx, userId)
+    const period = await getUserCreditPeriod(ctx, userId, account, now)
+    await ctx.db.insert("prototypeCreditEvents", {
+        userId,
+        messageId: messageKey,
+        messageKey,
+        providerSource: "internal",
+        feature: "tool",
+        bucket: "none",
+        units: 0,
+        counted: true,
+        accountingKind: "usage",
+        settledMicrousd: amountMicrousd,
+        pricingSource: "storage_reported",
+        settledAt: now,
+        periodKey: period.periodKey,
+        createdAt: now
+    })
+}
 
 export const getUserCreditPlan = async (ctx: QueryCtx, userId: string) =>
     getResolvedCreditPlan(await getCreditAccount(ctx, userId))

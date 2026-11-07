@@ -1,4 +1,5 @@
 import { OllamaIcon } from "@/components/brand-icons"
+import { SecretField } from "@/components/settings/secret-field"
 import { SettingsFormActions, SettingsSectionHeader } from "@/components/settings/settings-section"
 import { ProviderListSkeleton } from "@/components/settings/settings-skeletons"
 import {
@@ -24,7 +25,6 @@ import {
     SelectValue
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { OLLAMA_PROVIDER_ID, normalizeOllamaBaseUrl } from "@/convex/lib/ollama"
 import type { CustomProviderApiMode, GoogleAuthMode } from "@/convex/schema/settings"
@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils"
 import { useConvexQuery } from "@convex-dev/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMutation } from "convex/react"
-import { Bot, CheckCircle, Key, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react"
+import { Bot, CheckCircle, Pencil, Plus, Trash2 } from "lucide-react"
 import { memo, useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -106,80 +106,6 @@ type CustomProviderUpdate = {
     apiMode: CustomProviderApiMode
     newKey?: string
     clearKey?: boolean
-}
-
-// The saved-key row with Replace (and Remove, where a key is optional), or the key input when
-// there's no key or it's being replaced.
-function SecretField({
-    id,
-    hasExistingKey,
-    replacing,
-    onReplace,
-    onRemove,
-    value,
-    onChange,
-    label = "API Key",
-    placeholder,
-    multiline = false
-}: {
-    id: string
-    hasExistingKey: boolean
-    replacing: boolean
-    onReplace: () => void
-    onRemove?: () => void
-    value: string
-    onChange: (value: string) => void
-    label?: string
-    placeholder?: string
-    multiline?: boolean
-}) {
-    if (hasExistingKey && !replacing) {
-        return (
-            <div className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 p-3">
-                <div className="flex items-center gap-2">
-                    <Key className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">{label} saved</span>
-                </div>
-                <div className="flex items-center gap-1">
-                    {onRemove && (
-                        <Button variant="ghost" size="sm" onClick={onRemove}>
-                            <Trash2 className="h-4 w-4" />
-                            Remove
-                        </Button>
-                    )}
-                    <Button variant="ghost" size="sm" onClick={onReplace}>
-                        <RotateCcw className="h-4 w-4" />
-                        Replace
-                    </Button>
-                </div>
-            </div>
-        )
-    }
-
-    return (
-        <div className="space-y-2">
-            <Label htmlFor={id}>{replacing ? `New ${label}` : label}</Label>
-            {multiline ? (
-                <Textarea
-                    id={id}
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder={placeholder}
-                    className="min-h-32 font-mono text-xs"
-                    spellCheck={false}
-                />
-            ) : (
-                <Input
-                    id={id}
-                    type="password"
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    placeholder={placeholder}
-                    className="font-mono"
-                />
-            )}
-        </div>
-    )
 }
 
 function UsageModeTiles({
