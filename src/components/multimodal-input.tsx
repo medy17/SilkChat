@@ -850,6 +850,18 @@ export const MultimodalInput = forwardRef<
         onExpandedChange?.(isExpanded)
     }, [isExpanded, onExpandedChange])
 
+    // A full tray would otherwise take new files out of sight as they're added.
+    const attachmentTrayRef = useRef<HTMLDivElement>(null)
+    const attachmentCount = extendedFiles.length + localUploadingFiles.length
+    const previousAttachmentCountRef = useRef(attachmentCount)
+    useEffect(() => {
+        const wasAdded = attachmentCount > previousAttachmentCountRef.current
+        previousAttachmentCountRef.current = attachmentCount
+        if (!wasAdded) return
+        const tray = attachmentTrayRef.current
+        tray?.scrollTo({ top: tray.scrollHeight })
+    }, [attachmentCount])
+
     useEffect(
         () => () => {
             onExpandedChange?.(false)
@@ -979,6 +991,7 @@ export const MultimodalInput = forwardRef<
         <>
             <div
                 ref={composerViewportRef}
+                data-composer-expanded={isExpanded || undefined}
                 onFocusCapture={activateDropTarget}
                 onPointerDownCapture={activateDropTarget}
                 onBlurCapture={(event) => {
@@ -1039,7 +1052,12 @@ export const MultimodalInput = forwardRef<
                         </PromptInputAction>
                     )}
                     {(extendedFiles.length > 0 || localUploadingFiles.length > 0) && (
-                        <div className="flex shrink-0 flex-wrap gap-2 pb-3">
+                        // Capped so the draft keeps its room; the half row shows there's more.
+                        // The padding keeps the tiles' overhanging remove buttons unclipped.
+                        <div
+                            ref={attachmentTrayRef}
+                            className="scrollbar-thin -mx-2 -mt-2 mb-3 flex max-h-36 shrink-0 flex-wrap gap-2 overflow-y-auto px-2 pt-2"
+                        >
                             {extendedFiles.map((file) => (
                                 <DraftAttachmentTile
                                     key={file.key}

@@ -24,6 +24,7 @@ import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { useChatHydrationStore } from "@/lib/chat-hydration-store"
 import { type ChatMessage, type UploadedFile, useChatStore } from "@/lib/chat-store"
+import { publishComposerHeight } from "@/lib/composer-expand"
 import { useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
@@ -464,6 +465,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     return (
         <motion.div
+            data-chat-column
             initial={false}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
@@ -630,7 +632,10 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                     )}
                 </AnimatePresence>
 
-                <div className={isEmpty ? "w-full max-w-4xl" : "relative z-10 w-full"}>
+                <div
+                    ref={publishComposerHeight}
+                    className={isEmpty ? "w-full max-w-4xl" : "relative z-10 w-full"}
+                >
                     <MultimodalInput
                         ref={multimodalInputRef}
                         onSubmit={handleInputSubmitWithScroll}

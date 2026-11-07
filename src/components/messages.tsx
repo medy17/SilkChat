@@ -1824,7 +1824,7 @@ export const Messages = forwardRef<
                 >
                     <div
                         className={cn(
-                            "mx-auto w-full pb-30",
+                            "mx-auto w-full pb-[max(7.5rem,var(--chat-composer-height,0px))]",
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     >

@@ -19,6 +19,7 @@ import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
 import { type UploadedFile, useChatStore } from "@/lib/chat-store"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
+import { publishComposerHeight } from "@/lib/composer-expand"
 import { useDiskCachedPaginatedQuery, useDiskCachedQuery } from "@/lib/convex-cached-query"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
@@ -293,6 +294,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
 
     return (
         <div
+            data-chat-column
             className={cn(
                 "relative flex flex-col",
                 isEmpty
@@ -387,7 +389,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                                 />
                             </div>
                         </div>
-                        <div className="relative z-10 w-full">
+                        <div ref={publishComposerHeight} className="relative z-10 w-full">
                             <MultimodalInput
                                 onSubmit={handleInputSubmitWithScroll}
                                 status={composerStatus}

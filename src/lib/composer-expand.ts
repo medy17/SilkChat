@@ -27,6 +27,26 @@ export const getExpandedComposerHeight = ({
     return Math.max(0, Math.round(end - start))
 }
 
+// Ref callback for a docked composer. The thread reads this height to keep its scroll room
+// in step with the composer, so a tall draft never covers the end of the conversation.
+// An expanded composer takes over the column, so the thread keeps its last docked height.
+export const publishComposerHeight = (composer: HTMLElement | null) => {
+    const column = composer?.closest<HTMLElement>("[data-chat-column]")
+    if (!composer || !column) return
+
+    const observer = new ResizeObserver(([entry]) => {
+        if (composer.querySelector("[data-composer-expanded]")) return
+        const height = entry.borderBoxSize[0].blockSize
+        column.style.setProperty("--chat-composer-height", `${height}px`)
+    })
+    observer.observe(composer)
+
+    return () => {
+        observer.disconnect()
+        column.style.removeProperty("--chat-composer-height")
+    }
+}
+
 // Reads a length custom property such as `4rem` or `64px` from the root element.
 export const readRootLengthPx = (property: string) => {
     const root = document.documentElement
