@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
     buildComputerNetworkPolicy,
+    COMPUTER_DRIVE_BYTE_ALIGNMENT,
+    COMPUTER_DRIVE_CEILING_BYTES,
+    COMPUTER_DRIVE_FLOOR_BYTES,
     getComputerOverLimitStep,
     getComputerRetentionStep,
     getComputerViewState,
@@ -107,6 +110,11 @@ describe("computer view state", () => {
             getComputerViewState({ status: "ready", sessionState: "stuck", operation: "restart" })
         ).toBe("busy")
     })
+})
+
+it("creates Drives at a size Vercel accepts", () => {
+    expect(COMPUTER_DRIVE_CEILING_BYTES % COMPUTER_DRIVE_BYTE_ALIGNMENT).toBe(0)
+    expect(COMPUTER_DRIVE_FLOOR_BYTES % COMPUTER_DRIVE_BYTE_ALIGNMENT).toBe(0)
 })
 
 describe("computers over their storage limit", () => {

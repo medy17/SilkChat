@@ -1,4 +1,5 @@
 import {
+    COMPUTER_DRIVE_BYTE_ALIGNMENT,
     COMPUTER_DRIVE_CEILING_BYTES,
     COMPUTER_DRIVE_FLOOR_BYTES,
     COMPUTER_SNAPSHOT_CEILING_BYTES,
@@ -10,7 +11,6 @@ const HOUR_MS = 60 * 60_000
 const BILLING_MONTH_MS = 30 * 24 * HOUR_MS
 const BYTES_PER_GB = 1_000_000_000
 const MB_PER_GB = 1024
-const DRIVE_BYTE_ALIGNMENT = 4096
 // A full computer stays well inside a plan's allowance, leaving the rest for time awake and chat.
 const DRIVE_ALLOWANCE_SHARE = 0.5
 const SNAPSHOT_ALLOWANCE_SHARE = 0.25
@@ -76,7 +76,7 @@ export const getSandboxBillingRates = () => ({
 const bytesWithinBudget = (usd: number, usdPerGbMonth: number, floor: number, ceiling: number) => {
     const bytes = usdPerGbMonth > 0 ? (usd / usdPerGbMonth) * BYTES_PER_GB : ceiling
     const clamped = Math.min(ceiling, Math.max(floor, bytes))
-    return Math.floor(clamped / DRIVE_BYTE_ALIGNMENT) * DRIVE_BYTE_ALIGNMENT
+    return Math.floor(clamped / COMPUTER_DRIVE_BYTE_ALIGNMENT) * COMPUTER_DRIVE_BYTE_ALIGNMENT
 }
 
 /** How much a computer may store on a plan, scaled to its monthly allowance. */

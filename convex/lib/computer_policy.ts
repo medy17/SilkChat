@@ -31,13 +31,16 @@ export const COMPUTER_SESSION_ROLLOVER_MS =
 
 export const COMPUTER_WORKSPACE_PATH = "/vercel/workspace"
 export const COMPUTER_ARTIFACT_ROOT = "/vercel/.silkchat/artifacts"
+/** Vercel refuses a Drive size that is not a multiple of this. */
+export const COMPUTER_DRIVE_BYTE_ALIGNMENT = 4096
 /** The lowest plan limit. Vercel refuses a Drive smaller than this. */
 export const COMPUTER_DRIVE_FLOOR_BYTES = 1024 ** 3
 /**
  * Every Drive is created at this size, the true hard limit. A Drive's size can't change, and Vercel
  * bills only what's used, so plan limits are applied in code and can follow plan changes.
  */
-export const COMPUTER_DRIVE_CEILING_BYTES = 20_000_000_000
+export const COMPUTER_DRIVE_CEILING_BYTES =
+    Math.floor(20_000_000_000 / COMPUTER_DRIVE_BYTE_ALIGNMENT) * COMPUTER_DRIVE_BYTE_ALIGNMENT
 /** Leaves room for the base image, which is about 0.8 GB on its own. */
 export const COMPUTER_SNAPSHOT_FLOOR_BYTES = 2_000_000_000
 export const COMPUTER_SNAPSHOT_CEILING_BYTES = 10_000_000_000
