@@ -175,7 +175,9 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
         session: {
             // Sliding window: any visit after updateAge pushes expiry out again.
             expiresIn: SESSION_EXPIRES_IN_SECONDS,
-            updateAge: SESSION_UPDATE_AGE_SECONDS
+            updateAge: SESSION_UPDATE_AGE_SECONDS,
+            // The default 24h limit makes /list-sessions return 403 for any older sign-in.
+            freshAge: 0
         },
         rateLimit: {
             enabled: !isLocalAuthRuntime
