@@ -197,7 +197,9 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
                 usesBackground: true,
                 defaultQuality: "high",
                 ...(version === "2.6" ? { defaultReasoningEffort: "high" as const } : {}),
-                safety: {}
+                safety: {
+                    enableSafetyChecker: false
+                }
             })
         )
     ),

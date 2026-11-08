@@ -363,7 +363,8 @@ it.each(["flare", "sunburst"])(
         }
         expect(buildFalImageInput(model, request)).toMatchObject({
             quality: "high",
-            reasoning_effort: "high"
+            reasoning_effort: "high",
+            enable_safety_checker: false
         })
         expect(
             buildFalImageInput(model, { ...request, quality: "low", reasoningEffort: "medium" })
@@ -398,8 +399,8 @@ it.each(["flare", "sunburst"])(
         expect(edit).toMatchObject({
             image_size: { width: 2448, height: 3264 },
             image_urls: ["https://example.com/reference.png"],
-            quality: "high"
+            quality: "high",
+            enable_safety_checker: false
         })
-        expect(edit).not.toHaveProperty("enable_safety_checker")
     }
 )
