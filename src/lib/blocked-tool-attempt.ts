@@ -6,6 +6,7 @@ export type BlockedToolReason =
     | "not_configured"
     | "auth_required"
     | "deployment_unavailable"
+    | "personalization_off"
 
 export type BlockedToolAttempt = {
     ability: AbilityId
@@ -69,7 +70,8 @@ const BLOCKED_REASONS = new Set<BlockedToolReason>([
     "user_disabled",
     "not_configured",
     "auth_required",
-    "deployment_unavailable"
+    "deployment_unavailable",
+    "personalization_off"
 ])
 
 const TOOL_PRESENTATION: Record<string, { ability: AbilityId; label: string }> = {

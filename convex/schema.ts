@@ -194,6 +194,7 @@ export default defineSchema({
         .index("byProject", ["projectId"])
         .index("byAuthorAndProject", ["authorId", "projectId"])
         .index("byAuthorAndProjectUpdatedAt", ["authorId", "projectId", "updatedAt"])
+        .index("byTemporaryExpiresAt", ["temporaryExpiresAt"])
         .searchIndex("search_title", {
             searchField: "title",
             filterFields: ["authorId"]

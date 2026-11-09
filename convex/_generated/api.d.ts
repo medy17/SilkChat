@@ -145,6 +145,7 @@ import type * as lib_stored_pdf_validation_node from "../lib/stored_pdf_validati
 import type * as lib_supermemory_api from "../lib/supermemory_api.js";
 import type * as lib_supermemory_chat from "../lib/supermemory_chat.js";
 import type * as lib_supermemory_memory_change from "../lib/supermemory_memory_change.js";
+import type * as lib_temporary_threads from "../lib/temporary_threads.js";
 import type * as lib_thread_import_core from "../lib/thread_import_core.js";
 import type * as lib_thread_import_core_index from "../lib/thread_import_core/index.js";
 import type * as lib_thread_import_core_keys from "../lib/thread_import_core/keys.js";
@@ -375,6 +376,7 @@ declare const fullApi: ApiFromModules<{
   "lib/supermemory_api": typeof lib_supermemory_api;
   "lib/supermemory_chat": typeof lib_supermemory_chat;
   "lib/supermemory_memory_change": typeof lib_supermemory_memory_change;
+  "lib/temporary_threads": typeof lib_temporary_threads;
   "lib/thread_import_core": typeof lib_thread_import_core;
   "lib/thread_import_core/index": typeof lib_thread_import_core_index;
   "lib/thread_import_core/keys": typeof lib_thread_import_core_keys;

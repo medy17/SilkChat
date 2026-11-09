@@ -15,6 +15,13 @@ crons.interval(
 )
 
 crons.interval(
+    "sweep expired temporary chats",
+    { hours: 24 },
+    internal.threads.sweepExpiredTemporaryThreads,
+    {}
+)
+
+crons.interval(
     "process pending account deletion jobs",
     { minutes: 5 },
     internal.account_deletion.processPendingAccountDeletionJobs,

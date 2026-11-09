@@ -157,6 +157,9 @@ export const moveThreadToProject = mutation({
         if (!thread || thread.authorId !== user.id) {
             return { error: "Thread not found or unauthorized" }
         }
+        if (thread.temporaryExpiresAt !== undefined) {
+            return { error: "Keep this chat before moving it" }
+        }
 
         // If moving to a project, verify the project exists and belongs to user
         if (projectId) {

@@ -10,6 +10,9 @@ type BuildPromptOptions = {
     userTimezone?: string // e.g., "Asia/Kuala_Lumpur"
     clientTimestampMs?: number // Pass Date.now() from the client to fix Convex's clock
     userSettings?: Infer<typeof UserSettings>
+    // False in temporary chats and chats kept without personalization: the user's
+    // customization and response style stay out of the prompt.
+    includePersonalization?: boolean
     personaPrompt?: string
     personaName?: string
     includeTemporalContext?: boolean
@@ -30,6 +33,7 @@ type CapabilityContextOptions = {
     toolAvailability: ResolvedToolAvailabilityMap
     modelAbilities: readonly ModelAbility[]
     isAnonymous: boolean
+    personalizationDisabled?: boolean
 }
 
 const formatDateInTimeZone = (date: Date, timeZone: string) => {
@@ -97,7 +101,8 @@ export const buildCapabilityContext = ({
     enabledTools,
     toolAvailability,
     modelAbilities,
-    isAnonymous
+    isAnonymous,
+    personalizationDisabled = false
 }: CapabilityContextOptions) => {
     const supportsFunctionCalling = modelAbilities.includes("function_calling")
     const limits: string[] = []
@@ -143,7 +148,9 @@ export const buildCapabilityContext = ({
         addToolLimit(
             "supermemory",
             "Memory",
-            "unavailable right now. Do not ask the user to configure it or explain its underlying provider; they cannot use or request Memory now."
+            personalizationDisabled
+                ? "off in this chat. The user chose a chat without personalization, so nothing they say here is saved or recalled. Do not claim to remember or save anything."
+                : "unavailable right now. Do not ask the user to configure it or explain its underlying provider; they cannot use or request Memory now."
         )
     }
 
@@ -165,6 +172,7 @@ export const buildPrompt = ({
     userTimezone,
     clientTimestampMs,
     userSettings,
+    includePersonalization = true,
     personaPrompt,
     personaName,
     includeTemporalContext = true,
@@ -224,9 +232,11 @@ When seeing a real, recognizable subject would materially help, such as identify
         }
     }
 
-    // Add personalization if user customization or response-style preferences exist
-    if (userSettings?.customization || userSettings?.responseStyle || verbosity) {
-        const customization = userSettings?.customization
+    // Add personalization if user customization or response-style preferences exist.
+    // Auto verbosity is SilkChat's default, not personalization, so it stays either way.
+    const personalSettings = includePersonalization ? userSettings : undefined
+    if (personalSettings?.customization || personalSettings?.responseStyle || verbosity) {
+        const customization = personalSettings?.customization
         const personalizationParts: string[] = []
 
         if (customization?.name) {
@@ -273,7 +283,7 @@ When seeing a real, recognizable subject would materially help, such as identify
         } as const
 
         for (const field of ["warmth", "enthusiasm", "structure", "emoji", "profanity"] as const) {
-            const level = userSettings?.responseStyle?.[field]
+            const level = personalSettings?.responseStyle?.[field]
             if (level) personalizationParts.push(`- ${responseStyleInstructions[field][level]}`)
         }
 

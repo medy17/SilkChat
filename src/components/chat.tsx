@@ -39,7 +39,7 @@ import {
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import {
     useCallback,
     useDeferredValue,
@@ -54,6 +54,12 @@ import { FullPageDropOverlay } from "./full-page-drop-overlay"
 import { MultimodalInput, type MultimodalInputRef } from "./multimodal-input"
 import { SignupMessagePrompt } from "./signup-message-prompt"
 import { StickToBottomButton } from "./stick-to-bottom-button"
+import { TemporaryChatKeepChip } from "./temporary-chat-control"
+import { useTemporaryChatStore } from "@/lib/temporary-chat"
+
+// The Keep pill (h-8) plus the margin under its row, so the last message's footer sits as
+// far above the pill as it otherwise sits above the composer.
+const KEEP_PILL_SPACE = "2.5rem"
 
 interface ChatProps {
     threadId: string | undefined
@@ -65,6 +71,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { selectedModel, setSelectedModel, reasoningEffort, setReasoningEffort } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId })
     const messagesRef = useRef<MessagesHandle>(null)
+    const [isAtBottom, setIsAtBottom] = useState(true)
     const [isJumpToBottomVisible, setIsJumpToBottomVisible] = useState(false)
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
@@ -244,6 +251,32 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     }, [])
 
     const isEmpty = displayMessages.length === 0 && !threadId
+    const isTemporaryDraft =
+        useTemporaryChatStore((state) => state.draftEnabled) && !threadId && !folderId
+    // A temporary chat can't be branched until it is kept.
+    const isTemporaryThread = Boolean(
+        chat.thread && "temporaryExpiresAt" in chat.thread && chat.thread.temporaryExpiresAt
+    )
+    // Once a temporary chat shows its Keep pill, the thread makes room for it so the last
+    // message's footer clears the pill. The room stays after keeping, so nothing drops.
+    const [keepPillSpaceThreadId, setKeepPillSpaceThreadId] = useState<string>()
+    if (isTemporaryThread && threadId && keepPillSpaceThreadId !== threadId) {
+        setKeepPillSpaceThreadId(threadId)
+    }
+    const reservesKeepPillSpace = Boolean(threadId) && keepPillSpaceThreadId === threadId
+    const chatColumnRef = useRef<HTMLDivElement>(null)
+    const isAtBottomRef = useRef(isAtBottom)
+    isAtBottomRef.current = isAtBottom
+    useLayoutEffect(() => {
+        const column = chatColumnRef.current
+        if (!column || !reservesKeepPillSpace) return
+        column.style.setProperty("--chat-keep-pill-space", KEEP_PILL_SPACE)
+        // Growing the room doesn't scroll, so a reader at the bottom is carried down to it.
+        if (isAtBottomRef.current) messagesRef.current?.scrollToBottom("smooth")
+        return () => {
+            column.style.removeProperty("--chat-keep-pill-space")
+        }
+    }, [reservesKeepPillSpace])
     const personaOptions = useDiskCachedQuery(
         api.personas.listPersonaPickerOptions,
         {
@@ -464,6 +497,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
 
     return (
         <motion.div
+            ref={chatColumnRef}
             data-chat-column
             initial={false}
             animate={{ opacity: 1 }}
@@ -483,11 +517,12 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             ref={messagesRef}
                             messages={deferredMessages}
                             onRetry={handleRetry}
-                            onBranch={handleBranch}
+                            onBranch={isTemporaryThread ? undefined : handleBranch}
                             onEditAndRetry={handleEditAndRetry}
                             onQuoteSelection={handleQuoteSelection}
                             status={messageRenderStatus}
                             error={chatHelpers.error}
+                            onBottomStateChange={setIsAtBottom}
                             onJumpToBottomVisibleChange={setIsJumpToBottomVisible}
                             threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
                             threadId={threadId ?? routeThreadId}
@@ -536,11 +571,13 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                     <>
                                         <ChatMascot
                                             isCurious={isComposerActive}
+                                            isHiding={isTemporaryDraft}
                                             className="mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32"
                                         />
                                         <ChatMascot
                                             variant="face"
                                             isCurious={isComposerActive}
+                                            isHiding={isTemporaryDraft}
                                             className="mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block"
                                         />
                                     </>
@@ -552,11 +589,21 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                     className="text-center [@media(max-height:480px)]:hidden"
                                 >
                                     {!selectedPersonaOption && (
-                                        <h1 className="px-4 font-medium text-3xl text-foreground">
-                                            {userName
-                                                ? `What's up, ${userName?.split(" ")[0]}?`
-                                                : "What do you want to explore?"}
-                                        </h1>
+                                        <div className="space-y-2 px-4">
+                                            <h1 className="font-medium text-3xl text-foreground">
+                                                {isTemporaryDraft
+                                                    ? "Temporary chat"
+                                                    : userName
+                                                      ? `What's up, ${userName?.split(" ")[0]}?`
+                                                      : "What do you want to explore?"}
+                                            </h1>
+                                            {/* Held either way, so switching never moves the
+                                                hero or the starter row that was just clicked. */}
+                                            <p className="mx-auto min-h-10 max-w-md text-muted-foreground text-sm sm:min-h-5">
+                                                {isTemporaryDraft &&
+                                                    "It won't be saved, and personalization and memory are off."}
+                                            </p>
+                                        </div>
                                     )}
                                     {selectedPersonaOption && (
                                         <div className="mt-4 space-y-4 px-4">
@@ -617,14 +664,25 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                     ))}
                                 </div>
                             )}
-                            <div className="pointer-events-auto">
-                                <StickToBottomButton
-                                    isVisible={isJumpToBottomVisible}
-                                    scrollToBottom={() =>
-                                        messagesRef.current?.scrollToBottom("smooth")
-                                    }
-                                />
-                            </div>
+                            {/* Keep and Scroll to bottom share a row: the second splits off
+                                the first and they make room for each other. */}
+                            <LayoutGroup>
+                                <div className="pointer-events-auto relative flex items-center justify-center gap-2">
+                                    <TemporaryChatKeepChip
+                                        threadId={threadId}
+                                        isTemporary={isTemporaryThread}
+                                        onKept={() => multimodalInputRef.current?.focus()}
+                                    />
+                                    <StickToBottomButton
+                                        isVisible={isJumpToBottomVisible}
+                                        scrollToBottom={() =>
+                                            messagesRef.current?.scrollToBottom("smooth")
+                                        }
+                                        inPillRow
+                                        splitsFromCompanion={isTemporaryThread}
+                                    />
+                                </div>
+                            </LayoutGroup>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -641,6 +699,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                         folderId={folderId}
                         isActive={isActiveRoute}
                         showIntentShortcuts={isEmpty && selectedPersona.source === "default"}
+                        showTemporaryChatOption={isEmpty && !threadId && !folderId}
                         threadHasPdfAttachments={threadHasPdfAttachments}
                         messages={deferredMessages}
                         isThreadHydrated={isHydrationSettled}

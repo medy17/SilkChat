@@ -1,4 +1,5 @@
 import { ABILITIES, type AbilityId } from "@/lib/tool-abilities"
+import { useTemporaryChatStore } from "@/lib/temporary-chat"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { backendToUiMessages } from "@/convex/lib/backend_to_ui_messages"
@@ -435,6 +436,14 @@ export function useChatIntegration<IsShared extends boolean>({
                       }
 
                       const proposedNewAssistantId = nanoid()
+                      // Temporary chats start from the plain new-chat page, never a folder.
+                      const isTemporaryRequest =
+                          !currentContext.threadId &&
+                          !currentContext.folderId &&
+                          useTemporaryChatStore.getState().draftEnabled
+                      if (isTemporaryRequest) {
+                          useTemporaryChatStore.getState().beginRequest(proposedNewAssistantId)
+                      }
                       if (!currentContext.threadId) {
                           const state = useModelStore.getState()
                           openingToolRequestsRef.current.set(proposedNewAssistantId, {
@@ -495,6 +504,7 @@ export function useChatIntegration<IsShared extends boolean>({
                                             messageId: pendingPersonaOpening.messageId
                                         }
                                       : undefined,
+                              temporary: isTemporaryRequest || undefined,
                               devContextOverride: getActiveDevContextOverride()
                           }
                       }
@@ -567,6 +577,8 @@ export function useChatIntegration<IsShared extends boolean>({
         },
         onError: () => {
             setDirectSendActive(false)
+            // A send that failed before its thread existed leaves the toggle as it was.
+            useTemporaryChatStore.getState().cancelRequest()
             completedLocalMessageRef.current = null
             const currentThreadId = latestRequestContextRef.current.threadId
             if (currentThreadId) {

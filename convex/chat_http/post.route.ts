@@ -850,6 +850,8 @@ async function handleChatPost(
         reasoningEffort?: ReasoningEffort
         personaSelection?: PersonaSelection
         personaOpening?: PersonaOpeningRequest
+        // Only read when the request creates the thread.
+        temporary?: boolean
         clientId?: string
         devContextOverride?: { hostedInputLimit?: number; modelInputLimit?: number }
     }
@@ -1050,6 +1052,7 @@ async function handleChatPost(
                 folderId: body.folderId,
                 personaSnapshot: personaSnapshot ?? undefined,
                 openingMessage: personaOpening ?? undefined,
+                temporary: !body.id && body.temporary === true ? true : undefined,
                 openingToolSelection: !body.id
                     ? {
                           enabledTools: callableEnabledTools,
@@ -1096,20 +1099,30 @@ async function handleChatPost(
     }
 
     const settings = readiness.registry.settings
+    // Temporary chats, and chats kept without personalization, get none of the user's
+    // customization, response style, or memory. Length falls back to Auto.
+    const personalizationDisabled = body.id
+        ? readiness.context?.personalizationDisabled === true
+        : body.temporary === true
+    const verbositySetting = personalizationDisabled ? undefined : settings.responseStyle?.verbosity
     let openingVerbosity = readiness.context?.openingVerbosity
-    let verbosity = resolveVerbosity(settings.responseStyle?.verbosity, openingVerbosity)
+    let verbosity = resolveVerbosity(verbositySetting, openingVerbosity)
     const sendsNativeVerbosity = () =>
         modelData.runtimeProvider === "openrouter" &&
         Boolean(verbosity && selectedRegistryModel?.supportsVerbosity)
     // Lets output tokens and cost be compared per resolved length.
     const getVerbosityTelemetry = () => ({
         verbosity: verbosity ?? "default",
-        verbosity_source: settings.responseStyle?.verbosity === undefined ? "auto" : "setting",
+        verbosity_source: verbositySetting === undefined ? "auto" : "setting",
         native_verbosity: sendsNativeVerbosity()
     })
     const telemetryEnabled = settings.telemetryEnabled !== false
     const telemetryTargetMode = body.targetMode ?? "normal"
     const toolAvailability = resolveToolAvailability(settings)
+    if (personalizationDisabled) {
+        // Off for the whole turn: no recall, no memory tools, nothing saved afterwards.
+        toolAvailability.supermemory = { enabled: false, fundingSource: "none" }
+    }
     const requestedEnabledTools = Array.from(
         new Set(body.enabledTools ?? readiness.context?.openingToolSelection?.enabledTools ?? [])
     )
@@ -1135,7 +1148,8 @@ async function handleChatPost(
               requestedTools: requestedEnabledTools,
               callableTools: callableEnabledTools,
               toolAvailability,
-              isAnonymous: user.isAnonymous
+              isAnonymous: user.isAnonymous,
+              personalizationDisabled
           })
         : {}
     const buildCurrentTurnContext = (
@@ -1149,7 +1163,8 @@ async function handleChatPost(
                 enabledTools: callableEnabledTools,
                 toolAvailability,
                 modelAbilities: modelData.abilities,
-                isAnonymous: user.isAnonymous
+                isAnonymous: user.isAnonymous,
+                personalizationDisabled
             }),
             buildTemporalContext(),
             buildToolBudgetContext(toolCallLimitPerTurn),
@@ -1308,6 +1323,7 @@ async function handleChatPost(
                     content: buildPrompt({
                         enabledTools: callableEnabledTools,
                         userSettings: settings,
+                        includePersonalization: !personalizationDisabled,
                         personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
                         personaName: persistedPersonaSnapshot?.name,
                         includeTemporalContext: false,
@@ -1462,8 +1478,7 @@ async function handleChatPost(
         !body.id &&
         body.autoSelectTools !== false &&
         modelSupportsFunctionCalling
-    const decidesVerbosity =
-        !contextViolation && !body.id && settings.responseStyle?.verbosity === undefined
+    const decidesVerbosity = !contextViolation && !body.id && verbositySetting === undefined
     if (decidesTools || decidesVerbosity) {
         const openingMutation = await createMutationResult()
         if (openingMutation instanceof ChatError || !openingMutation) {
@@ -1526,7 +1541,7 @@ async function handleChatPost(
         }
         if (decidesVerbosity) {
             openingVerbosity = savedVerbosity ?? decisions.verbosity
-            verbosity = resolveVerbosity(settings.responseStyle?.verbosity, openingVerbosity)
+            verbosity = resolveVerbosity(verbositySetting, openingVerbosity)
             if (isOpening && decisions.verbosity) completed.verbosity = decisions.verbosity
         }
 
@@ -2327,6 +2342,7 @@ async function handleChatPost(
                 const turnPrompt = buildPrompt({
                     enabledTools: callableEnabledTools,
                     userSettings: settings,
+                    includePersonalization: !personalizationDisabled,
                     personaPrompt: persistedPersonaSnapshot?.compiledPrompt,
                     personaName: persistedPersonaSnapshot?.name,
                     includeTemporalContext: false,

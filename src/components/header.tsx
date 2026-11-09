@@ -9,6 +9,7 @@ import { isNewChatPath } from "@/lib/last-chat-route"
 import { cn } from "@/lib/utils"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, Plus } from "lucide-react"
+import { TemporaryChatLifecycle } from "./temporary-chat-control"
 import { ThemeSwitcher } from "./themes/theme-switcher"
 import { SidebarShortcutsHelper } from "./threads/sidebar-shortcuts-helper"
 import { SidebarTrigger, useSidebar } from "./ui/sidebar"
@@ -52,6 +53,7 @@ export function Header() {
 
     return (
         <>
+            <TemporaryChatLifecycle />
             {showTrigger && (
                 <>
                     <div

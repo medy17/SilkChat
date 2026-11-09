@@ -41,7 +41,12 @@ export const Thread = v.object({
     personaAvatarValue: v.optional(v.string()),
     personaAvatarMimeType: v.optional(v.string()),
     // Supporting-character portraits for roleplay scenes, keyed by markup character ID.
-    roleplayPortraits: v.optional(RoleplayPortraits)
+    roleplayPortraits: v.optional(RoleplayPortraits),
+    // Set while the chat is temporary: it stays out of every thread list and is removed
+    // after this time. Cleared when the user keeps the chat.
+    temporaryExpiresAt: v.optional(v.number()),
+    // No customization, response style, or memory reaches the model in this thread.
+    personalizationDisabled: v.optional(v.boolean())
 })
 
 export const SharedThread = v.object({

@@ -1,6 +1,7 @@
 import { getCanonicalChatRouteTarget } from "@/lib/canonical-chat-route"
 import { useChatStore } from "@/lib/chat-store"
 import { suppressNextChatTransitionForPath } from "@/lib/chat-transition-override"
+import { useTemporaryChatStore } from "@/lib/temporary-chat"
 import { useNavigate } from "@tanstack/react-router"
 import type { UIMessage } from "ai"
 import { useEffect } from "react"
@@ -42,6 +43,9 @@ export function useChatDataProcessor({
         if (!latestAssistant?.metadata) return
 
         if (latestAssistant.metadata.threadId) {
+            useTemporaryChatStore
+                .getState()
+                .claimThread(latestAssistant.id, latestAssistant.metadata.threadId)
             if (threadId !== latestAssistant.metadata.threadId) {
                 setThreadId(latestAssistant.metadata.threadId)
             }

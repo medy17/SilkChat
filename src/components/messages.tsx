@@ -1944,7 +1944,9 @@ export const Messages = forwardRef<
                 >
                     <div
                         className={cn(
-                            "mx-auto w-full pb-[max(7.5rem,var(--chat-composer-height,0px))]",
+                            // Room for the docked composer, plus the temporary chat's Keep pill
+                            // when it floats above it.
+                            "mx-auto w-full pb-[max(7.5rem,calc(var(--chat-composer-height,0px)_+_var(--chat-keep-pill-space,0px)))]",
                             getChatWidthClass(chatWidthState.chatWidth)
                         )}
                     >

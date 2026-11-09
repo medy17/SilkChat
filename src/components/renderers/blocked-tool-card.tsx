@@ -46,6 +46,8 @@ const getTitle = (attempts: ToolFailureAttempt[]) => {
             return `Sign in to use ${attempt.toolLabel.toLowerCase()}`
         case "deployment_unavailable":
             return `${attempt.toolLabel} is unavailable`
+        case "personalization_off":
+            return `${attempt.toolLabel} is off in this chat`
         case "malformed_tool_call":
             return "The assistant made a malformed tool call"
     }
@@ -85,6 +87,8 @@ const getDescription = (attempts: ToolFailureAttempt[]) => {
             return `This tool call was captured but requires sign-in before it can run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
         case "deployment_unavailable":
             return `${attempt.toolLabel} isn't available right now, so this call did not run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
+        case "personalization_off":
+            return `${attempt.toolLabel} is off in this chat, so this call did not run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
         case "malformed_tool_call":
             return `This ${attempt.toolLabel.toLowerCase()} call had incomplete or invalid arguments and did not run. ${OTHER_CALLS_MAY_HAVE_COMPLETED}`
     }

@@ -4,11 +4,16 @@ import { parseRoleplayPortraits, type RoleplayPortrait } from "@/lib/roleplay-po
 import { ChatError } from "@/lib/errors"
 import { MAX_ATTACHMENTS_PER_THREAD } from "@/lib/file_constants"
 import type { ModelMessage } from "ai"
-import { type PaginationResult, paginationOptsValidator } from "convex/server"
+import {
+    type FilterBuilder,
+    type NamedTableInfo,
+    type PaginationResult,
+    paginationOptsValidator
+} from "convex/server"
 import { type Infer, v } from "convex/values"
 import { nanoid } from "nanoid"
 import { api, internal } from "./_generated/api"
-import type { Doc, Id } from "./_generated/dataModel"
+import type { DataModel, Doc, Id } from "./_generated/dataModel"
 import {
     type MutationCtx,
     action,
@@ -24,6 +29,7 @@ import { assertAccountNotDeleting } from "./lib/account_deletion_status"
 import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { getUserIdentity } from "./lib/identity"
+import { isTemporaryThread, nextTemporaryExpiry } from "./lib/temporary_threads"
 import type { Thread } from "./schema"
 import {
     HTTPAIMessage,
@@ -36,6 +42,10 @@ import { ThreadPersonaSnapshotInput } from "./schema/persona"
 import { sanitizeCopiedVisualSelections } from "./lib/visual_assets"
 
 type ThreadDoc = Infer<typeof Thread>
+
+// Temporary chats stay out of every thread list and search until they are kept.
+const isKeptThread = (q: FilterBuilder<NamedTableInfo<DataModel, "threads">>) =>
+    q.eq(q.field("temporaryExpiresAt"), undefined)
 
 // Snapshots have no resolver job of their own. Keep completed selections, but
 // never copy the original message's in-flight work as a permanent loading state.
@@ -299,7 +309,8 @@ export const createThreadOrInsertMessages = internalMutation({
         folderId: v.optional(v.id("projects")),
         personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
         openingMessage: v.optional(HTTPAIMessage),
-        openingToolSelection: v.optional(OpeningToolSelection)
+        openingToolSelection: v.optional(OpeningToolSelection),
+        temporary: v.optional(v.boolean())
     },
     handler: async (
         ctx,
@@ -314,7 +325,8 @@ export const createThreadOrInsertMessages = internalMutation({
             folderId,
             personaSnapshot,
             openingMessage,
-            openingToolSelection
+            openingToolSelection,
+            temporary
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
@@ -352,8 +364,14 @@ export const createThreadOrInsertMessages = internalMutation({
         }
 
         const touchThread = async (targetThreadId: Id<"threads">) => {
+            const now = Date.now()
+            const target = await ctx.db.get(targetThreadId)
             await ctx.db.patch(targetThreadId, {
-                updatedAt: Date.now()
+                updatedAt: now,
+                // Each turn pushes a temporary chat's removal back.
+                ...(target && isTemporaryThread(target)
+                    ? { temporaryExpiresAt: nextTemporaryExpiry(now) }
+                    : {})
             })
         }
 
@@ -416,16 +434,24 @@ export const createThreadOrInsertMessages = internalMutation({
                 title: initialTitle,
                 createdAt: now,
                 updatedAt: newAssistantMessage_new.updatedAt,
-                projectId: folderId, // Set the project ID if creating from a folder
+                // Temporary chats never join a folder.
+                projectId: temporary ? undefined : folderId,
                 personaSource: personaSnapshot?.source,
                 personaSourceId: personaSnapshot?.sourceId,
                 personaName: personaSnapshot?.name,
                 personaAvatarKind: personaSnapshot?.avatarKind,
                 personaAvatarValue: personaSnapshot?.avatarValue,
-                personaAvatarMimeType: personaSnapshot?.avatarMimeType
+                personaAvatarMimeType: personaSnapshot?.avatarMimeType,
+                ...(temporary
+                    ? {
+                          temporaryExpiresAt: nextTemporaryExpiry(now),
+                          personalizationDisabled: true
+                      }
+                    : {})
             })
             const doc = await ctx.db.get(newId)
-            await aggregrateThreadsByFolder.insert(ctx, doc!)
+            // Folder counts include a temporary chat only once it is kept.
+            if (!temporary) await aggregrateThreadsByFolder.insert(ctx, doc!)
 
             if (personaSnapshot) {
                 await ctx.db.insert("threadPersonaSnapshots", {
@@ -687,6 +713,7 @@ export const searchUserThreads = query({
             return await db
                 .query("threads")
                 .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", user.id))
+                .filter(isKeptThread)
                 .order("desc")
                 .paginate(paginationOpts)
         }
@@ -697,6 +724,7 @@ export const searchUserThreads = query({
             .withSearchIndex("search_title", (q) =>
                 q.search("title", query.trim()).eq("authorId", user.id)
             )
+            .filter(isKeptThread)
             .paginate(paginationOpts)
     }
 })
@@ -733,7 +761,7 @@ export const getUserThreadsPaginated = query({
                           q.eq("authorId", user.id).eq("projectId", undefined)
                       )
         )
-            .filter((q) => q.neq(q.field("pinned"), true))
+            .filter((q) => q.and(q.neq(q.field("pinned"), true), isKeptThread(q)))
             .order("desc")
 
         // Same per-page bound as the Library: the client chooses numItems.
@@ -918,6 +946,8 @@ export const shareThread = action({
         if (!thread || thread.authorId !== user.id) {
             return { error: "Unauthorized" }
         }
+        // A share would outlive the chat.
+        if (isTemporaryThread(thread)) return { error: "Keep this chat before sharing it" }
 
         // Get all messages for the thread
         const messages: Infer<typeof Message>[] = await ctx.runQuery(
@@ -1093,6 +1123,7 @@ export const branchThread = mutation({
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+        if (isTemporaryThread(thread)) return { error: "Keep this chat before branching it" }
 
         const messages = (
             await ctx.db
@@ -1122,7 +1153,9 @@ export const branchThread = mutation({
             personaAvatarValue: thread.personaAvatarValue,
             personaAvatarMimeType: thread.personaAvatarMimeType,
             roleplayPortraits: thread.roleplayPortraits,
-            openingVerbosity: thread.openingVerbosity
+            openingVerbosity: thread.openingVerbosity,
+            // A chat kept without personalization stays that way in its branches.
+            personalizationDisabled: thread.personalizationDisabled
         })
         const newThread = await ctx.db.get(newThreadId)
         await aggregrateThreadsByFolder.insert(ctx, newThread!)
@@ -1188,6 +1221,7 @@ export const togglePinThread = mutation({
 
         const thread = await ctx.db.get(threadId)
         if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+        if (isTemporaryThread(thread)) return { error: "Keep this chat before pinning it" }
 
         await ctx.db.patch(threadId, {
             pinned: !thread.pinned
@@ -1213,7 +1247,105 @@ export const deleteThread = mutation({
         // Thread count will be automatically updated by aggregate triggers
 
         await ctx.db.delete(threadId)
-        await aggregrateThreadsByFolder.delete(ctx, thread)
+        // A temporary chat was never counted.
+        await aggregrateThreadsByFolder.deleteIfExists(ctx, thread)
+    }
+})
+
+// Moves a temporary chat into the user's history. Turning personalization on applies from
+// the next turn; earlier turns are not sent to memory. The choice is made once: a kept chat
+// is no longer temporary, so a second call changes nothing.
+export const keepTemporaryThread = mutation({
+    args: {
+        threadId: v.id("threads"),
+        usePersonalization: v.boolean(),
+        // The chat opened with memory stripped from its tools. Personalizing puts it back
+        // when the user's own tool choice would have included it.
+        restoreMemory: v.optional(v.boolean())
+    },
+    handler: async (ctx, { threadId, usePersonalization, restoreMemory }) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) return { error: user.error }
+        await assertAccountNotDeleting(ctx, user.id)
+
+        const thread = await ctx.db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+        if (!isTemporaryThread(thread)) return { success: true }
+
+        const openingTools = thread.openingToolSelection
+        const restoresMemory =
+            usePersonalization &&
+            restoreMemory === true &&
+            openingTools !== undefined &&
+            !openingTools.enabledTools.includes("supermemory")
+        await ctx.db.patch(threadId, {
+            temporaryExpiresAt: undefined,
+            personalizationDisabled: usePersonalization ? undefined : true,
+            ...(restoresMemory
+                ? {
+                      openingToolSelection: {
+                          ...openingTools,
+                          enabledTools: [...openingTools.enabledTools, "supermemory" as const]
+                      }
+                  }
+                : {}),
+            updatedAt: Date.now()
+        })
+        const kept = await ctx.db.get(threadId)
+        await aggregrateThreadsByFolder.insertIfDoesNotExist(ctx, kept!)
+        return { success: true }
+    }
+})
+
+// Called when the user leaves a temporary chat. Like deleteThread, only the thread row
+// goes. A live stream is left for the sweep so its writes don't land on a missing thread.
+export const discardTemporaryThread = mutation({
+    args: { threadId: v.id("threads") },
+    handler: async (ctx, { threadId }) => {
+        const user = await getUserIdentity(ctx.auth, { allowAnons: false })
+        if ("error" in user) return { error: user.error }
+
+        const thread = await ctx.db.get(threadId)
+        if (!thread || thread.authorId !== user.id) return { error: "Unauthorized" }
+        if (!isTemporaryThread(thread) || thread.isLive) return { discarded: false }
+
+        await ctx.db.delete(threadId)
+        await aggregrateThreadsByFolder.deleteIfExists(ctx, thread)
+        return { discarded: true }
+    }
+})
+
+const TEMPORARY_SWEEP_BATCH_SIZE = 100
+// A stream still marked live this long after its expiry has been abandoned.
+const TEMPORARY_SWEEP_LIVE_GRACE_MS = 60 * 60 * 1000
+
+export const sweepExpiredTemporaryThreads = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now()
+        const expired = await ctx.db
+            .query("threads")
+            .withIndex("byTemporaryExpiresAt", (q) =>
+                q.gt("temporaryExpiresAt", 0).lt("temporaryExpiresAt", now)
+            )
+            .take(TEMPORARY_SWEEP_BATCH_SIZE)
+
+        let removed = 0
+        for (const thread of expired) {
+            if (
+                thread.isLive &&
+                (thread.temporaryExpiresAt ?? 0) > now - TEMPORARY_SWEEP_LIVE_GRACE_MS
+            )
+                continue
+            await ctx.db.delete(thread._id)
+            await aggregrateThreadsByFolder.deleteIfExists(ctx, thread)
+            removed++
+        }
+
+        // A full batch of live streams removes nothing, so it waits for the next run.
+        if (expired.length === TEMPORARY_SWEEP_BATCH_SIZE && removed > 0) {
+            await ctx.scheduler.runAfter(0, internal.threads.sweepExpiredTemporaryThreads, {})
+        }
     }
 })
 
@@ -1358,7 +1490,7 @@ export const getThreadsByProject = query({
         return await db
             .query("threads")
             .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", user.id))
-            .filter((q) => q.eq(q.field("projectId"), undefined))
+            .filter((q) => q.and(q.eq(q.field("projectId"), undefined), isKeptThread(q)))
             .order("desc")
             .paginate(paginationOpts)
     }
@@ -1465,7 +1597,11 @@ export const getUserThreadsPaginatedByProject = query({
                     .query("threads")
                     .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", user.id))
                     .filter((q) =>
-                        q.and(q.eq(q.field("projectId"), undefined), q.neq(q.field("pinned"), true))
+                        q.and(
+                            q.eq(q.field("projectId"), undefined),
+                            q.neq(q.field("pinned"), true),
+                            isKeptThread(q)
+                        )
                     )
                     .order("desc")
                     .paginate(paginationOpts)
@@ -1507,7 +1643,11 @@ export const getUserThreadsPaginatedByProject = query({
             .query("threads")
             .withIndex("byAuthorUpdatedAt", (q) => q.eq("authorId", user.id))
             .filter((q) =>
-                q.and(q.eq(q.field("projectId"), undefined), q.neq(q.field("pinned"), true))
+                q.and(
+                    q.eq(q.field("projectId"), undefined),
+                    q.neq(q.field("pinned"), true),
+                    isKeptThread(q)
+                )
             )
             .order("desc")
             .paginate(paginationOpts)
@@ -1580,7 +1720,7 @@ export const rollbackRejectedOpening = internalMutation({
             .collect()
         for (const message of messages) await ctx.db.delete(message._id)
         for (const snapshot of snapshots) await ctx.db.delete(snapshot._id)
-        await aggregrateThreadsByFolder.delete(ctx, thread)
+        await aggregrateThreadsByFolder.deleteIfExists(ctx, thread)
         await ctx.db.delete(thread._id)
         return true
     }

@@ -686,7 +686,8 @@ const deleteThreadBatch = async (
     }
 
     await ctx.db.delete(thread._id)
-    await aggregrateThreadsByFolder.delete(ctx, thread)
+    // Temporary chats are never counted.
+    await aggregrateThreadsByFolder.deleteIfExists(ctx, thread)
     return { phase: "purging_threads", deletedCount: 1 }
 }
 

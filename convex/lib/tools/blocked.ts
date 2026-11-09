@@ -10,6 +10,7 @@ export type BlockedToolReason =
     | "not_configured"
     | "auth_required"
     | "deployment_unavailable"
+    | "personalization_off"
 
 type BlockedBuiltinTool = {
     ability: AbilityId
@@ -74,12 +75,14 @@ export const resolveBlockedBuiltinToolReasons = ({
     requestedTools,
     callableTools,
     toolAvailability,
-    isAnonymous
+    isAnonymous,
+    personalizationDisabled = false
 }: {
     requestedTools: AbilityId[]
     callableTools: AbilityId[]
     toolAvailability: ResolvedToolAvailabilityMap
     isAnonymous: boolean
+    personalizationDisabled?: boolean
 }): Partial<Record<AbilityId, BlockedToolReason>> => {
     const reasons: Partial<Record<AbilityId, BlockedToolReason>> = {}
 
@@ -88,6 +91,8 @@ export const resolveBlockedBuiltinToolReasons = ({
 
         if (ability === "code_execution" && isAnonymous) {
             reasons[ability] = "auth_required"
+        } else if (ability === "supermemory" && personalizationDisabled) {
+            reasons[ability] = "personalization_off"
         } else if (!toolAvailability[ability]?.enabled) {
             reasons[ability] = "deployment_unavailable"
         } else if (!requestedTools.includes(ability)) {

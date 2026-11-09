@@ -30,6 +30,7 @@ import {
     type AttachmentPreview
 } from "./composer/attachment-preview-dialog"
 import { IntentGuide } from "@/components/intent-guide"
+import { TemporaryChatStarterRow } from "@/components/temporary-chat-control"
 import { ContextUsageRing } from "@/components/context-usage-ring"
 import {
     COMPOSER_CONTENT_IN_CLASS,
@@ -143,6 +144,7 @@ export interface MultimodalInputRef {
     handleFileUpload: (files: File[]) => Promise<void>
     setValue: (value: string) => void
     insertQuote: (selection: string) => void
+    focus: () => void
 }
 
 // The touch composer collapses to [attach] [text] [send] and expands to a toolbar row. The
@@ -170,6 +172,8 @@ export const MultimodalInput = forwardRef<
         folderId?: string
         isActive?: boolean
         showIntentShortcuts?: boolean
+        // A new chat outside any folder, which can be started as a temporary chat.
+        showTemporaryChatOption?: boolean
         threadHasPdfAttachments?: boolean
         messages?: UIMessage[]
         // False while the thread is still loading behind the route skeleton.
@@ -187,6 +191,7 @@ export const MultimodalInput = forwardRef<
         folderId,
         isActive = true,
         showIntentShortcuts = false,
+        showTemporaryChatOption = false,
         threadHasPdfAttachments = false,
         messages = [],
         isThreadHydrated = true,
@@ -737,7 +742,8 @@ export const MultimodalInput = forwardRef<
                 promptInputRef.current?.setValue(nextValue)
                 promptInputRef.current?.focus()
                 setInputValue(nextValue)
-            }
+            },
+            focus: () => promptInputRef.current?.focus()
         }),
         [handleFileUpload, setInputValue]
     )
@@ -984,6 +990,13 @@ export const MultimodalInput = forwardRef<
     useEffect(() => {
         setIsClient(true)
     }, [])
+
+    const isIntentGuideVisible =
+        showIntentShortcuts &&
+        isNewChatComposer &&
+        !isExpanded &&
+        !isImageModel &&
+        (activeIntent !== null || isInputEmpty)
 
     if (!isClient) return null
 
@@ -1353,40 +1366,55 @@ export const MultimodalInput = forwardRef<
                     </PromptInputAction>
                 </PromptInput>
 
-                {showIntentShortcuts &&
+                {isIntentGuideVisible ? (
+                    <div
+                        className={cn(
+                            "mx-auto w-full",
+                            getChatWidthClass(chatWidthState.chatWidth)
+                        )}
+                    >
+                        <IntentGuide
+                            stage={intentGuideStage}
+                            availability={{
+                                image: modelSupportsVision && modelSupportsFunctionCalling,
+                                web:
+                                    modelSupportsFunctionCalling &&
+                                    composerToolbar.webSearchAvailable,
+                                analysis: modelSupportsFunctionCalling && codeExecutionAvailable
+                            }}
+                            attachments={uploadedFiles}
+                            recentImages={recentGeneratedImages.results.slice(0, 6)}
+                            attachingImageKey={attachingImageKey}
+                            webTrends={webTrends}
+                            webTrendsLoading={webTrendsLoading}
+                            onSelectIntent={prepareIntent}
+                            onClearIntent={clearIntent}
+                            onChoosePrompt={chooseIntentPrompt}
+                            onAppendPrompt={appendIntentPrompt}
+                            onUpload={handleIntentUpload}
+                            onChooseRecentImage={attachRecentGeneratedImage}
+                            temporaryChatRow={
+                                showTemporaryChatOption ? <TemporaryChatStarterRow /> : null
+                            }
+                        />
+                    </div>
+                ) : (
+                    // Personas and image models skip the starter list, but can still start
+                    // a temporary chat.
+                    showTemporaryChatOption &&
                     isNewChatComposer &&
                     !isExpanded &&
-                    !isImageModel &&
-                    (activeIntent !== null || isInputEmpty) && (
+                    isInputEmpty && (
                         <div
                             className={cn(
-                                "mx-auto w-full",
+                                "mx-auto mt-3 w-full px-2",
                                 getChatWidthClass(chatWidthState.chatWidth)
                             )}
                         >
-                            <IntentGuide
-                                stage={intentGuideStage}
-                                availability={{
-                                    image: modelSupportsVision && modelSupportsFunctionCalling,
-                                    web:
-                                        modelSupportsFunctionCalling &&
-                                        composerToolbar.webSearchAvailable,
-                                    analysis: modelSupportsFunctionCalling && codeExecutionAvailable
-                                }}
-                                attachments={uploadedFiles}
-                                recentImages={recentGeneratedImages.results.slice(0, 6)}
-                                attachingImageKey={attachingImageKey}
-                                webTrends={webTrends}
-                                webTrendsLoading={webTrendsLoading}
-                                onSelectIntent={prepareIntent}
-                                onClearIntent={clearIntent}
-                                onChoosePrompt={chooseIntentPrompt}
-                                onAppendPrompt={appendIntentPrompt}
-                                onUpload={handleIntentUpload}
-                                onChooseRecentImage={attachRecentGeneratedImage}
-                            />
+                            <TemporaryChatStarterRow />
                         </div>
-                    )}
+                    )
+                )}
             </div>
 
             <AttachmentPreviewDialog

@@ -183,6 +183,30 @@ describe("buildPrompt", () => {
         )
     })
 
+    it("leaves customization and response style out when personalization is off", () => {
+        const prompt = buildPrompt({
+            enabledTools: [],
+            includePersonalization: false,
+            verbosity: "less",
+            userSettings: {
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                titleGenerationModel: "gemini-3.1-flash-lite",
+                generalProviders: {},
+                customization: { name: "Ahmed", additionalContext: "I write TypeScript." },
+                responseStyle: { warmth: "more" }
+            }
+        })
+
+        expect(prompt).not.toContain("Ahmed")
+        expect(prompt).not.toContain("I write TypeScript.")
+        expect(prompt).not.toContain("warmer")
+        // Auto verbosity is SilkChat's default, not the user's preference.
+        expect(prompt).toContain("Keep replies somewhat shorter")
+    })
+
     it("keeps the per-turn tool budget out of the stable prompt", () => {
         const prompt = buildPrompt({
             enabledTools: ["web_search", "supermemory"]

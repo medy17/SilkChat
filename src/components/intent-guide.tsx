@@ -30,7 +30,7 @@ import {
     X
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import type { ComponentType, SVGProps } from "react"
+import type { ComponentType, ReactNode, SVGProps } from "react"
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>
 type RecentImage = Pick<Doc<"generatedImages">, "_id" | "storageKey" | "prompt" | "aspectRatio">
@@ -55,6 +55,8 @@ type IntentGuideProps = {
     onAppendPrompt: (text: string) => void
     onUpload: () => void
     onChooseRecentImage: (image: RecentImage) => void
+    // The last starter row, when the composer can start a temporary chat.
+    temporaryChatRow?: ReactNode
 }
 
 const intentOptions: Array<{
@@ -352,7 +354,8 @@ export function IntentGuide({
     onChoosePrompt,
     onAppendPrompt,
     onUpload,
-    onChooseRecentImage
+    onChooseRecentImage,
+    temporaryChatRow
 }: IntentGuideProps) {
     const attachmentKind = resolveAnalysisAttachmentKind(attachments)
     const visibleIntents = intentOptions.filter((intent) => availability[intent.id])
@@ -387,6 +390,7 @@ export function IntentGuide({
                     </div>
                 ))}
                 <div className="px-3 py-2 text-sm">&nbsp;</div>
+                {temporaryChatRow && <div className="px-3 py-2 text-sm">&nbsp;</div>}
             </div>
             <AnimatePresence initial={false} mode="wait">
                 {stage === "idle" ? (
@@ -425,11 +429,12 @@ export function IntentGuide({
                             style={{ borderRadius: "var(--radius-md)" }}
                         >
                             <Paperclip
-                                className="-rotate-45 size-4 shrink-0 text-muted-foreground"
+                                className="size-4 shrink-0 -rotate-45 text-muted-foreground"
                                 aria-hidden="true"
                             />
                             <span>Attach a file</span>
                         </button>
+                        {temporaryChatRow}
                     </motion.div>
                 ) : (
                     <motion.div

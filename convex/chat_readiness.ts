@@ -22,7 +22,8 @@ export const readThreadContext = async (ctx: QueryCtx, userId: string, threadId:
         messages,
         personaSnapshot,
         openingToolSelection: thread.openingToolSelection,
-        openingVerbosity: thread.openingVerbosity
+        openingVerbosity: thread.openingVerbosity,
+        personalizationDisabled: thread.personalizationDisabled === true
     }
 }
 
