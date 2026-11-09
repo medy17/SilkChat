@@ -89,14 +89,40 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         defaultReasoningEffort: "high"
     },
     {
+        id: "claude-fable-5.2",
+        name: "Claude Fable 5.2",
+        addedOn: "2026-11-10",
+        shortName: "Fable 5.2",
+        shortDescription:
+            "Anthropic's latest Mythos-class Claude for hours-long agent sessions, multistep research, and analysis carried through to finished files",
+        description:
+            "Claude Fable 5.2 is Anthropic's latest Mythos-class release, with stronger coding, reasoning, and image understanding. It thinks before nearly every reply, holds closely to style instructions, and can work through long runs of tool calls before reporting back. It suits hours-long agent sessions, multistep research, and analysis carried all the way to a finished document, spreadsheet, or deck.",
+        developer: "Anthropic",
+        artificialAnalysis: {
+            type: "llm"
+        },
+        releaseOrder: 20261109,
+        adapters: anthropicTextAdapters("claude-fable-5-2"),
+        explicitPromptCaching: true,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        knowledgeCutoff: "2026-06-30",
+        contextLength: 1_000_000,
+        maxTokens: 128_000,
+        inputUsdPer1MTokens: 8,
+        outputUsdPer1MTokens: 40,
+        supportsDisablingReasoning: false,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "high"
+    },
+    {
         id: "claude-fable-5.1",
         name: "Claude Fable 5.1",
         addedOn: "2026-09-01",
         shortName: "Fable 5.1",
         shortDescription:
-            "Anthropic's latest Mythos class model for unattended codebase work, scientific research, and polished documents, spreadsheets, and slides",
+            "Anthropic's previous Mythos class model for unattended codebase work, scientific research, and polished documents, spreadsheets, and slides",
         description:
-            "Claude Fable 5.1 is Anthropic's true frontier level Mythos model. It resists shortcuts, traces failures to root causes, writes tests, visually checks its work, and recovers from failed tool steps—suited to unattended codebase changes, scientific research, documents, spreadsheets, and slide decks. No task is too complex for Fable 5.1",
+            "Claude Fable 5.1 was Anthropic's frontier Mythos model. It resists shortcuts, traces failures to root causes, writes tests, visually checks its work, and recovers from failed tool steps—suited to unattended codebase changes, scientific research, documents, spreadsheets, and slide decks.",
         developer: "Anthropic",
         artificialAnalysis: {
             type: "llm"
@@ -112,7 +138,12 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         outputUsdPer1MTokens: 50,
         supportsDisablingReasoning: false,
         reasoningEfforts: ["low", "medium", "high"],
-        defaultReasoningEffort: "high"
+        defaultReasoningEffort: "high",
+        replacementId: "claude-fable-5.2",
+        nudgeToReplacement: true,
+        nudgeMessages: [
+            "{to} costs less per token than {from}, with stronger coding, reasoning, and vision."
+        ]
     },
     {
         id: "claude-opus-5",
@@ -142,7 +173,7 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         addedOn: "2026-06-09",
         shortName: "Fable 5",
         shortDescription:
-            "Previous Mythos-class Claude for days-long coding and knowledge work with verification and self-correction",
+            "Earlier Mythos-class Claude for days-long coding and knowledge work with verification and self-correction",
         description:
             "Claude Fable 5 introduced Anthropic's fifth model generation as the first generally available Mythos-class release. It was designed for days-long, complex, asynchronous coding and knowledge work, sustaining ambiguous tasks through tool use, verification, and self-correction loops. Its broader cyber and biology safeguards can refuse innocuous requests.",
         developer: "Anthropic",
