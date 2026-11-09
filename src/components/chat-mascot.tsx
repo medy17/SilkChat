@@ -3,7 +3,44 @@ import { type SVGProps, useId } from "react"
 
 type ChatMascotProps = SVGProps<SVGSVGElement> & {
     isCurious?: boolean
+    // Temporary chat: paws over the eyes. With isCurious it peeks over one of them.
+    isHiding?: boolean
     variant?: "full" | "face"
+}
+
+function MascotPaw({ side, fill, shade }: { side: "left" | "right"; fill: string; shade: string }) {
+    // Drawn as a left paw with its thumb toward the middle; the right one is mirrored.
+    return (
+        <g className={`chat-mascot-hand chat-mascot-hand-${side}`}>
+            <g className="chat-mascot-paw">
+                <g
+                    transform={
+                        side === "left"
+                            ? "translate(505 600) rotate(10)"
+                            : "translate(668 584) rotate(-10) scale(-1 1)"
+                    }
+                >
+                    <path
+                        d="M -56 38 C -72 10 -68 -28 -52 -48 C -48 -66 -26 -70 -20 -56 C -16 -74 6 -76 8 -58 C 12 -72 34 -70 38 -52 C 52 -42 58 -22 56 -2 C 70 -10 82 4 74 18 C 68 28 58 30 52 34 C 44 54 20 62 -2 62 C -26 62 -46 56 -56 38 Z"
+                        fill={fill}
+                    />
+                    <path
+                        d="M -20 -56 C -22 -46 -22 -40 -19 -33 M 8 -58 C 7 -48 7 -42 9 -35 M 52 32 C 48 22 50 10 56 -2"
+                        fill="none"
+                        stroke={shade}
+                        strokeOpacity="0.45"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                    />
+                    <path
+                        d="M -52 30 C -38 52 -10 58 14 54 C -10 64 -40 58 -56 38 Z"
+                        fill={shade}
+                        opacity="0.35"
+                    />
+                </g>
+            </g>
+        </g>
+    )
 }
 
 const mascotColors = {
@@ -27,6 +64,7 @@ const mascotColors = {
 export function ChatMascot({
     className,
     isCurious = false,
+    isHiding = false,
     variant = "full",
     ...props
 }: ChatMascotProps) {
@@ -41,6 +79,7 @@ export function ChatMascot({
             aria-labelledby={`${id("title")} ${id("description")}`}
             className={cn(
                 isCurious && "chat-mascot-curious",
+                isHiding && "chat-mascot-hiding",
                 variant === "face" ? "chat-mascot-face overflow-hidden" : "overflow-visible",
                 className
             )}
@@ -71,6 +110,10 @@ export function ChatMascot({
                     <stop offset="0" stopColor={mascotColors.runeHighlight} />
                     <stop offset="1" stopColor={mascotColors.runeShadow} />
                 </linearGradient>
+                <linearGradient id={id("hand-gradient")} x1="0.2" y1="0" x2="0.8" y2="1">
+                    <stop offset="0" stopColor={mascotColors.hoodHighlight} />
+                    <stop offset="1" stopColor={mascotColors.hoodMidtone} />
+                </linearGradient>
                 <radialGradient id={id("shadow-gradient")} cx="50%" cy="50%" r="50%">
                     <stop offset="0" stopColor={mascotColors.shadow} stopOpacity="0.22" />
                     <stop offset="1" stopColor={mascotColors.shadow} stopOpacity="0" />
@@ -88,6 +131,31 @@ export function ChatMascot({
 
                     .chat-mascot-brow-glint {
                         opacity: 0;
+                    }
+
+                    .chat-mascot-hand {
+                        opacity: 0;
+                        transform: translateY(80px) scale(0.9);
+                        transform-box: fill-box;
+                        transform-origin: center bottom;
+                    }
+
+                    .chat-mascot-hiding .chat-mascot-hand {
+                        opacity: 1;
+                        transform: none;
+                    }
+
+                    .chat-mascot-paw {
+                        transform-box: fill-box;
+                        transform-origin: center bottom;
+                    }
+
+                    .chat-mascot-hiding.chat-mascot-curious .chat-mascot-hand-right .chat-mascot-paw {
+                        transform: translate(14px, 40px) rotate(12deg);
+                    }
+
+                    .chat-mascot-hiding.chat-mascot-curious .chat-mascot-pupil-right {
+                        transform: translate(-8px, -4px);
                     }
 
                     .chat-mascot-face .chat-mascot-cloak,
@@ -125,6 +193,20 @@ export function ChatMascot({
                         }
                         .chat-mascot-curious .chat-mascot-brow-glint {
                             animation: chat-mascot-brow-glint 3.8s ease-in-out 600ms infinite;
+                        }
+                        .chat-mascot-hiding .chat-mascot-brow-glint {
+                            animation: none;
+                        }
+                        .chat-mascot-hand {
+                            transition:
+                                opacity 180ms ease-out,
+                                transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+                        }
+                        .chat-mascot-hand-right {
+                            transition-delay: 50ms;
+                        }
+                        .chat-mascot-paw {
+                            transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
                         }
                     }
 
@@ -275,6 +357,16 @@ export function ChatMascot({
                         stroke={mascotColors.featureLight}
                         strokeWidth="9"
                         strokeLinecap="round"
+                    />
+                    <MascotPaw
+                        side="left"
+                        fill={`url(#${id("hand-gradient")})`}
+                        shade={mascotColors.hoodShadow}
+                    />
+                    <MascotPaw
+                        side="right"
+                        fill={`url(#${id("hand-gradient")})`}
+                        shade={mascotColors.hoodShadow}
                     />
                 </g>
             </g>
