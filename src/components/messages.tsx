@@ -447,6 +447,12 @@ const MESSAGE_EDIT_ANIMATION_OPTIONS = {
 const MESSAGE_VIRTUALIZER_BUFFER = 700
 const MESSAGE_VIRTUALIZER_ITEM_SIZE = 208
 const BOTTOM_SCROLL_THRESHOLD_PX = 4
+// A trip to the bottom glides at most this many screens; anything further jumps first.
+const BOTTOM_TRIP_GLIDE_SCREENS = 2
+// Quiet time after the last scroll before a trip checks where it landed.
+const BOTTOM_TRIP_SETTLE_MS = 150
+// Height can keep changing as rows measure; past this many fixes, stop chasing.
+const BOTTOM_TRIP_MAX_CORRECTIONS = 3
 const SCROLL_IDLE_DELAY_MS = 2_000
 const ACCORDION_SCROLL_FOLLOW_PAUSE_MS = 200
 const STREAMING_ANCHOR_TOP_GAP_PX = 16
@@ -1390,6 +1396,65 @@ export const Messages = forwardRef<
             }, SCROLL_IDLE_DELAY_MS)
         }, [updateJumpToBottomVisible, updateScrollDirection])
 
+        // A trip to the bottom can stop short: rows measured on the way move the bottom, and
+        // the virtualizer's position fixes cancel a smooth scroll. Until the reader takes over,
+        // the trip checks where it settled and finishes the job.
+        const bottomTripRef = useRef<{ corrections: number } | null>(null)
+        const bottomTripSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+        const endBottomTrip = useCallback(() => {
+            bottomTripRef.current = null
+            if (bottomTripSettleTimerRef.current !== null) {
+                clearTimeout(bottomTripSettleTimerRef.current)
+                bottomTripSettleTimerRef.current = null
+            }
+        }, [])
+
+        // Re-armed by every scroll, so it runs once the trip has gone quiet.
+        const checkBottomTripLanding = useCallback(() => {
+            if (!bottomTripRef.current) return
+            if (bottomTripSettleTimerRef.current !== null) {
+                clearTimeout(bottomTripSettleTimerRef.current)
+            }
+
+            bottomTripSettleTimerRef.current = setTimeout(() => {
+                bottomTripSettleTimerRef.current = null
+                const trip = bottomTripRef.current
+                const scroller = scrollerRef.current
+                if (!trip || !scroller) return
+
+                const distanceFromBottom =
+                    scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+                if (
+                    distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX ||
+                    trip.corrections >= BOTTOM_TRIP_MAX_CORRECTIONS
+                ) {
+                    endBottomTrip()
+                    return
+                }
+
+                trip.corrections += 1
+                scroller.scrollTo({ top: scroller.scrollHeight, behavior: "auto" })
+            }, BOTTOM_TRIP_SETTLE_MS)
+        }, [endBottomTrip])
+
+        // Any scroll input of the reader's own ends the trip, so it never fights them.
+        useEffect(() => {
+            const scroller = scrollerRef.current
+            if (!scroller) return
+
+            const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const
+            for (const event of events) {
+                scroller.addEventListener(event, endBottomTrip, { passive: true })
+            }
+            return () => {
+                for (const event of events) {
+                    scroller.removeEventListener(event, endBottomTrip)
+                }
+                endBottomTrip()
+            }
+        }, [endBottomTrip])
+
         useEffect(
             () => () => {
                 if (scrollIdleTimerRef.current !== null) {
@@ -1455,6 +1520,7 @@ export const Messages = forwardRef<
             (offset: number) => {
                 syncBottomStateFromOffset(offset)
                 scheduleScrollIdle()
+                checkBottomTripLanding()
 
                 const previousOffset = lastScrollOffsetRef.current
                 lastScrollOffsetRef.current = offset
@@ -1465,7 +1531,12 @@ export const Messages = forwardRef<
 
                 updateScrollDirection(offset > previousOffset ? "down" : "up")
             },
-            [scheduleScrollIdle, syncBottomStateFromOffset, updateScrollDirection]
+            [
+                checkBottomTripLanding,
+                scheduleScrollIdle,
+                syncBottomStateFromOffset,
+                updateScrollDirection
+            ]
         )
 
         const handleContentClickCapture = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
@@ -1491,12 +1562,27 @@ export const Messages = forwardRef<
                     return
                 }
 
+                endBottomTrip()
+                bottomTripRef.current = { corrections: 0 }
+                const viewportSize = scroller.clientHeight
+                const bottomOffset = scroller.scrollHeight - viewportSize
+                // A long glide crosses virtualized rows, whose measuring cuts it short. Cross
+                // most of the way at once and glide only the last screen, which is all
+                // directly rendered rows.
+                if (
+                    behavior === "smooth" &&
+                    bottomOffset - scroller.scrollTop > viewportSize * BOTTOM_TRIP_GLIDE_SCREENS
+                ) {
+                    scroller.scrollTo({ top: bottomOffset - viewportSize, behavior: "auto" })
+                }
+                // A smooth trip keeps the pill until it lands; the scroll samples end it there.
                 scroller.scrollTo({
                     top: scroller.scrollHeight,
                     behavior
                 })
+                checkBottomTripLanding()
             },
-            [updateBottomState]
+            [checkBottomTripLanding, endBottomTrip, updateBottomState]
         )
 
         const scrollToStreamingEdge = useCallback(() => {
