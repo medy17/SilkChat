@@ -1,5 +1,5 @@
 import { getThreadDraftKey } from "@/lib/thread-drafts"
-import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
+import { Messages, type MessagesHandle } from "@/components/messages"
 import { PersonaAvatar } from "@/components/persona-avatar"
 import {
     RoleplayPersonaProvider,
@@ -65,8 +65,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const { selectedModel, setSelectedModel, reasoningEffort, setReasoningEffort } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId })
     const messagesRef = useRef<MessagesHandle>(null)
-    const [isAtBottom, setIsAtBottom] = useState(true)
-    const [scrollDirection, setScrollDirection] = useState<MessageScrollDirection>("idle")
+    const [isJumpToBottomVisible, setIsJumpToBottomVisible] = useState(false)
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -489,8 +488,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             onQuoteSelection={handleQuoteSelection}
                             status={messageRenderStatus}
                             error={chatHelpers.error}
-                            onBottomStateChange={setIsAtBottom}
-                            onScrollDirectionChange={setScrollDirection}
+                            onJumpToBottomVisibleChange={setIsJumpToBottomVisible}
                             threadKey={threadId ?? routeThreadId ?? folderId?.toString() ?? "chat"}
                             threadId={threadId ?? routeThreadId}
                             folderId={folderId}
@@ -621,8 +619,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                             )}
                             <div className="pointer-events-auto">
                                 <StickToBottomButton
-                                    isAtBottom={isAtBottom}
-                                    scrollDirection={scrollDirection}
+                                    isVisible={isJumpToBottomVisible}
                                     scrollToBottom={() =>
                                         messagesRef.current?.scrollToBottom("smooth")
                                     }

@@ -11,6 +11,7 @@ import {
 import { isLargePasteMediaType } from "@/lib/attachment-tile"
 import { getToolFailureAttempt, getToolFailureAttempts } from "@/lib/blocked-tool-attempt"
 import { useChatStore } from "@/lib/chat-store"
+import { createJumpToBottomIntent } from "@/lib/jump-to-bottom-intent"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
@@ -1118,6 +1119,8 @@ export const Messages = forwardRef<
         status: ReturnType<typeof useChatIntegration>["status"]
         error?: ReturnType<typeof useChatIntegration>["error"]
         onBottomStateChange?: (isAtBottom: boolean) => void
+        // Whether Scroll to bottom is worth showing; see lib/jump-to-bottom-intent.
+        onJumpToBottomVisibleChange?: (isVisible: boolean) => void
         onScrollDirectionChange?: (direction: MessageScrollDirection) => void
         threadKey?: string
         threadId?: string
@@ -1136,6 +1139,7 @@ export const Messages = forwardRef<
             status,
             error,
             onBottomStateChange,
+            onJumpToBottomVisibleChange,
             onScrollDirectionChange,
             threadKey,
             threadId,
@@ -1154,6 +1158,8 @@ export const Messages = forwardRef<
         const virtualizedMessageCount = getVirtualizedMessageCount(messages.length)
         const shouldVirtualize = shouldVirtualizeMessageList(messages.length)
         const isAtBottomRef = useRef(true)
+        const jumpToBottomIntentRef = useRef(createJumpToBottomIntent())
+        const isJumpToBottomVisibleRef = useRef(false)
         const lastScrollOffsetRef = useRef<number | null>(null)
         const scrollDirectionRef = useRef<MessageScrollDirection>("idle")
         const scrollIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1348,6 +1354,18 @@ export const Messages = forwardRef<
             [onBottomStateChange]
         )
 
+        const updateJumpToBottomVisible = useCallback(
+            (nextIsVisible: boolean) => {
+                if (isJumpToBottomVisibleRef.current === nextIsVisible) {
+                    return
+                }
+
+                isJumpToBottomVisibleRef.current = nextIsVisible
+                onJumpToBottomVisibleChange?.(nextIsVisible)
+            },
+            [onJumpToBottomVisibleChange]
+        )
+
         const updateScrollDirection = useCallback(
             (direction: MessageScrollDirection) => {
                 if (scrollDirectionRef.current === direction) {
@@ -1368,8 +1386,9 @@ export const Messages = forwardRef<
             scrollIdleTimerRef.current = setTimeout(() => {
                 scrollIdleTimerRef.current = null
                 updateScrollDirection("idle")
+                updateJumpToBottomVisible(jumpToBottomIntentRef.current.idle())
             }, SCROLL_IDLE_DELAY_MS)
-        }, [updateScrollDirection])
+        }, [updateJumpToBottomVisible, updateScrollDirection])
 
         useEffect(
             () => () => {
@@ -1420,8 +1439,16 @@ export const Messages = forwardRef<
 
                 shouldStickToBottomRef.current = isAtBottom
                 updateBottomState(isAtBottom)
+                updateJumpToBottomVisible(
+                    jumpToBottomIntentRef.current.sample({
+                        offset: scrollOffset,
+                        distanceFromBottom,
+                        viewportSize,
+                        time: performance.now()
+                    })
+                )
             },
-            [getStreamingAnchorMaxScrollTop, status, updateBottomState]
+            [getStreamingAnchorMaxScrollTop, status, updateBottomState, updateJumpToBottomVisible]
         )
 
         const handleScroll = useCallback(
@@ -1685,6 +1712,7 @@ export const Messages = forwardRef<
             }
             updateScrollDirection("idle")
             updateBottomState(true)
+            updateJumpToBottomVisible(jumpToBottomIntentRef.current.reset())
 
             const frameId = requestAnimationFrame(() => {
                 scrollToBottom("auto")
@@ -1693,7 +1721,13 @@ export const Messages = forwardRef<
             return () => {
                 cancelAnimationFrame(frameId)
             }
-        }, [scrollToBottom, threadKey, updateBottomState, updateScrollDirection])
+        }, [
+            scrollToBottom,
+            threadKey,
+            updateBottomState,
+            updateJumpToBottomVisible,
+            updateScrollDirection
+        ])
 
         useEffect(() => {
             const target = contentContainerRef.current

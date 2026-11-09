@@ -2,7 +2,7 @@ import { FullPageDropOverlay } from "@/components/full-page-drop-overlay"
 import { getThreadDraftKey } from "@/lib/thread-drafts"
 import { BranchIcon } from "@/components/brand-icons"
 import { FolderHero } from "@/components/folder-hero"
-import { type MessageScrollDirection, Messages, type MessagesHandle } from "@/components/messages"
+import { Messages, type MessagesHandle } from "@/components/messages"
 import { MultimodalInput } from "@/components/multimodal-input"
 import { SignupMessagePrompt } from "@/components/signup-message-prompt"
 import { StickToBottomButton } from "@/components/stick-to-bottom-button"
@@ -46,8 +46,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const { selectedModel, setSelectedModel, reasoningEffort, setReasoningEffort } = useModelStore()
     const { threadId } = useThreadSync({ routeThreadId: undefined })
     const messagesRef = useRef<MessagesHandle>(null)
-    const [isAtBottom, setIsAtBottom] = useState(true)
-    const [scrollDirection, setScrollDirection] = useState<MessageScrollDirection>("idle")
+    const [isJumpToBottomVisible, setIsJumpToBottomVisible] = useState(false)
     const { themeState } = useThemeStore()
     const mode = themeState.currentMode
     const { data: session, isPending } = useSession()
@@ -315,8 +314,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                 onEditAndRetry={handleEditAndRetry}
                 status={messageRenderStatus}
                 error={error}
-                onBottomStateChange={setIsAtBottom}
-                onScrollDirectionChange={setScrollDirection}
+                onJumpToBottomVisibleChange={setIsJumpToBottomVisible}
                 threadKey={threadId ?? folderId.toString()}
                 threadId={threadId}
                 folderId={folderId}
@@ -381,8 +379,7 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
                         <div className="pointer-events-none absolute inset-x-0 bottom-full mb-2 flex justify-center">
                             <div className="pointer-events-auto">
                                 <StickToBottomButton
-                                    isAtBottom={isAtBottom}
-                                    scrollDirection={scrollDirection}
+                                    isVisible={isJumpToBottomVisible}
                                     scrollToBottom={() =>
                                         messagesRef.current?.scrollToBottom("smooth")
                                     }
