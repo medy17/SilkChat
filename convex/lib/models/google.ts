@@ -33,14 +33,35 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-4-carbon",
+        name: "Gemini 4 Carbon",
+        addedOn: "2026-11-11",
+        shortName: "4 Carbon",
+        shortDescription:
+            "Google's newest Gemini 4 flagship for long-running engineering, security research, and carefully grounded answers",
+        description:
+            "Google's frontier Gemini 4 model, trained against shortcut-taking so it keeps to the right method under pressure. It flags discrepancies and asks before acting on ambiguous requests, and states caveats instead of inventing evidence. Strongest on engineering work that runs across many sessions, writing secure production code, and finding, exploiting, and patching vulnerabilities.",
+        developer: "Google",
+        releaseOrder: 20261110,
+        adapters: googleTextAdapters("gemini-4-carbon"),
+        ...AI_STUDIO_ROUTING,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 2,
+        outputUsdPer1MTokens: 10,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium"
+    },
+    {
         id: "gemini-4-argon",
         name: "Gemini 4 Argon",
         addedOn: "2026-10-14",
         shortName: "4 Argon",
         shortDescription:
-            "Google's Gemini 4 flagship for hard engineering, deep math and science, and dense documents",
+            "Google's first Gemini 4 flagship for hard engineering, deep math and science, and dense documents",
         description:
-            "Google's flagship reasoning model and the first of the Gemini 4 generation. It holds context through long, multi-step work and folds documents mixing text, tables, charts, and images into one grounded answer. Strongest on hard software engineering, deep math and science problems, and analysis across million-token sources.",
+            "Google's previous flagship reasoning model and the first of the Gemini 4 generation. It holds context through long, multi-step work and folds documents mixing text, tables, charts, and images into one grounded answer. Strongest on hard software engineering, deep math and science problems, and analysis across million-token sources.",
         developer: "Google",
         releaseOrder: 20261013,
         adapters: googleTextAdapters("gemini-4-argon"),
@@ -51,7 +72,8 @@ export const GOOGLE_MODELS: SharedModel[] = [
         inputUsdPer1MTokens: 2,
         outputUsdPer1MTokens: 10,
         reasoningEfforts: ["low", "medium", "high"],
-        defaultReasoningEffort: "medium"
+        defaultReasoningEffort: "medium",
+        replacementId: "gemini-4-carbon"
     },
     {
         id: "gemma-4-31b-it",
