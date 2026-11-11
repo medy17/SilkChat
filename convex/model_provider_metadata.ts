@@ -9,7 +9,7 @@ import {
     isOllamaRequestError
 } from "./lib/ollama"
 import { compactRoutingMetadata } from "./lib/model_routing_metadata"
-import { toOpenRouterCatalogEntries } from "./lib/openrouter_catalog"
+import { toGalaxyCatalogEntries, toOpenRouterCatalogEntries } from "./lib/openrouter_catalog"
 import { ModelProviderMetadata } from "./schema/model_provider_metadata"
 
 export const getOpenRouterModelMetadataInternal = internalQuery({
@@ -116,6 +116,20 @@ export const listOpenRouterCatalog = query({
             .collect()
 
         return toOpenRouterCatalogEntries(rows)
+    }
+})
+
+// Public: the logged-out landing page draws every OpenRouter model in its galaxy. This is
+// OpenRouter's own public catalog, so it needs no sign-in.
+export const listGalaxyCatalog = query({
+    args: {},
+    handler: async (ctx) => {
+        const rows = await ctx.db
+            .query("modelProviderMetadata")
+            .withIndex("byProviderModel", (q) => q.eq("provider", "openrouter"))
+            .collect()
+
+        return toGalaxyCatalogEntries(rows)
     }
 })
 

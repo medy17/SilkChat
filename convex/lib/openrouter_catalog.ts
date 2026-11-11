@@ -11,6 +11,7 @@ type CatalogRow = {
     name?: string
     contextLength?: number
     maxCompletionTokens?: number
+    knowledgeCutoff?: string
     inputModalities?: string[]
     outputModalities?: string[]
     supportedParameters?: string[]
@@ -120,6 +121,41 @@ export const toOpenRouterCatalogEntries = (rows: CatalogRow[]): OpenRouterCatalo
             ...(row.reasoning ? getReasoningLevels(row.reasoning) : {})
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
+
+export type GalaxyCatalogOutput = "text" | "image" | "audio"
+
+export type GalaxyCatalogEntry = {
+    id: string
+    name: string
+    contextLength?: number
+    knowledgeCutoff?: string
+    outputs: GalaxyCatalogOutput[]
+}
+
+const GALAXY_OUTPUTS: GalaxyCatalogOutput[] = ["text", "image", "audio"]
+
+// Every model OpenRouter serves, slimmed for the landing page's galaxy. Variants
+// (":free", ":thinking", ":batch") repeat their base model, so only base slugs count.
+export const toGalaxyCatalogEntries = (rows: CatalogRow[]): GalaxyCatalogEntry[] =>
+    rows.flatMap((row) => {
+        if (row.removedAt || row.aliasOf || row.providerCount === 0) return []
+        if (row.providerModelId.includes(":") || row.providerModelId.startsWith("openrouter/")) {
+            return []
+        }
+        const outputs = GALAXY_OUTPUTS.filter((output) => row.outputModalities?.includes(output))
+        if (!outputs.length) return []
+        const name = row.name ?? row.providerModelId
+        return [
+            {
+                id: row.providerModelId,
+                // "OpenAI: GPT-4o" → "GPT-4o"; the lab shows beside it.
+                name: name.slice(name.indexOf(": ") + 1).trim() || name,
+                contextLength: row.contextLength,
+                knowledgeCutoff: row.knowledgeCutoff,
+                outputs
+            }
+        ]
+    })
 
 export type CustomModelCatalogStatus = {
     expirationDate?: string

@@ -3,6 +3,7 @@ import {
     NO_PROVIDERS_MODEL_REASON,
     RETIRED_MODEL_REASON,
     getCustomModelCatalogStatus,
+    toGalaxyCatalogEntries,
     toOpenRouterCatalogEntries,
     toPlainModelDescription
 } from "../../convex/lib/openrouter_catalog"
@@ -149,5 +150,33 @@ describe("toPlainModelDescription", () => {
         expect(toPlainModelDescription("A very long opening sentence that never ends...")).toBe(
             "A very long opening sentence that never ends…"
         )
+    })
+})
+
+describe("toGalaxyCatalogEntries", () => {
+    it("keeps served base models with drawable outputs and drops the lab prefix", () => {
+        const entries = toGalaxyCatalogEntries([
+            { providerModelId: "vendor/chat", name: "Vendor: Chat 2", ...textModel },
+            {
+                providerModelId: "vendor/painter",
+                inputModalities: ["text"],
+                outputModalities: ["image", "text"]
+            },
+            { providerModelId: "vendor/chat:free", ...textModel },
+            { providerModelId: "~vendor/latest", aliasOf: "vendor/chat", ...textModel },
+            { providerModelId: "openrouter/auto", ...textModel },
+            { providerModelId: "vendor/gone", removedAt: 1, ...textModel },
+            { providerModelId: "vendor/unserved", providerCount: 0, ...textModel },
+            {
+                providerModelId: "vendor/embed",
+                inputModalities: ["text"],
+                outputModalities: ["embeddings"]
+            }
+        ])
+
+        expect(entries.map((entry) => [entry.id, entry.name, entry.outputs])).toEqual([
+            ["vendor/chat", "Chat 2", ["text"]],
+            ["vendor/painter", "vendor/painter", ["text", "image"]]
+        ])
     })
 })
