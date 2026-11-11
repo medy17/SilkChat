@@ -31,7 +31,10 @@ import {
     parseThreadImportContents,
     prepareImportedAttachmentFile
 } from "@/lib/thread-import"
-import { dispatchThreadImportDialogState } from "@/lib/thread-import-events"
+import {
+    THREAD_IMPORT_FILE_EVENT,
+    dispatchThreadImportDialogState
+} from "@/lib/thread-import-events"
 import { buildThreadImportDocumentKey } from "@/lib/thread-import-keys"
 import {
     type AttachmentImportMode,
@@ -808,6 +811,22 @@ export function ImportThreadDialog({
             failedAttachmentCount
         }
     }
+
+    const handleAddFilesRef = useRef(handleAddFiles)
+    handleAddFilesRef.current = handleAddFiles
+
+    // The dev export builder hands its generated file straight to this dialog.
+    useEffect(() => {
+        const handleImportFile = (event: Event) => {
+            const file = (event as CustomEvent<File>).detail
+            if (!(file instanceof File)) return
+            event.preventDefault()
+            setOpen(true)
+            void handleAddFilesRef.current([file])
+        }
+        document.addEventListener(THREAD_IMPORT_FILE_EVENT, handleImportFile)
+        return () => document.removeEventListener(THREAD_IMPORT_FILE_EVENT, handleImportFile)
+    }, [setOpen])
 
     const handleFileInputChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(event.target.files || [])

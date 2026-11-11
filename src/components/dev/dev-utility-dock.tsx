@@ -1,4 +1,5 @@
 import { useThemeAuditResultStore } from "@/components/dev/dev-runtime"
+import { ExportBuilderDialog } from "@/components/dev/export-builder-dialog"
 import { LogoSymbol } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +49,7 @@ import {
     Circle,
     Copy,
     Database,
+    FileText,
     ImageOff,
     Plus,
     RefreshCcw,
@@ -377,6 +379,7 @@ export function DevUtilityDock() {
     const [storageVersion, setStorageVersion] = useState(0)
     const [section, setSection] = useState<"tools" | "cache" | "info" | "repro">("tools")
     const [open, setOpen] = useState(false)
+    const [exportBuilderOpen, setExportBuilderOpen] = useState(false)
     // Drag is disabled while the popover is open so the trigger and panel never desync.
     const {
         ref: wrapperRef,
@@ -485,319 +488,350 @@ export function DevUtilityDock() {
     ]
 
     return (
-        <div
-            ref={wrapperRef}
-            className="pointer-events-auto fixed z-[80] touch-none"
-            style={cornerAnchorStyle(dockCorner)}
-            data-dev-audit-ignore
-            onClickCapture={handleDockClickCapture}
-            onPointerDown={handleDockPointerDown}
-        >
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button
-                        type="button"
-                        size="icon"
-                        variant={mode === "dev" ? "default" : "secondary"}
-                        className="size-10 cursor-grab overflow-hidden rounded-[var(--radius-xl)] p-0 shadow-lg active:cursor-grabbing"
-                        aria-label="Open dev utility dock (drag to move)"
+        <>
+            <div
+                ref={wrapperRef}
+                className="pointer-events-auto fixed z-[80] touch-none"
+                style={cornerAnchorStyle(dockCorner)}
+                data-dev-audit-ignore
+                onClickCapture={handleDockClickCapture}
+                onPointerDown={handleDockPointerDown}
+            >
+                <Popover open={open} onOpenChange={setOpen}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant={mode === "dev" ? "default" : "secondary"}
+                            className="size-10 cursor-grab overflow-hidden rounded-[var(--radius-xl)] p-0 shadow-lg active:cursor-grabbing"
+                            aria-label="Open dev utility dock (drag to move)"
+                        >
+                            {mode === "dev" ? (
+                                <img
+                                    src="/dev_logo.png"
+                                    alt=""
+                                    draggable={false}
+                                    className="size-full object-cover"
+                                />
+                            ) : (
+                                <span className="flex size-full items-center justify-center">
+                                    <LogoSymbol className="size-6" />
+                                </span>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        side={dockVertical === "top" ? "bottom" : "top"}
+                        align={dockHorizontal === "left" ? "start" : "end"}
+                        sideOffset={8}
+                        data-dev-audit-ignore
+                        className="max-h-[80vh] w-80 overflow-y-auto rounded-[var(--radius-xl)] p-3"
                     >
-                        {mode === "dev" ? (
-                            <img
-                                src="/dev_logo.png"
-                                alt=""
-                                draggable={false}
-                                className="size-full object-cover"
-                            />
-                        ) : (
-                            <span className="flex size-full items-center justify-center">
-                                <LogoSymbol className="size-6" />
-                            </span>
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                    side={dockVertical === "top" ? "bottom" : "top"}
-                    align={dockHorizontal === "left" ? "start" : "end"}
-                    sideOffset={8}
-                    data-dev-audit-ignore
-                    className="max-h-[80vh] w-80 overflow-y-auto rounded-[var(--radius-xl)] p-3"
-                >
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div>
-                                <p className="font-medium text-sm">Dev Utility Dock</p>
-                                <p className="text-muted-foreground text-xs">
-                                    Local utilities and diagnostics
-                                </p>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="font-medium text-sm">Dev Utility Dock</p>
+                                    <p className="text-muted-foreground text-xs">
+                                        Local utilities and diagnostics
+                                    </p>
+                                </div>
+                                <Tabs
+                                    value={mode}
+                                    onValueChange={(value) => setMode(value as typeof mode)}
+                                >
+                                    <TabsList className="h-8">
+                                        <TabsTrigger value="user" className="px-3 text-xs">
+                                            User
+                                        </TabsTrigger>
+                                        <TabsTrigger value="dev" className="px-3 text-xs">
+                                            Dev
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
                             </div>
+
                             <Tabs
-                                value={mode}
-                                onValueChange={(value) => setMode(value as typeof mode)}
+                                value={section}
+                                onValueChange={(value) => setSection(value as typeof section)}
                             >
-                                <TabsList className="h-8">
-                                    <TabsTrigger value="user" className="px-3 text-xs">
-                                        User
+                                <TabsList className="grid w-full grid-cols-4">
+                                    <TabsTrigger value="tools" className="gap-1 px-1 text-xs">
+                                        <Wrench className="size-3.5" />
+                                        Tools
                                     </TabsTrigger>
-                                    <TabsTrigger value="dev" className="px-3 text-xs">
-                                        Dev
+                                    <TabsTrigger value="cache" className="gap-1 px-1 text-xs">
+                                        <Database className="size-3.5" />
+                                        Cache
+                                    </TabsTrigger>
+                                    <TabsTrigger value="info" className="gap-1 px-1 text-xs">
+                                        <ScanEye className="size-3.5" />
+                                        Info
+                                    </TabsTrigger>
+                                    <TabsTrigger value="repro" className="gap-1 px-1 text-xs">
+                                        <Bug className="size-3.5" />
+                                        Repro
                                     </TabsTrigger>
                                 </TabsList>
-                            </Tabs>
-                        </div>
 
-                        <Tabs
-                            value={section}
-                            onValueChange={(value) => setSection(value as typeof section)}
-                        >
-                            <TabsList className="grid w-full grid-cols-4">
-                                <TabsTrigger value="tools" className="gap-1 px-1 text-xs">
-                                    <Wrench className="size-3.5" />
-                                    Tools
-                                </TabsTrigger>
-                                <TabsTrigger value="cache" className="gap-1 px-1 text-xs">
-                                    <Database className="size-3.5" />
-                                    Cache
-                                </TabsTrigger>
-                                <TabsTrigger value="info" className="gap-1 px-1 text-xs">
-                                    <ScanEye className="size-3.5" />
-                                    Info
-                                </TabsTrigger>
-                                <TabsTrigger value="repro" className="gap-1 px-1 text-xs">
-                                    <Bug className="size-3.5" />
-                                    Repro
-                                </TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent
-                                value="tools"
-                                className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
-                            >
-                                <div className="flex items-center justify-between rounded-[var(--radius-lg)] border p-3">
-                                    <div className="space-y-0.5">
-                                        <p className="font-medium text-xs">
-                                            Contextual dev controls
-                                        </p>
-                                        <p className="text-muted-foreground text-xs">
-                                            Show controls in their workflows
-                                        </p>
-                                    </div>
-                                    <Switch
-                                        checked={showContextualDevTools}
-                                        onCheckedChange={setShowContextualDevTools}
-                                        disabled={mode !== "dev"}
-                                    />
-                                </div>
-
-                                <div className="space-y-2 rounded-[var(--radius-lg)] border p-2">
-                                    <DevToggleRow
-                                        label="Disable animations"
-                                        hint="Kill CSS + motion transitions"
-                                        checked={disableAnimations}
-                                        disabled={!overridesActive}
-                                        onCheckedChange={setDisableAnimations}
-                                    />
-                                    <DevToggleRow
-                                        label="Raw markdown"
-                                        hint="Show message source, no rendering"
-                                        checked={rawMarkdown}
-                                        disabled={!overridesActive}
-                                        onCheckedChange={setRawMarkdown}
-                                    />
-                                    <DevToggleRow
-                                        label="Theme audit"
-                                        hint={
-                                            auditResult
-                                                ? `${auditResult.elements} el · ${auditResult.radius} radius · ${auditResult.color} color`
-                                                : "Flag hardcoded radius/color"
-                                        }
-                                        checked={themeAudit}
-                                        disabled={!overridesActive}
-                                        onCheckedChange={setThemeAudit}
-                                    />
-                                    <div className="space-y-1 border-t pt-2">
-                                        <p className="font-medium text-xs">Context limits (OTF)</p>
-                                        <p className="text-muted-foreground text-xs">
-                                            Tokens; blank = real limit. Applies to your next send.
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2 pt-1">
-                                            <DevNumberField
-                                                label="Hosted"
-                                                value={hostedContextLimitOverride}
-                                                disabled={!overridesActive}
-                                                onChange={setHostedContextLimitOverride}
-                                            />
-                                            <DevNumberField
-                                                label="Model"
-                                                value={modelContextLimitOverride}
-                                                disabled={!overridesActive}
-                                                onChange={setModelContextLimitOverride}
-                                            />
+                                <TabsContent
+                                    value="tools"
+                                    className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
+                                >
+                                    <div className="flex items-center justify-between rounded-[var(--radius-lg)] border p-3">
+                                        <div className="space-y-0.5">
+                                            <p className="font-medium text-xs">
+                                                Contextual dev controls
+                                            </p>
+                                            <p className="text-muted-foreground text-xs">
+                                                Show controls in their workflows
+                                            </p>
                                         </div>
+                                        <Switch
+                                            checked={showContextualDevTools}
+                                            onCheckedChange={setShowContextualDevTools}
+                                            disabled={mode !== "dev"}
+                                        />
                                     </div>
-                                    <ContextRingDevControls disabled={!overridesActive} />
-                                </div>
-                                {!overridesActive && (
-                                    <p className="text-muted-foreground text-xs">
-                                        Switch to Dev mode to apply overrides.
-                                    </p>
-                                )}
-                            </TabsContent>
 
-                            <TabsContent
-                                value="cache"
-                                className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
-                            >
-                                <div className="grid grid-cols-2 gap-2" key={storageVersion}>
-                                    {storageActions.map((action) => (
-                                        <Button
-                                            key={action.scope}
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="justify-between rounded-[var(--radius-md)] text-xs"
-                                            onClick={() => handleClearStorage(action.scope)}
-                                        >
-                                            {action.label}
-                                            <span className="text-muted-foreground">
-                                                {getStorageCount(action.scope)}
-                                            </span>
-                                        </Button>
-                                    ))}
-                                </div>
-                                {isLocalImageOptimizerEnabled() && (
+                                    <div className="space-y-2 rounded-[var(--radius-lg)] border p-2">
+                                        <DevToggleRow
+                                            label="Disable animations"
+                                            hint="Kill CSS + motion transitions"
+                                            checked={disableAnimations}
+                                            disabled={!overridesActive}
+                                            onCheckedChange={setDisableAnimations}
+                                        />
+                                        <DevToggleRow
+                                            label="Raw markdown"
+                                            hint="Show message source, no rendering"
+                                            checked={rawMarkdown}
+                                            disabled={!overridesActive}
+                                            onCheckedChange={setRawMarkdown}
+                                        />
+                                        <DevToggleRow
+                                            label="Theme audit"
+                                            hint={
+                                                auditResult
+                                                    ? `${auditResult.elements} el · ${auditResult.radius} radius · ${auditResult.color} color`
+                                                    : "Flag hardcoded radius/color"
+                                            }
+                                            checked={themeAudit}
+                                            disabled={!overridesActive}
+                                            onCheckedChange={setThemeAudit}
+                                        />
+                                        <div className="space-y-1 border-t pt-2">
+                                            <p className="font-medium text-xs">
+                                                Context limits (OTF)
+                                            </p>
+                                            <p className="text-muted-foreground text-xs">
+                                                Tokens; blank = real limit. Applies to your next
+                                                send.
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-2 pt-1">
+                                                <DevNumberField
+                                                    label="Hosted"
+                                                    value={hostedContextLimitOverride}
+                                                    disabled={!overridesActive}
+                                                    onChange={setHostedContextLimitOverride}
+                                                />
+                                                <DevNumberField
+                                                    label="Model"
+                                                    value={modelContextLimitOverride}
+                                                    disabled={!overridesActive}
+                                                    onChange={setModelContextLimitOverride}
+                                                />
+                                            </div>
+                                        </div>
+                                        <ContextRingDevControls disabled={!overridesActive} />
+                                    </div>
+                                    {!overridesActive && (
+                                        <p className="text-muted-foreground text-xs">
+                                            Switch to Dev mode to apply overrides.
+                                        </p>
+                                    )}
                                     <Button
                                         type="button"
                                         variant="outline"
                                         size="sm"
                                         className="w-full justify-start rounded-[var(--radius-md)] text-xs"
-                                        onClick={() => void handlePurgeOptimizerCache()}
+                                        onClick={() => {
+                                            setOpen(false)
+                                            setExportBuilderOpen(true)
+                                        }}
                                     >
-                                        <ImageOff className="size-3.5" />
-                                        Purge optimizer image cache
+                                        <FileText className="size-3.5" />
+                                        Export builder
                                     </Button>
-                                )}
-                            </TabsContent>
+                                </TabsContent>
 
-                            <TabsContent
-                                value="info"
-                                className="mt-3 h-[22rem] flex-none space-y-3 overflow-y-auto pr-1"
-                            >
-                                <div className="space-y-2">
+                                <TabsContent
+                                    value="cache"
+                                    className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
+                                >
+                                    <div className="grid grid-cols-2 gap-2" key={storageVersion}>
+                                        {storageActions.map((action) => (
+                                            <Button
+                                                key={action.scope}
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="justify-between rounded-[var(--radius-md)] text-xs"
+                                                onClick={() => handleClearStorage(action.scope)}
+                                            >
+                                                {action.label}
+                                                <span className="text-muted-foreground">
+                                                    {getStorageCount(action.scope)}
+                                                </span>
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    {isLocalImageOptimizerEnabled() && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full justify-start rounded-[var(--radius-md)] text-xs"
+                                            onClick={() => void handlePurgeOptimizerCache()}
+                                        >
+                                            <ImageOff className="size-3.5" />
+                                            Purge optimizer image cache
+                                        </Button>
+                                    )}
+                                </TabsContent>
+
+                                <TabsContent
+                                    value="info"
+                                    className="mt-3 h-[22rem] flex-none space-y-3 overflow-y-auto pr-1"
+                                >
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-medium text-xs">Diagnostics</span>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 rounded-[var(--radius-md)] text-xs"
+                                                onClick={() => void handleCopyDebugBundle()}
+                                            >
+                                                <Copy className="size-3.5" />
+                                                Copy
+                                            </Button>
+                                        </div>
+                                        <div className="space-y-1 rounded-[var(--radius-lg)] bg-muted/40 p-2 text-xs">
+                                            <DiagnosticRow
+                                                label="Route"
+                                                value={diagnostics.route}
+                                            />
+                                            <DiagnosticRow
+                                                label="Thread"
+                                                value={diagnostics.threadId}
+                                            />
+                                            <DiagnosticRow
+                                                label="User"
+                                                value={diagnostics.userId}
+                                            />
+                                            <DiagnosticRow
+                                                label="Model"
+                                                value={diagnostics.model}
+                                            />
+                                            <DiagnosticRow label="Plan" value={diagnostics.plan} />
+                                            <DiagnosticRow
+                                                label="Access"
+                                                value={[
+                                                    diagnostics.isStaff ? "staff" : "not staff",
+                                                    diagnostics.bypassLimits
+                                                        ? "usage bypass"
+                                                        : "usage limited",
+                                                    diagnostics.bypassToolCallLimits
+                                                        ? "tool bypass"
+                                                        : "tool limited"
+                                                ].join(", ")}
+                                            />
+                                            <DiagnosticRow
+                                                label="Optimizer"
+                                                value={
+                                                    diagnostics.localImageOptimizer ? "on" : "off"
+                                                }
+                                            />
+                                            <DiagnosticRow
+                                                label="Ctx override"
+                                                value={
+                                                    hostedContextLimitOverride == null &&
+                                                    modelContextLimitOverride == null
+                                                        ? "off"
+                                                        : `hosted ${hostedContextLimitOverride ?? "—"} / model ${
+                                                              modelContextLimitOverride ?? "—"
+                                                          }`
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {threadDiagnostics?.threadId && (
+                                        <ThreadDiagnosticsSection diagnostics={threadDiagnostics} />
+                                    )}
+                                    <ComposerContextSection />
+                                </TabsContent>
+
+                                <TabsContent
+                                    value="repro"
+                                    className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
+                                >
                                     <div className="flex items-center justify-between">
-                                        <span className="font-medium text-xs">Diagnostics</span>
+                                        <span className="font-medium text-xs">Repro recorder</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-xs">
+                                                {reproEvents.length}
+                                            </span>
+                                            <Switch
+                                                checked={recording}
+                                                onCheckedChange={setRecording}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="rounded-[var(--radius-md)] text-xs"
+                                            disabled={reproEvents.length === 0}
+                                            onClick={() => void handleExportRepro()}
+                                        >
+                                            <Copy className="size-3.5" />
+                                            Export
+                                        </Button>
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="h-7 rounded-[var(--radius-md)] text-xs"
-                                            onClick={() => void handleCopyDebugBundle()}
+                                            className="rounded-[var(--radius-md)] text-xs"
+                                            disabled={reproEvents.length === 0}
+                                            onClick={() => clearReproEvents()}
                                         >
-                                            <Copy className="size-3.5" />
-                                            Copy
+                                            Clear
                                         </Button>
                                     </div>
-                                    <div className="space-y-1 rounded-[var(--radius-lg)] bg-muted/40 p-2 text-xs">
-                                        <DiagnosticRow label="Route" value={diagnostics.route} />
-                                        <DiagnosticRow
-                                            label="Thread"
-                                            value={diagnostics.threadId}
-                                        />
-                                        <DiagnosticRow label="User" value={diagnostics.userId} />
-                                        <DiagnosticRow label="Model" value={diagnostics.model} />
-                                        <DiagnosticRow label="Plan" value={diagnostics.plan} />
-                                        <DiagnosticRow
-                                            label="Access"
-                                            value={[
-                                                diagnostics.isStaff ? "staff" : "not staff",
-                                                diagnostics.bypassLimits
-                                                    ? "usage bypass"
-                                                    : "usage limited",
-                                                diagnostics.bypassToolCallLimits
-                                                    ? "tool bypass"
-                                                    : "tool limited"
-                                            ].join(", ")}
-                                        />
-                                        <DiagnosticRow
-                                            label="Optimizer"
-                                            value={diagnostics.localImageOptimizer ? "on" : "off"}
-                                        />
-                                        <DiagnosticRow
-                                            label="Ctx override"
-                                            value={
-                                                hostedContextLimitOverride == null &&
-                                                modelContextLimitOverride == null
-                                                    ? "off"
-                                                    : `hosted ${hostedContextLimitOverride ?? "—"} / model ${
-                                                          modelContextLimitOverride ?? "—"
-                                                      }`
-                                            }
-                                        />
-                                    </div>
-                                </div>
+                                </TabsContent>
+                            </Tabs>
 
-                                {threadDiagnostics?.threadId && (
-                                    <ThreadDiagnosticsSection diagnostics={threadDiagnostics} />
-                                )}
-                                <ComposerContextSection />
-                            </TabsContent>
-
-                            <TabsContent
-                                value="repro"
-                                className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-full rounded-[var(--radius-md)] text-xs"
+                                onClick={() => window.location.reload()}
                             >
-                                <div className="flex items-center justify-between">
-                                    <span className="font-medium text-xs">Repro recorder</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground text-xs">
-                                            {reproEvents.length}
-                                        </span>
-                                        <Switch
-                                            checked={recording}
-                                            onCheckedChange={setRecording}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="rounded-[var(--radius-md)] text-xs"
-                                        disabled={reproEvents.length === 0}
-                                        onClick={() => void handleExportRepro()}
-                                    >
-                                        <Copy className="size-3.5" />
-                                        Export
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="rounded-[var(--radius-md)] text-xs"
-                                        disabled={reproEvents.length === 0}
-                                        onClick={() => clearReproEvents()}
-                                    >
-                                        Clear
-                                    </Button>
-                                </div>
-                            </TabsContent>
-                        </Tabs>
-
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-full rounded-[var(--radius-md)] text-xs"
-                            onClick={() => window.location.reload()}
-                        >
-                            <RefreshCcw className="size-3.5" />
-                            Reload app
-                        </Button>
-                    </div>
-                </PopoverContent>
-            </Popover>
-        </div>
+                                <RefreshCcw className="size-3.5" />
+                                Reload app
+                            </Button>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            </div>
+            {/* Outside the wrapper: React events bubble through portals into its drag handlers. */}
+            <ExportBuilderDialog open={exportBuilderOpen} onOpenChange={setExportBuilderOpen} />
+        </>
     )
 }
 
