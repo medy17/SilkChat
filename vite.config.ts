@@ -1,4 +1,4 @@
-import { createReadStream, statSync } from "node:fs"
+import { createReadStream, readFileSync, statSync } from "node:fs"
 import path from "node:path"
 import posthog from "@posthog/rollup-plugin"
 import babel from "@rolldown/plugin-babel"
@@ -15,6 +15,7 @@ import {
     LOCAL_IMAGE_OPTIMIZER_ROUTE_PREFIX
 } from "./src/lib/local-image-optimizer.ts"
 import { silkAppRuntime } from "./scripts/silk-app-runtime-plugin.ts"
+import { withTransformCache } from "./scripts/vite-transform-cache.ts"
 
 const projectRoot = import.meta.dirname
 const sandpackSsrStub = path.resolve(projectRoot, "./src/lib/sandpack-react-ssr-stub.tsx")
@@ -24,7 +25,7 @@ const anydocWasmPath = path.resolve(
     "./node_modules/@firecrawl/anydoc-wasm/anydoc_wasm_bg.wasm"
 )
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd(), "")
     const posthogSourceMapPlugin =
         env.POSTHOG_API_KEY?.trim() && env.POSTHOG_PROJECT_ID?.trim()
@@ -186,6 +187,51 @@ export default defineConfig(({ mode }) => {
         }
     }
 
+    // Chokidar opens one fs.watch handle per file on Windows, synchronously, and a cold start
+    // blocks on all of them before the first page renders. Local folders full of non-source
+    // files (video frames, browser profiles, build output) can cost tens of seconds, so the
+    // gitignored .vite-watch-ignore lists them: one folder name or glob per line, # comments.
+    const readWatchIgnore = () => {
+        let lines: string[] = []
+        try {
+            lines = readFileSync(path.resolve(projectRoot, ".vite-watch-ignore"), "utf8").split(
+                /\r?\n/
+            )
+        } catch {}
+        return lines
+            .map((line) => line.trim())
+            .filter((line) => line && !line.startsWith("#"))
+            .map((entry) =>
+                entry.includes("*") ? entry : `**/${entry.replace(/^\/|\/$/g, "")}/**`
+            )
+    }
+
+    // The React Compiler pass is the slowest part of a cold dev start, so dev keeps its
+    // output on disk between restarts. A compiler toolchain update or a config change
+    // starts a fresh cache.
+    const reactCompilerPlugin = babel({ presets: [reactCompilerPreset()] })
+    const readProjectFile = (file: string) => readFileSync(path.resolve(projectRoot, file), "utf8")
+    const cachedReactCompilerPlugin =
+        command === "serve"
+            ? withTransformCache(reactCompilerPlugin, {
+                  dir: path.resolve(projectRoot, "node_modules/.cache/react-compiler"),
+                  salt: [
+                      mode,
+                      ...[
+                          "babel-plugin-react-compiler",
+                          "@babel/core",
+                          "@rolldown/plugin-babel",
+                          "@vitejs/plugin-react"
+                      ].map(
+                          (name) =>
+                              `${name}@${JSON.parse(readProjectFile(`node_modules/${name}/package.json`)).version}`
+                      ),
+                      readProjectFile("vite.config.ts"),
+                      readProjectFile("scripts/vite-transform-cache.ts")
+                  ].join("\n")
+              })
+            : reactCompilerPlugin
+
     return {
         resolve: {
             alias: {
@@ -201,7 +247,8 @@ export default defineConfig(({ mode }) => {
             tsconfigPaths: true
         },
         server: {
-            proxy: Object.keys(proxy).length > 0 ? proxy : undefined
+            proxy: Object.keys(proxy).length > 0 ? proxy : undefined,
+            watch: { ignored: readWatchIgnore() }
         },
         plugins: [
             silkAppRuntime(),
@@ -224,7 +271,7 @@ export default defineConfig(({ mode }) => {
                 }
             }),
             react(),
-            babel({ presets: [reactCompilerPreset()] }),
+            cachedReactCompilerPlugin,
             tailwindcss(),
             svgr({ include: "**/*.svg" }),
             nitro()

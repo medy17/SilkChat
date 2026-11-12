@@ -65,3 +65,6 @@ public/silk-app/
 
 # Wrangler build and dev state (workers/*)
 .wrangler/
+
+# Local Vite watcher exclusions (vite.config.ts)
+.vite-watch-ignore
