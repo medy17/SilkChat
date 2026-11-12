@@ -33,6 +33,27 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-4-hydrogen",
+        name: "Gemini 4 Hydrogen",
+        addedOn: "2026-11-13",
+        shortName: "4 Hydrogen",
+        shortDescription:
+            "Google's high-efficiency Gemini 4 model for iterative coding, tool-heavy work, and quick UI prototypes",
+        description:
+            "Google's high-efficiency Gemini 4 model, tuned to follow requested tone, format, and rules closely and to call the right tools with fewer round trips. It makes focused edits, reads and searches in parallel, and stays within its permissions when blocked. Strongest on iterative coding and debugging, quick web and UI prototypes, and knowledge work across PDFs, spreadsheets, audio, and video.",
+        developer: "Google",
+        releaseOrder: 20261112,
+        adapters: googleTextAdapters("gemini-4-hydrogen"),
+        ...AI_STUDIO_ROUTING,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 1.5,
+        outputUsdPer1MTokens: 7.5,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium"
+    },
+    {
         id: "gemini-4-carbon",
         name: "Gemini 4 Carbon",
         addedOn: "2026-11-11",
@@ -116,9 +137,9 @@ export const GOOGLE_MODELS: SharedModel[] = [
         addedOn: "2026-09-02",
         shortName: "3.8 Flash",
         shortDescription:
-            "Responsive multimodal workhorse for coding and specialized multi-step reasoning",
+            "Previous Flash workhorse for coding and specialized multi-step reasoning",
         description:
-            "Google's responsive multimodal workhorse for software engineering, tool use, and specialized multi-step reasoning. It handles million-token contexts across text, images, audio, video, and files, with configurable thinking for complex workflows that still benefit from Flash-tier latency.",
+            "Google's previous multimodal workhorse for software engineering, tool use, and specialized multi-step reasoning. It handles million-token contexts across text, images, audio, video, and files, with configurable thinking for complex workflows that still benefit from Flash-tier latency.",
         developer: "Google",
         releaseOrder: 20260902,
         adapters: googleTextAdapters("gemini-3.8-flash"),
@@ -130,16 +151,17 @@ export const GOOGLE_MODELS: SharedModel[] = [
         outputUsdPer1MTokens: 3.75,
         reasoningEfforts: ["low", "medium", "high"],
         defaultReasoningEffort: "medium",
-        ...FREE_UP_TO_LOW_REASONING_ACCESS
+        ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        replacementId: "gemini-4-hydrogen"
     },
     {
         id: "gemini-3.7-flash",
         name: "Gemini 3.7 Flash",
         addedOn: "2026-08-13",
         shortName: "3.7 Flash",
-        shortDescription: "Previous Flash checkpoint for responsive multimodal coding and tool use",
+        shortDescription: "Earlier Flash checkpoint for responsive multimodal coding and tool use",
         description:
-            "Gemini 3.7 Flash is Google's previous Flash checkpoint for responsive coding, tool use, and complex multi-step reasoning. It handles text, images, audio, video, and files with configurable thinking, making it a capable option for multimodal work where quick generation matters.",
+            "Gemini 3.7 Flash is an earlier Google Flash checkpoint for responsive coding, tool use, and complex multi-step reasoning. It handles text, images, audio, video, and files with configurable thinking, making it a capable option for multimodal work where quick generation matters.",
         developer: "Google",
         releaseOrder: 20260813,
         adapters: googleTextAdapters("gemini-3.7-flash"),
@@ -171,6 +193,7 @@ export const GOOGLE_MODELS: SharedModel[] = [
         reasoningEfforts: [...GOOGLE_MINIMAL_REASONING_EFFORTS],
         defaultReasoningEffort: "minimal",
         ...FREE_UP_TO_LOW_REASONING_ACCESS,
+        legacy: true,
         replacementId: "gemini-3.8-flash"
     },
     {
