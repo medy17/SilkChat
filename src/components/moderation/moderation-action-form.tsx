@@ -1,4 +1,4 @@
-import { ACTION_LABELS } from "@/components/moderation/case-details"
+import { ACTION_ICONS, ACTION_LABELS } from "@/components/moderation/case-details"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -32,17 +32,7 @@ import {
 import { useAction, useMutation } from "convex/react"
 import { ConvexError } from "convex/values"
 import { cn } from "@/lib/utils"
-import {
-    ArrowLeft,
-    Ban,
-    CheckCircle,
-    Flag,
-    Loader2,
-    type LucideIcon,
-    Mail,
-    MessageSquareWarning,
-    TimerOff
-} from "lucide-react"
+import { ArrowLeft, CheckCircle, Loader2, Mail } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -52,35 +42,30 @@ const SUSPENSION_OPTIONS = ["1", "3", "7", "14", "30", "90"] as const
 // Severity drives the tile's meter, matching the bar previews on Appearance and Personalization.
 const ACTION_OPTIONS: {
     value: ModerationAction
-    icon: LucideIcon
     description: string
     severity: number
     tone: string
 }[] = [
     {
         value: "warning",
-        icon: MessageSquareWarning,
         description: "Email only.",
         severity: 1,
         tone: "bg-muted-foreground/60"
     },
     {
         value: "strike",
-        icon: Flag,
         description: "Counts toward the limit.",
         severity: 2,
         tone: "bg-warning"
     },
     {
         value: "suspension",
-        icon: TimerOff,
         description: "Blocks sign-in for a while.",
         severity: 3,
         tone: "bg-destructive"
     },
     {
         value: "ban",
-        icon: Ban,
         description: "Permanent. Blocks re-sign-up.",
         severity: 4,
         tone: "bg-destructive"
@@ -109,7 +94,7 @@ function ActionPicker({
             {ACTION_OPTIONS.map((option) => {
                 const isSelected = value === option.value
                 const reason = unavailable[option.value]
-                const Icon = option.icon
+                const Icon = ACTION_ICONS[option.value]
                 return (
                     <label
                         key={option.value}

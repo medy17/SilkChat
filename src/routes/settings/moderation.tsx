@@ -1,5 +1,4 @@
-import { ModerationAppealsQueue } from "@/components/moderation/moderation-appeals"
-import { ModerationPriorityQueue } from "@/components/moderation/moderation-priority"
+import { ModerationOverview } from "@/components/moderation/moderation-overview"
 import { ModerationUserPanel } from "@/components/moderation/moderation-user-panel"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { Button } from "@/components/ui/button"
@@ -20,7 +19,11 @@ export const Route = createFileRoute("/settings/moderation")({
     component: ModerationSettingsRoute
 })
 
-function UserLookup({ onFound }: { onFound: (authUserId: string) => void }) {
+function UserLookup({
+    onFound
+}: {
+    onFound: (authUserId: string, options: { viaCase: boolean }) => void
+}) {
     const convex = useConvex()
     const [identifier, setIdentifier] = useState("")
     const [loading, setLoading] = useState(false)
@@ -37,15 +40,15 @@ function UserLookup({ onFound }: { onFound: (authUserId: string) => void }) {
             })
             if (found) {
                 setIdentifier("")
-                onFound(found.authUserId)
+                onFound(found.authUserId, { viaCase: found.viaCase })
             } else {
-                setError("No user found.")
+                setError("No account or case found.")
             }
         } catch (error) {
             setError(
                 error instanceof ConvexError && typeof error.data === "string"
                     ? error.data
-                    : "Could not look up this user. Please try again."
+                    : "Could not look this up. Please try again."
             )
         } finally {
             setLoading(false)
@@ -58,8 +61,8 @@ function UserLookup({ onFound }: { onFound: (authUserId: string) => void }) {
                 <div className="relative flex-1">
                     <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        aria-label="Email address or user ID"
-                        placeholder="Email address or user ID"
+                        aria-label="Email address, user ID, or case ID"
+                        placeholder="Email address, user ID, or case ID"
                         autoComplete="off"
                         spellCheck={false}
                         maxLength={320}
@@ -92,7 +95,12 @@ function ModerationSettingsRoute() {
     const currentUser = useQuery(api.auth.getCurrentUser, session?.user ? {} : "skip")
     const { user: authUserId } = Route.useSearch()
     const navigate = useNavigate({ from: Route.fullPath })
-    const openUser = (user?: string) => navigate({ search: user ? { user } : {} })
+    // Looking an account up by case ID lands on its history, where that case is.
+    const [openOnHistory, setOpenOnHistory] = useState(false)
+    const openUser = (user?: string, options?: { viaCase: boolean }) => {
+        setOpenOnHistory(Boolean(options?.viaCase))
+        void navigate({ search: user ? { user } : {} })
+    }
 
     return (
         <SettingsLayout title="Moderation" description="Accounts and appeals.">
@@ -100,31 +108,18 @@ function ModerationSettingsRoute() {
                 <p className="text-muted-foreground text-sm">
                     You don't have access to moderation.
                 </p>
+            ) : authUserId ? (
+                // An open account takes the page. Back returns to the queue.
+                <ModerationUserPanel
+                    key={authUserId}
+                    authUserId={authUserId}
+                    initialStep={openOnHistory ? "history" : "overview"}
+                    onClose={() => openUser()}
+                />
             ) : (
                 <div className="space-y-8">
-                    <ModerationPriorityQueue onOpenUser={openUser} />
-
-                    <section className="space-y-3" aria-labelledby="moderation-appeals-heading">
-                        <h3 id="moderation-appeals-heading" className="font-semibold">
-                            Pending appeals
-                        </h3>
-                        <ModerationAppealsQueue onOpenUser={openUser} />
-                    </section>
-
-                    <section className="space-y-3" aria-labelledby="moderation-account-heading">
-                        <h3 id="moderation-account-heading" className="font-semibold">
-                            Account
-                        </h3>
-                        {authUserId ? (
-                            <ModerationUserPanel
-                                key={authUserId}
-                                authUserId={authUserId}
-                                onClose={() => openUser()}
-                            />
-                        ) : (
-                            <UserLookup onFound={openUser} />
-                        )}
-                    </section>
+                    <UserLookup onFound={openUser} />
+                    <ModerationOverview onOpenUser={openUser} />
                 </div>
             )}
         </SettingsLayout>

@@ -1,20 +1,28 @@
-import { CaseHeader, formatModerationDate } from "@/components/moderation/case-details"
+import {
+    ACTION_LABELS,
+    CaseHeader,
+    formatModerationDate
+} from "@/components/moderation/case-details"
+import {
+    ModerationRow,
+    ModerationRowDate,
+    RowAccount
+} from "@/components/moderation/moderation-row"
 import { OperatorCaseDetails } from "@/components/moderation/moderation-user-panel"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { MODERATION_NOTE_MAX_LENGTH } from "@/convex/lib/moderation"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
 import type { FunctionReturnType } from "convex/server"
 import { ConvexError } from "convex/values"
-import { Loader2 } from "lucide-react"
+import { Loader2, Scale } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
-type PendingAppeal = FunctionReturnType<typeof api.moderation.listPendingAppeals>[number]
+export type PendingAppeal = FunctionReturnType<typeof api.moderation.listPendingAppeals>[number]
 
-function AppealCard({
+export function AppealRow({
     appeal,
     onOpenUser
 }: {
@@ -45,32 +53,29 @@ function AppealCard({
     }
 
     return (
-        <Card className="gap-4 py-4 shadow-none">
-            <CardContent className="space-y-4 px-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onOpenUser(appeal.authUserId)}
-                        className="min-w-0 truncate font-medium text-sm underline-offset-2 hover:underline"
-                    >
-                        {appeal.recipientName ? `${appeal.recipientName} · ` : ""}
-                        {appeal.recipientEmail}
-                    </button>
-                    <span className="text-muted-foreground text-xs">
-                        Appealed {formatModerationDate(appeal.createdAt)}
-                    </span>
-                </div>
-                <CaseHeader data={appeal.case} />
-                <OperatorCaseDetails moderationCase={appeal.case} />
-                <Textarea
-                    aria-label="Note to user (optional)"
-                    placeholder="Note to user (optional)"
-                    value={note}
-                    maxLength={MODERATION_NOTE_MAX_LENGTH}
-                    onChange={(event) => setNote(event.target.value)}
-                    className="max-h-40 min-h-16"
-                />
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <ModerationRow
+            icon={Scale}
+            title={<RowAccount name={appeal.recipientName} email={appeal.recipientEmail} />}
+            meta={`Appealed ${ACTION_LABELS[appeal.case.action].toLowerCase()} · ${appeal.message}`}
+            trailing={
+                <ModerationRowDate>{formatModerationDate(appeal.createdAt)}</ModerationRowDate>
+            }
+        >
+            <CaseHeader data={appeal.case} />
+            <OperatorCaseDetails moderationCase={appeal.case} />
+            <Textarea
+                aria-label="Note to user (optional)"
+                placeholder="Note to user (optional)"
+                value={note}
+                maxLength={MODERATION_NOTE_MAX_LENGTH}
+                onChange={(event) => setNote(event.target.value)}
+                className="max-h-40 min-h-16"
+            />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                <Button variant="outline" onClick={() => onOpenUser(appeal.authUserId)}>
+                    Open account
+                </Button>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row">
                     <Button
                         variant="outline"
                         onClick={() => void submit("upheld")}
@@ -84,27 +89,7 @@ function AppealCard({
                         Overturn case
                     </Button>
                 </div>
-            </CardContent>
-        </Card>
-    )
-}
-
-export function ModerationAppealsQueue({
-    onOpenUser
-}: {
-    onOpenUser: (authUserId: string) => void
-}) {
-    const appeals = useQuery(api.moderation.listPendingAppeals, {})
-
-    if (appeals === undefined) return null
-    if (appeals.length === 0) {
-        return <p className="text-muted-foreground text-sm">No appeals waiting for review.</p>
-    }
-    return (
-        <div className="space-y-3">
-            {appeals.map((appeal) => (
-                <AppealCard key={appeal.appealId} appeal={appeal} onOpenUser={onOpenUser} />
-            ))}
-        </div>
+            </div>
+        </ModerationRow>
     )
 }

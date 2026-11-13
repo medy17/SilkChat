@@ -6,6 +6,7 @@ import type {
 } from "@/convex/lib/moderation"
 import { cn } from "@/lib/utils"
 import { Link } from "@tanstack/react-router"
+import { Ban, Flag, type LucideIcon, MessageSquareWarning, TimerOff } from "lucide-react"
 import type { ReactNode } from "react"
 
 export const ACTION_LABELS: Record<ModerationAction, string> = {
@@ -13,6 +14,13 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
     strike: "Strike",
     suspension: "Suspension",
     ban: "Ban"
+}
+
+export const ACTION_ICONS: Record<ModerationAction, LucideIcon> = {
+    warning: MessageSquareWarning,
+    strike: Flag,
+    suspension: TimerOff,
+    ban: Ban
 }
 
 const STATE_LABELS: Record<ModerationCaseState, string> = {

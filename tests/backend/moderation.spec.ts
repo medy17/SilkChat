@@ -433,6 +433,54 @@ describe("moderation email delivery", () => {
     })
 })
 
+describe("moderation overview", () => {
+    it("lists every account's cases newest first, for operators only", async () => {
+        const { operator, customer, createUser } = await setup()
+        const other = await createUser("other@example.com")
+        await operator.as.mutation(api.moderation.issueModerationAction, {
+            ...banArgs(customer.id),
+            action: "warning"
+        })
+        vi.advanceTimersByTime(1000)
+        await operator.as.mutation(api.moderation.issueModerationAction, banArgs(other.id))
+
+        const recent = (paginationOpts: { numItems: number; cursor: string | null }) =>
+            operator.as.query(api.moderation.listRecentModerationCases, { paginationOpts })
+        const first = await recent({ numItems: 1, cursor: null })
+        expect(first.page).toMatchObject([
+            { authUserId: other.id, case: { action: "ban", recipientEmail: "other@example.com" } }
+        ])
+        expect((await recent({ numItems: 1, cursor: first.continueCursor })).page).toMatchObject([
+            { authUserId: customer.id, case: { action: "warning", state: "active" } }
+        ])
+        await expect(
+            customer.as.query(api.moderation.listRecentModerationCases, {
+                paginationOpts: { numItems: 1, cursor: null }
+            })
+        ).rejects.toThrow("Moderator access required")
+    })
+
+    it("finds an account by a case ID however it was typed", async () => {
+        const { operator, customer } = await setup()
+        const { caseId } = await operator.as.mutation(
+            api.moderation.issueModerationAction,
+            banArgs(customer.id)
+        )
+        const resolve = (identifier: string) =>
+            operator.as.query(api.moderation.resolveModerationUser, { identifier })
+
+        expect(await resolve(` ${caseId.toLowerCase()} `)).toEqual({
+            authUserId: customer.id,
+            viaCase: true
+        })
+        expect(await resolve("customer@example.com")).toEqual({
+            authUserId: customer.id,
+            viaCase: false
+        })
+        expect(await resolve("SC-22222222")).toBeNull()
+    })
+})
+
 describe("priority escalations", () => {
     const strike = (operator: Awaited<ReturnType<typeof setup>>["operator"], authUserId: string) =>
         operator.as.mutation(api.moderation.issueModerationAction, {

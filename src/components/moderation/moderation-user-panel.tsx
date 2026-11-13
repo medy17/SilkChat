@@ -39,7 +39,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { type ReactNode, useState } from "react"
 import { toast } from "sonner"
 
-type OperatorCase = NonNullable<
+export type OperatorCase = NonNullable<
     FunctionReturnType<typeof api.moderation.getUserModeration>
 >["cases"][number]
 
@@ -147,7 +147,7 @@ export function OperatorCaseDetails({ moderationCase }: { moderationCase: Operat
 
 type CaseEdit = "shorten" | "extend" | "lift" | "overturn"
 
-function CaseActions({ moderationCase }: { moderationCase: OperatorCase }) {
+export function CaseActions({ moderationCase }: { moderationCase: OperatorCase }) {
     const resolveCase = useMutation(api.moderation.resolveModerationCase)
     const changeEnd = useMutation(api.moderation.changeModerationCaseEnd)
     const [edit, setEdit] = useState<CaseEdit | null>(null)
@@ -376,13 +376,16 @@ function DataCopyStep({
 
 export function ModerationUserPanel({
     authUserId,
+    initialStep = "overview",
     onClose
 }: {
     authUserId: string
+    // Looking an account up by case ID lands on its history.
+    initialStep?: "overview" | "history"
     onClose: () => void
 }) {
     const data = useQuery(api.moderation.getUserModeration, { authUserId })
-    const [step, setStep] = useState<CardStep>("overview")
+    const [step, setStep] = useState<CardStep>(initialStep)
 
     if (data === undefined) {
         return (

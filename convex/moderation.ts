@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server"
 import { ConvexError, v } from "convex/values"
 import { internal } from "./_generated/api"
 import type { Doc, Id } from "./_generated/dataModel"
@@ -23,6 +24,7 @@ import { getUserIdentity } from "./lib/identity"
 import { isImpersonatedSession } from "./lib/impersonation_session"
 import { canImpersonate } from "./lib/impersonation"
 import {
+    CASE_ID_PATTERN,
     DEFAULT_STRIKE_EXPIRY_DAYS,
     MAX_STRIKE_EXPIRY_DAYS,
     MAX_SUSPENSION_DAYS,
@@ -247,12 +249,48 @@ export const resolveModerationUser = query({
     args: { identifier: v.string() },
     handler: async (ctx, { identifier }) => {
         await requireOperator(ctx)
+        // Suspended and banned users appeal by email and quote their case ID.
+        const caseId = identifier.trim().toUpperCase()
+        if (CASE_ID_PATTERN.test(caseId)) {
+            const moderationCase = await ctx.db
+                .query("moderationCases")
+                .withIndex("byCaseId", (q) => q.eq("caseId", caseId))
+                .first()
+            return moderationCase ? { authUserId: moderationCase.authUserId, viaCase: true } : null
+        }
         const user = await findAuthUserByIdentifier(ctx, identifier)
         if (!user) return null
         if (isOperatorAuthUser(user)) {
             throw new ConvexError("Operator accounts can't be moderated")
         }
-        return { authUserId: user._id }
+        return { authUserId: user._id, viaCase: false }
+    }
+})
+
+// Every account's cases, newest first.
+export const listRecentModerationCases = query({
+    args: { paginationOpts: paginationOptsValidator },
+    handler: async (ctx, { paginationOpts }) => {
+        await requireOperator(ctx)
+        const now = Date.now()
+        const result = await ctx.db.query("moderationCases").order("desc").paginate(paginationOpts)
+        const [appeals, updates] = await Promise.all([
+            getAppealsByCase(ctx, result.page),
+            getUpdatesByCase(ctx, result.page)
+        ])
+        return {
+            ...result,
+            page: result.page.map((moderationCase) => ({
+                authUserId: moderationCase.authUserId,
+                recipientName: moderationCase.recipientName ?? null,
+                case: toOperatorCaseView(
+                    moderationCase,
+                    appeals.get(moderationCase._id),
+                    updates.get(moderationCase._id),
+                    now
+                )
+            }))
+        }
     }
 })
 
