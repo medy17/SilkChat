@@ -316,7 +316,6 @@ describe("fal image model payloads", () => {
             supportedImageResolutions: ["1K", "2K"],
             maxReferenceImages: 10
         })
-        expect(sharedModel("seedream-5-pro").legacy).toBeUndefined()
         expect(model).toMatchObject({
             endpoint: "bytedance/seedream/v5/pro/text-to-image",
             editEndpoint: "bytedance/seedream/v5/pro/edit"

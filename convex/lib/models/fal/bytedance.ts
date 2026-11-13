@@ -18,11 +18,40 @@ const SEEDREAM_IMAGE_SIZES = [
 
 export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
     {
+        id: "seedream-5-5",
+        name: "Seedream 5.5",
+        addedOn: "2026-11-13",
+        shortName: "Seedream 5.5",
+        releaseOrder: 20261113,
+        adapters: falImageAdapters("bytedance/seedream/v5.5/text-to-image"),
+        abilities: [],
+        mode: "image",
+        maxPerMessage: 4,
+        supportsReferenceImages: true,
+        maxReferenceImages: 10,
+        supportsTransparentBackground: true,
+        openrouterImageModalities: ["image"],
+        supportedImageSizes: [...SEEDREAM_IMAGE_SIZES],
+        supportedImageResolutions: ["1K", "2K"],
+        imagePricing: {
+            source: "fal",
+            kind: "fixed",
+            usdPerImageByResolution: {
+                "1K": 0.03,
+                "2K": 0.0405
+            },
+            // Charged per input image for each output, with no free references.
+            usdPerReferenceImage: 0.012
+        }
+    },
+    {
         id: "seedream-5-pro",
         name: "Seedream 5 Pro",
         addedOn: "2026-07-21",
         shortName: "Seedream 5 Pro",
         releaseOrder: 20260721,
+        legacy: true,
+        replacementId: "seedream-5-5",
         adapters: falImageAdapters("bytedance/seedream/v5/pro/text-to-image"),
         abilities: [],
         mode: "image",
@@ -134,6 +163,18 @@ export const FAL_BYTEDANCE_IMAGE_MODELS: SharedModel[] = [
 ]
 
 export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
+    {
+        appModelId: "seedream-5-5",
+        endpoint: "bytedance/seedream/v5.5/text-to-image",
+        editEndpoint: "bytedance/seedream/v5.5/edit",
+        supportsReferences: true,
+        imageSizeMode: "seedreamPro",
+        usesBackground: true,
+        omitOutputFormat: true,
+        safety: {
+            enableSafetyChecker: false
+        }
+    },
     {
         appModelId: "seedream-5-pro",
         endpoint: "bytedance/seedream/v5/pro/text-to-image",
