@@ -13,10 +13,6 @@ export const META_MODELS: SharedModel[] = [
         description:
             "Muse Spark Open is the open-weight release of Meta's Muse Spark line, an 816B-parameter mixture-of-experts model with 42B active per token, given extra safety post-training before release. It lands first attempts more often, calls tools reliably, and keeps track of large codebases, which suits repository-wide changes, debugging, and code review.",
         releaseOrder: 20261015,
-        artificialAnalysis: {
-            type: "llm",
-            slug: "muse-spark-open"
-        },
         adapters: openRouterTextAdapters("meta/muse-spark-open"),
         preferredOpenRouterProviders: ["fireworks", "together"],
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
@@ -39,10 +35,6 @@ export const META_MODELS: SharedModel[] = [
         description:
             "Muse Wonder is Meta's first frontier model and the top tier of the Muse family. It reasons over text, images, and PDFs within a million-token context, switches approach when a hard problem stalls, and checks in before consequential actions. It fits intricate research, multi-file engineering, and tool-heavy work where a stronger first pass saves rework.",
         releaseOrder: 20261012,
-        artificialAnalysis: {
-            type: "llm",
-            slug: "muse-wonder"
-        },
         adapters: openRouterTextAdapters("meta/muse-wonder"),
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         contextLength: 1_048_576,

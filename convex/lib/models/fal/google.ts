@@ -45,10 +45,6 @@ export const FAL_GOOGLE_IMAGE_MODELS: SharedModel[] = [
         name: "Nano Banana 2",
         addedOn: "2026-02-26",
         shortName: "3.1 Flash Image",
-        artificialAnalysis: {
-            type: "text-to-image",
-            slug: "nano-banana-2"
-        },
         releaseOrder: 20260226,
         adapters: falImageAdapters("fal-ai/nano-banana-2"),
         abilities: [],

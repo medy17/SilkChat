@@ -118,10 +118,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.6 Sol is the flagship GPT-5.6 model, built for complex reasoning, coding, multimodal input, tool use, and long-horizon agentic workflows.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-6-sol"
-        },
         releaseOrder: 20261026,
         adapters: openAiTextAdapters("gpt-5.6-sol"),
         supportsVerbosity: true,
@@ -138,10 +134,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.6 Terra is the balanced GPT-5.6 model, positioned for everyday coding, reasoning, multimodal input, tool use, and agentic tasks where capability and cost both matter.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-6-terra"
-        },
         releaseOrder: 20261025,
         adapters: openAiTextAdapters("gpt-5.6-terra"),
         supportsVerbosity: true,
@@ -159,10 +151,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.6 Luna is the fast, cost-efficient GPT-5.6 model, suited for high-volume chat, classification, lightweight agentic workflows, multimodal input, and tool use.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-6-luna"
-        },
         releaseOrder: 20261024,
         adapters: openAiTextAdapters("gpt-5.6-luna"),
         supportsVerbosity: true,
@@ -184,10 +172,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.5 is a previous-generation OpenAI model for high-quality chat, multimodal input, and tool use. It remains a capable, token-efficient option for everyday work.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-5"
-        },
         releaseOrder: 20261023,
         adapters: openAiTextAdapters("gpt-5.5"),
         supportsVerbosity: true,
@@ -205,10 +189,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.4 nano is the lightest GPT-5.4 model, tuned for low-latency chat, lightweight automations, and high-volume workloads where speed and cost matter more than deep reasoning depth.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-4-nano"
-        },
         releaseOrder: 20261022,
         adapters: openAiTextAdapters("gpt-5.4-nano"),
         supportsVerbosity: true,
@@ -227,10 +207,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.4 mini balances quality, speed, and cost for everyday assistant workflows. It is a practical default when you want strong multimodal and tool-calling support without paying for the largest GPT-5.4 tier.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-4-mini"
-        },
         releaseOrder: 20261021,
         adapters: openAiTextAdapters("gpt-5.4-mini"),
         supportsVerbosity: true,
@@ -248,10 +224,6 @@ export const OPENAI_MODELS: SharedModel[] = [
         description:
             "GPT 5.4 is a fast flagship-style OpenAI model aimed at high-quality chat, multimodal input, and tool use. It works well as a strong default when you want broad capability without switching into a more specialized reasoning-first model.",
         developer: "OpenAI",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gpt-5-4"
-        },
         releaseOrder: 20261020,
         adapters: openAiTextAdapters("gpt-5.4"),
         supportsVerbosity: true,

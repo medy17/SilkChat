@@ -34,6 +34,18 @@ export const ModelProviderMetadata = v.object({
     outputUsdPer1MTokens: v.optional(v.number()),
     pricingProvider: v.optional(v.string()),
     routing: v.optional(ModelRoutingMetadata),
+    // Scores from OpenRouter's benchmarks feed; see lib/openrouter_benchmarks.
+    benchmarks: v.optional(
+        v.object({
+            intelligenceIndex: v.optional(v.number()),
+            codingIndex: v.optional(v.number()),
+            agenticIndex: v.optional(v.number()),
+            gpqaDiamond: v.optional(v.number()),
+            tauBenchAirline: v.optional(v.number()),
+            codeElo: v.optional(v.number()),
+            asOf: v.number()
+        })
+    ),
     fetchedAt: v.number(),
     source: v.literal("openrouter")
 })

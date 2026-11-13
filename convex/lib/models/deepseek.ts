@@ -13,10 +13,6 @@ export const DEEPSEEK_MODELS: SharedModel[] = [
         description:
             "DeepSeek V4.1 Flash 1017 is an October post-training refresh of DeepSeek's sparse Causal Encoder-Decoder model. It reaches answers with shorter outputs and less runtime, and was tuned against agent harnesses for steadier multi-step tool use. Vision, a million-token context, and optional reasoning suit fast iterative coding and long tool-driven sessions on a tight budget.",
         releaseOrder: 20261017,
-        artificialAnalysis: {
-            type: "llm",
-            slug: "deepseek-v4-1-flash-1017"
-        },
         adapters: openRouterTextAdapters("deepseek/deepseek-v4.1-flash-1017"),
         preferredOpenRouterProviders: ["deepseek"],
         abilities: ["reasoning", "vision", "function_calling", "effort_control"],

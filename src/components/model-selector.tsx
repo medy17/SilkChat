@@ -22,15 +22,21 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
+import { SPOTLIGHT_CARD_CLASS } from "@/components/renderers/spotlight-frame"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { SharedModel } from "@/convex/lib/models"
+import { api } from "@/convex/_generated/api"
+import { type SharedModel, getOpenRouterProviderModelId } from "@/convex/lib/models"
 import { useSession } from "@/hooks/auth-hooks"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { modelSupportsNativePdf } from "@/lib/attachment-support"
 import { DefaultSettings } from "@/lib/default-user-settings"
 import { OPEN_MODEL_PICKER_SHORTCUT_EVENT } from "@/lib/keyboard-shortcuts"
-import type { ModelBenchmarkPayload } from "@/lib/model-benchmarks"
+import {
+    BENCHMARK_SOURCE,
+    type ModelBenchmarkCard,
+    buildBenchmarkCards
+} from "@/lib/model-benchmarks"
 import { FAVORITES_SECTION_ID, getFavoriteToggleAction } from "@/lib/model-favorites"
 import { isNewModelRelease } from "@/lib/model-release"
 import type { ReasoningEffort } from "@/lib/model-store"
@@ -58,12 +64,13 @@ import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS } from "@/lib/telemetry/events"
 import { cn } from "@/lib/utils"
 import { useConvexAuth } from "@convex-dev/react-query"
+import { useQuery } from "convex/react"
 import { Link } from "@tanstack/react-router"
 import {
     Archive,
+    Bot,
     Building2,
     CalendarPlus,
-    Calculator,
     CheckCircle,
     ChevronDown,
     ChevronUp,
@@ -79,8 +86,7 @@ import {
     Server,
     Sparkle,
     Star,
-    Terminal,
-    Trophy
+    Terminal
 } from "lucide-react"
 import * as React from "react"
 import { LayoutGroup, motion } from "motion/react"
@@ -252,120 +258,17 @@ const CapabilityPill = ({ ability }: { ability: string }) => {
     )
 }
 
-type BenchmarkState =
-    | {
-          status: "loading"
-      }
-    | {
-          status: "ready"
-          payload: ModelBenchmarkPayload
-      }
-
-const unavailableBenchmarkPayload = (): ModelBenchmarkPayload => ({
-    available: false,
-    sourceLabel: "Artificial Analysis",
-    sourceUrl: "https://artificialanalysis.ai/",
-    fetchedAt: new Date().toISOString(),
-    cards: []
-})
-
-const benchmarkStateCache = new Map<string, BenchmarkState>()
-const benchmarkRequestCache = new Map<string, Promise<BenchmarkState>>()
-const BENCHMARK_UI_VERSION = "3"
-const shouldPersistBenchmarkState = (state: BenchmarkState) =>
-    state.status === "ready" ? !state.payload.retryable : true
-
-type BenchmarkSource = {
-    cacheKey: string
-    query: URLSearchParams
-}
-
-// Built-in models are looked up by id. Custom OpenRouter models are matched by their
-// OpenRouter slug; other custom models have nothing to match, so they skip benchmarks.
-const getBenchmarkSource = (model: DisplayModel): BenchmarkSource | null => {
+// Scores are stored per OpenRouter model, so only models served through OpenRouter have
+// them: built-ins by their OpenRouter adapter, custom models by the slug they were added
+// with.
+const getBenchmarkSlug = (model: DisplayModel): string | null => {
     if (!("isCustom" in model && model.isCustom)) {
-        return {
-            cacheKey: `${BENCHMARK_UI_VERSION}:${model.id}`,
-            query: new URLSearchParams({ modelId: model.id, v: BENCHMARK_UI_VERSION })
-        }
+        return getOpenRouterProviderModelId(model as SharedModel) ?? null
     }
 
-    if (model.providerId !== "openrouter" || !model.modelId || model.mode === "image") {
-        return null
-    }
-
-    const reasoning = model.abilities.includes("reasoning")
-    const query = new URLSearchParams({ openRouterSlug: model.modelId, v: BENCHMARK_UI_VERSION })
-    if (reasoning) {
-        query.set("reasoning", "1")
-    }
-
-    return {
-        cacheKey: `${BENCHMARK_UI_VERSION}:openrouter:${model.modelId}:${reasoning ? 1 : 0}`,
-        query
-    }
-}
-
-const loadBenchmarkState = async (source: BenchmarkSource): Promise<BenchmarkState> => {
-    const response = await fetch(`/api/model-benchmarks?${source.query}`, {
-        cache: "no-store"
-    })
-
-    if (!response.ok) {
-        return {
-            status: "ready",
-            payload: unavailableBenchmarkPayload()
-        }
-    }
-
-    const payload = (await response.json()) as ModelBenchmarkPayload
-    return {
-        status: "ready",
-        payload
-    }
-}
-
-const ensureBenchmarkState = (source: BenchmarkSource): Promise<BenchmarkState> => {
-    const { cacheKey } = source
-    const cachedState = benchmarkStateCache.get(cacheKey)
-    if (cachedState?.status === "ready") {
-        return Promise.resolve(cachedState)
-    }
-
-    const inflightRequest = benchmarkRequestCache.get(cacheKey)
-    if (inflightRequest) {
-        return inflightRequest
-    }
-
-    const loadingState: BenchmarkState = {
-        status: "loading"
-    }
-    benchmarkStateCache.set(cacheKey, loadingState)
-
-    const request = loadBenchmarkState(source)
-        .catch(
-            () =>
-                ({
-                    status: "ready",
-                    payload: {
-                        ...unavailableBenchmarkPayload(),
-                        retryable: true,
-                        errorCode: "fetch_failed"
-                    }
-                }) satisfies BenchmarkState
-        )
-        .then((state) => {
-            if (shouldPersistBenchmarkState(state)) {
-                benchmarkStateCache.set(cacheKey, state)
-            } else {
-                benchmarkStateCache.delete(cacheKey)
-            }
-            benchmarkRequestCache.delete(cacheKey)
-            return state
-        })
-
-    benchmarkRequestCache.set(cacheKey, request)
-    return request
+    return model.providerId === "openrouter" && model.modelId && model.mode !== "image"
+        ? model.modelId
+        : null
 }
 
 const getAbilityDisplayRank = (ability: string) => {
@@ -515,10 +418,10 @@ const NewModelBadge = () => (
     </Badge>
 )
 
-const BENCHMARK_CATEGORY_COLORS: Record<string, string> = {
+const BENCHMARK_CATEGORY_COLORS: Record<ModelBenchmarkCard["key"], string> = {
     intelligence: "var(--chart-2)",
     coding: "var(--chart-1)",
-    math: "var(--chart-3)"
+    agentic: "var(--chart-3)"
 }
 
 const BenchmarkProgress = ({ value, label }: { value: number; label: string }) => {
@@ -558,85 +461,86 @@ const BenchmarkProgress = ({ value, label }: { value: number; label: string }) =
     )
 }
 
-const BenchmarkCard = ({ card }: { card: ModelBenchmarkPayload["cards"][number] }) => {
-    const icon =
-        card.key === "intelligence" ? (
-            <GraduationCap className="size-5" />
-        ) : card.key === "coding" ? (
-            <Terminal className="size-5" />
-        ) : card.key === "math" ? (
-            <Calculator className="size-5" />
-        ) : null
-    const showRing = card.value >= 0 && card.value <= 100 && icon !== null
-    const categoryColor = BENCHMARK_CATEGORY_COLORS[card.key] ?? "var(--primary)"
+const BENCHMARK_ICONS: Record<ModelBenchmarkCard["key"], LucideIcon> = {
+    intelligence: GraduationCap,
+    coding: Terminal,
+    agentic: Bot
+}
+
+// One row of the benchmark card: the headline score, what it measures and who measured
+// it, and the single benchmark listed under it.
+const BenchmarkRow = ({ card }: { card: ModelBenchmarkCard }) => {
+    const Icon = BENCHMARK_ICONS[card.key]
+    const showRing = card.value >= 0 && card.value <= 100
 
     return (
         <div
-            className="min-w-0 rounded-[var(--radius-xl)] border border-[color-mix(in_oklab,var(--benchmark-color)_32%,var(--border))] bg-background/40 p-3"
-            style={{ "--benchmark-color": categoryColor } as React.CSSProperties}
+            className="flex items-center gap-3"
+            style={
+                { "--benchmark-color": BENCHMARK_CATEGORY_COLORS[card.key] } as React.CSSProperties
+            }
         >
-            <div className="flex items-start justify-between gap-3">
-                {icon ? (
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-lg)] border border-[color-mix(in_oklab,var(--benchmark-color)_24%,transparent)] bg-[color-mix(in_oklab,var(--benchmark-color)_12%,transparent)] text-[var(--benchmark-color)]">
-                        {icon}
-                    </div>
-                ) : (
-                    <div />
-                )}
-                {showRing ? (
-                    <BenchmarkProgress value={card.value} label={card.displayValue} />
-                ) : (
-                    <div className="shrink-0 rounded-full border border-[color-mix(in_oklab,var(--benchmark-color)_24%,transparent)] bg-[color-mix(in_oklab,var(--benchmark-color)_12%,transparent)] px-3 py-2 font-semibold text-[var(--benchmark-color)] text-sm">
-                        {card.displayValue}
-                    </div>
-                )}
+            {showRing ? (
+                <BenchmarkProgress value={card.value} label={card.displayValue} />
+            ) : (
+                <div className="flex size-14 shrink-0 items-center justify-center font-semibold text-[var(--benchmark-color)] text-sm">
+                    {card.displayValue}
+                </div>
+            )}
+            <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 font-medium text-sm">
+                    <Icon className="size-4 shrink-0 text-[var(--benchmark-color)]" />
+                    {card.title}
+                </p>
+                <p className="mt-0.5 text-muted-foreground text-xs">{card.subtitle}</p>
             </div>
-            <div className="mt-3 min-w-0">
-                <p className="font-medium text-sm">{card.title}</p>
-                {card.subtitle ? (
-                    <p className="mt-1 text-muted-foreground text-xs">{card.subtitle}</p>
-                ) : null}
-            </div>
-            {(card.breakdownLabel || card.breakdownValue) && (
-                <div className="mt-3 flex items-center justify-between gap-3 border-border/70 border-t pt-3 text-xs">
-                    <span className="min-w-0 text-muted-foreground">
-                        {card.breakdownLabel ?? "Benchmark"}
-                    </span>
-                    <span className="shrink-0 font-medium text-[var(--benchmark-color)]">
+            {card.breakdownLabel && (
+                <div className="min-w-0 text-right">
+                    <p className="font-medium text-[var(--benchmark-color)] text-sm">
                         {card.breakdownValue}
-                    </span>
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground text-xs">{card.breakdownLabel}</p>
                 </div>
             )}
         </div>
     )
 }
 
-const BenchmarkSection = ({ benchmarkState }: { benchmarkState?: BenchmarkState }) => {
-    if (!benchmarkState || benchmarkState.status === "loading") {
+// `cards` is undefined until the scores have loaded.
+const BenchmarkSection = ({ cards }: { cards?: ModelBenchmarkCard[] }) => {
+    if (!cards) {
         return (
-            <div className="grid max-w-96 grid-cols-2 gap-2">
-                <Skeleton className="h-40 rounded-[var(--radius-xl)]" />
-                <Skeleton className="h-40 rounded-[var(--radius-xl)]" />
+            <div className={cn("space-y-4 p-4", SPOTLIGHT_CARD_CLASS)}>
+                {(["intelligence", "coding", "agentic"] as const).map((key) => (
+                    <div key={key} className="flex items-center gap-3">
+                        <Skeleton className="size-14 shrink-0 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-24 rounded-[var(--radius-sm)]" />
+                            <Skeleton className="h-3 w-28 rounded-[var(--radius-sm)]" />
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                            <Skeleton className="h-4 w-12 rounded-[var(--radius-sm)]" />
+                            <Skeleton className="h-3 w-24 rounded-[var(--radius-sm)]" />
+                        </div>
+                    </div>
+                ))}
             </div>
         )
     }
 
-    if (!benchmarkState.payload.available || benchmarkState.payload.cards.length === 0) {
+    if (cards.length === 0) {
         return (
-            <div className="flex min-h-48 flex-col items-center justify-center rounded-[var(--radius-xl)] border bg-background/30 px-6 py-8 text-center">
-                <Trophy className="mb-4 size-8 text-muted-foreground" />
-                <p className="font-medium text-base">Benchmarks unavailable for this model</p>
+            <div className={cn("p-4 text-muted-foreground text-sm", SPOTLIGHT_CARD_CLASS)}>
+                Benchmarks unavailable for this model
             </div>
         )
     }
 
     return (
-        <div className="max-w-96">
-            <div className="grid grid-cols-2 gap-2">
-                {benchmarkState.payload.cards.map((card) => (
-                    <BenchmarkCard key={card.key} card={card} />
-                ))}
-            </div>
+        <div className={cn("space-y-4 p-4", SPOTLIGHT_CARD_CLASS)}>
+            {cards.map((card) => (
+                <BenchmarkRow key={card.key} card={card} />
+            ))}
         </div>
     )
 }
@@ -645,12 +549,12 @@ const ModelDetailPanel = ({
     model,
     currentProviders,
     showBenchmarks,
-    benchmarkState
+    benchmarkCards
 }: {
     model: DisplayModel
     currentProviders: ReturnType<typeof useAvailableModels>["currentProviders"]
     showBenchmarks: boolean
-    benchmarkState?: BenchmarkState
+    benchmarkCards?: ModelBenchmarkCard[]
 }) => {
     const isMobile = useIsMobile()
     const isCustom = "isCustom" in model && model.isCustom
@@ -736,21 +640,20 @@ const ModelDetailPanel = ({
                         <section>
                             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                 <h4 className="font-semibold text-base">Benchmark Performance</h4>
-                                {benchmarkState?.status === "ready" &&
-                                    benchmarkState.payload.available && (
-                                        <a
-                                            href={benchmarkState.payload.sourceUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
-                                        >
-                                            via {benchmarkState.payload.sourceLabel}
-                                            <ExternalLink className="size-3" />
-                                        </a>
-                                    )}
+                                {benchmarkCards && benchmarkCards.length > 0 && (
+                                    <a
+                                        href={BENCHMARK_SOURCE.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+                                    >
+                                        via {BENCHMARK_SOURCE.label}
+                                        <ExternalLink className="size-3" />
+                                    </a>
+                                )}
                             </div>
                             <div className="mt-3">
-                                <BenchmarkSection benchmarkState={benchmarkState} />
+                                <BenchmarkSection cards={benchmarkCards} />
                             </div>
                         </section>
                     )}
@@ -771,42 +674,18 @@ const ModelInfoFlyout = ({
     const [open, setOpen] = React.useState(false)
     const triggerRef = React.useRef<HTMLButtonElement>(null)
     const wasOpenRef = React.useRef(false)
-    const benchmarkSource = React.useMemo(() => getBenchmarkSource(model), [model])
-    const [benchmarkState, setBenchmarkState] = React.useState<BenchmarkState | undefined>(() =>
-        benchmarkSource ? benchmarkStateCache.get(benchmarkSource.cacheKey) : undefined
+    const benchmarkSlug = React.useMemo(() => getBenchmarkSlug(model), [model])
+    // Scores load once the panel is about to open, not for every row in the picker.
+    const [benchmarksPrimed, setBenchmarksPrimed] = React.useState(false)
+    const benchmarks = useQuery(
+        api.model_provider_metadata.getOpenRouterModelBenchmarks,
+        benchmarkSlug && benchmarksPrimed ? { providerModelId: benchmarkSlug } : "skip"
     )
-    const isMountedRef = React.useRef(true)
-
-    React.useEffect(() => {
-        isMountedRef.current = true
-        return () => {
-            isMountedRef.current = false
-        }
-    }, [])
-
-    const primeBenchmarks = React.useCallback(() => {
-        if (!benchmarkSource) {
-            return
-        }
-
-        const cachedState = benchmarkStateCache.get(benchmarkSource.cacheKey)
-        if (cachedState) {
-            setBenchmarkState(cachedState)
-            if (cachedState.status === "ready") {
-                return
-            }
-        } else {
-            setBenchmarkState({
-                status: "loading"
-            })
-        }
-
-        void ensureBenchmarkState(benchmarkSource).then((state) => {
-            if (isMountedRef.current) {
-                setBenchmarkState(state)
-            }
-        })
-    }, [benchmarkSource])
+    const benchmarkCards = React.useMemo(
+        () => (benchmarks === undefined ? undefined : buildBenchmarkCards(benchmarks)),
+        [benchmarks]
+    )
+    const primeBenchmarks = React.useCallback(() => setBenchmarksPrimed(true), [])
 
     React.useEffect(() => {
         if (!open) {
@@ -874,8 +753,8 @@ const ModelInfoFlyout = ({
                         <ModelDetailPanel
                             model={model}
                             currentProviders={currentProviders}
-                            showBenchmarks={benchmarkSource !== null}
-                            benchmarkState={benchmarkState}
+                            showBenchmarks={benchmarkSlug !== null}
+                            benchmarkCards={benchmarkCards}
                         />
                     </div>
                 </ResponsivePopoverContent>
@@ -896,8 +775,8 @@ const ModelInfoFlyout = ({
                     <ModelDetailPanel
                         model={model}
                         currentProviders={currentProviders}
-                        showBenchmarks={benchmarkSource !== null}
-                        benchmarkState={benchmarkState}
+                        showBenchmarks={benchmarkSlug !== null}
+                        benchmarkCards={benchmarkCards}
                     />
                 </div>
             </HoverCardContent>

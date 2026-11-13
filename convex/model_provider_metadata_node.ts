@@ -11,6 +11,7 @@ import {
     parseZdrEndpointKeys,
     pricePerMillion
 } from "./lib/model_routing_metadata"
+import { type ModelBenchmarks, parseOpenRouterBenchmarks } from "./lib/openrouter_benchmarks"
 import { isTextChatModel } from "./lib/openrouter_catalog"
 import type { ModelProviderMetadata } from "./schema/model_provider_metadata"
 
@@ -26,9 +27,14 @@ const countEndpoints = (payload: unknown) => {
     return Array.isArray(endpoints) ? endpoints.length : undefined
 }
 
-const fetchJson = async (url: string, allowMissingEndpoints = false) => {
+const OPENROUTER_BENCHMARKS_URL = "https://openrouter.ai/api/v1/benchmarks"
+
+const fetchJson = async (url: string, allowMissingEndpoints = false, apiKey?: string) => {
     const response = await fetch(url, {
-        headers: { Accept: "application/json" },
+        headers: {
+            Accept: "application/json",
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+        },
         signal: AbortSignal.timeout(15000)
     })
     if (allowMissingEndpoints && response.status === 404) return { data: { endpoints: [] } }
@@ -42,6 +48,24 @@ export const syncOpenRouterModelMetadata = internalAction({
         const payload = await fetchJson(OPENROUTER_MODELS_URL)
         if (!Array.isArray(payload?.data)) throw new Error("Invalid OpenRouter model catalog")
         const fetchedAt = Date.now()
+
+        // The one OpenRouter listing here that needs a key. Models keep their previous
+        // scores when it can't be read.
+        let benchmarks = new Map<string, ModelBenchmarks>()
+        const apiKey = process.env.OPENROUTER_API_KEY?.trim()
+        if (apiKey) {
+            try {
+                benchmarks = parseOpenRouterBenchmarks(
+                    await fetchJson(OPENROUTER_BENCHMARKS_URL, false, apiKey),
+                    fetchedAt
+                )
+            } catch (error) {
+                console.error("[model-provider-metadata] Keeping previous benchmarks", error)
+            }
+        } else {
+            console.warn("[model-provider-metadata] No OpenRouter key; skipping benchmarks")
+        }
+
         const models = new Map<string, Metadata>()
         for (const model of payload.data) {
             if (typeof model?.id !== "string" || !model.id.trim()) continue
@@ -98,6 +122,10 @@ export const syncOpenRouterModelMetadata = internalAction({
                         : undefined,
                 inputUsdPer1MTokens: pricePerMillion(model.pricing?.prompt),
                 outputUsdPer1MTokens: pricePerMillion(model.pricing?.completion),
+                benchmarks:
+                    (typeof model.canonical_slug === "string"
+                        ? benchmarks.get(model.canonical_slug)
+                        : undefined) ?? benchmarks.get(model.id),
                 fetchedAt,
                 source: "openrouter"
             })
@@ -126,6 +154,7 @@ export const syncOpenRouterModelMetadata = internalAction({
                     const metadata: Metadata = models.get(slug) ?? {
                         provider: "openrouter",
                         providerModelId: slug,
+                        benchmarks: benchmarks.get(slug),
                         fetchedAt,
                         source: "openrouter"
                     }

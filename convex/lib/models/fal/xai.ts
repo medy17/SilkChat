@@ -52,10 +52,6 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         name: "Grok Imagine Image Pro",
         addedOn: "2026-05-06",
         shortName: "Imagine Pro",
-        artificialAnalysis: {
-            type: "text-to-image",
-            slug: "grok-imagine-image-pro"
-        },
         releaseOrder: 20260402,
         adapters: falImageAdapters("xai/grok-imagine-image/quality/text-to-image"),
         abilities: [],
@@ -82,10 +78,6 @@ export const FAL_XAI_IMAGE_MODELS: SharedModel[] = [
         name: "Grok Imagine Image",
         addedOn: "2026-01-28",
         shortName: "Imagine",
-        artificialAnalysis: {
-            type: "text-to-image",
-            slug: "grok-imagine-image"
-        },
         releaseOrder: 20260401,
         adapters: falImageAdapters("xai/grok-imagine-image"),
         abilities: [],

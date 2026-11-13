@@ -28,7 +28,6 @@ import { Route as TosRouteImport } from './routes/tos'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
-import { Route as ApiModelBenchmarksRouteImport } from './routes/api/model-benchmarks'
 import { Route as ApiOgRouteImport } from './routes/api/og'
 import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
 import { Route as ApiVisualReferencesRouteImport } from './routes/api/visual-references'
@@ -160,11 +159,6 @@ const ChatLibraryRoute = ChatLibraryRouteImport.update({
 const ApiCreditSummaryRoute = ApiCreditSummaryRouteImport.update({
   id: '/api/credit-summary',
   path: '/api/credit-summary',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiModelBenchmarksRoute = ApiModelBenchmarksRouteImport.update({
-  id: '/api/model-benchmarks',
-  path: '/api/model-benchmarks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOgRoute = ApiOgRouteImport.update({
@@ -360,7 +354,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
-  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
@@ -412,7 +405,6 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
-  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
@@ -467,7 +459,6 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRouteLazyRouteWithChildren
   '/_chat/library': typeof ChatLibraryRoute
   '/api/credit-summary': typeof ApiCreditSummaryRoute
-  '/api/model-benchmarks': typeof ApiModelBenchmarksRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
@@ -523,7 +514,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/library'
     | '/api/credit-summary'
-    | '/api/model-benchmarks'
     | '/api/og'
     | '/api/search-trends'
     | '/api/visual-references'
@@ -575,7 +565,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/library'
     | '/api/credit-summary'
-    | '/api/model-benchmarks'
     | '/api/og'
     | '/api/search-trends'
     | '/api/visual-references'
@@ -629,7 +618,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/_chat/library'
     | '/api/credit-summary'
-    | '/api/model-benchmarks'
     | '/api/og'
     | '/api/search-trends'
     | '/api/visual-references'
@@ -683,7 +671,6 @@ export interface RootRouteChildren {
   TosRoute: typeof TosRoute
   SettingsRouteLazyRoute: typeof SettingsRouteLazyRouteWithChildren
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
-  ApiModelBenchmarksRoute: typeof ApiModelBenchmarksRoute
   ApiOgRoute: typeof ApiOgRoute
   ApiSearchTrendsRoute: typeof ApiSearchTrendsRoute
   ApiVisualReferencesRoute: typeof ApiVisualReferencesRoute
@@ -819,13 +806,6 @@ declare module '@tanstack/react-router' {
       path: '/api/credit-summary'
       fullPath: '/api/credit-summary'
       preLoaderRoute: typeof ApiCreditSummaryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/model-benchmarks': {
-      id: '/api/model-benchmarks'
-      path: '/api/model-benchmarks'
-      fullPath: '/api/model-benchmarks'
-      preLoaderRoute: typeof ApiModelBenchmarksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/og': {
@@ -1165,7 +1145,6 @@ const rootRouteChildren: RootRouteChildren = {
   TosRoute: TosRoute,
   SettingsRouteLazyRoute: SettingsRouteLazyRouteWithChildren,
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
-  ApiModelBenchmarksRoute: ApiModelBenchmarksRoute,
   ApiOgRoute: ApiOgRoute,
   ApiSearchTrendsRoute: ApiSearchTrendsRoute,
   ApiVisualReferencesRoute: ApiVisualReferencesRoute,

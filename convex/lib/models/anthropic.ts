@@ -22,9 +22,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Haiku 5.5 is Anthropic's small, fast model for high-volume work where cost and response time matter. It handles summarization, subagent tasks, and browser use, with image and document input and optional reasoning for deeper work.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm"
-        },
         releaseOrder: 20261007,
         adapters: anthropicTextAdapters("claude-haiku-5-5"),
         explicitPromptCaching: true,
@@ -46,10 +43,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Sonnet 5.5 is Anthropic's Sonnet-class model for everyday work. It builds features, fixes bugs, and creates documents, slides, and spreadsheets. Thinking stays on, with effort control for balancing depth and response time.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-sonnet-5-5"
-        },
         releaseOrder: 20260928,
         adapters: anthropicTextAdapters("claude-sonnet-5-5"),
         explicitPromptCaching: true,
@@ -72,10 +65,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Opus 5.5 is Anthropic's premium Opus-class model for demanding reasoning, coding, and extended agent work. It handles multi-step changes across large codebases, follows complex instructions, and analyzes images and documents alongside text.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-opus-5-5"
-        },
         releaseOrder: 20260922,
         adapters: anthropicTextAdapters("claude-opus-5-5"),
         explicitPromptCaching: true,
@@ -98,9 +87,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Fable 5.2 is Anthropic's latest Mythos-class release, with stronger coding, reasoning, and image understanding. It thinks before nearly every reply, holds closely to style instructions, and can work through long runs of tool calls before reporting back. It suits hours-long agent sessions, multistep research, and analysis carried all the way to a finished document, spreadsheet, or deck.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm"
-        },
         releaseOrder: 20261109,
         adapters: anthropicTextAdapters("claude-fable-5-2"),
         explicitPromptCaching: true,
@@ -124,9 +110,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Fable 5.1 was Anthropic's frontier Mythos model. It resists shortcuts, traces failures to root causes, writes tests, visually checks its work, and recovers from failed tool steps—suited to unattended codebase changes, scientific research, documents, spreadsheets, and slide decks.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm"
-        },
         releaseOrder: 20260901,
         adapters: anthropicTextAdapters("claude-fable-5-1"),
         explicitPromptCaching: true,
@@ -154,10 +137,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Opus 5 is Anthropic's earlier premium model for production-ready coding, sophisticated agents, and complex knowledge work. It plans and verifies long-running work reliably while offering effort control for balancing capability and cost.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-opus-5"
-        },
         releaseOrder: 20260724,
         adapters: anthropicTextAdapters("claude-opus-5"),
         explicitPromptCaching: true,
@@ -177,9 +156,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Fable 5 introduced Anthropic's fifth model generation as the first generally available Mythos-class release. It was designed for days-long, complex, asynchronous coding and knowledge work, sustaining ambiguous tasks through tool use, verification, and self-correction loops. Its broader cyber and biology safeguards can refuse innocuous requests.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm"
-        },
         releaseOrder: 20260609,
         adapters: anthropicTextAdapters("claude-fable-5"),
         explicitPromptCaching: true,
@@ -197,10 +173,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Sonnet 5 is Anthropic's earlier Sonnet-class model for production chat, coding, analysis, tool use, and agentic workflows. It is a balanced Claude 5 generation option, with stronger capability than previous Sonnet models while staying below the cost and latency of the premium Claude tiers.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-sonnet-5"
-        },
         releaseOrder: 20260630,
         adapters: anthropicTextAdapters("claude-sonnet-5"),
         explicitPromptCaching: true,
@@ -217,10 +189,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Sonnet 4.6 is Anthropic's previous-generation Sonnet-class model for production chat, analysis, writing, coding, and tool use. It remains a balanced Claude 4 model for everyday professional work when you do not need the newer Claude 5 generation.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-sonnet-4-6"
-        },
         releaseOrder: 20260217,
         adapters: anthropicTextAdapters("claude-sonnet-4-6"),
         explicitPromptCaching: true,
@@ -237,10 +205,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Opus 4.6 is an earlier premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-opus-4-6"
-        },
         releaseOrder: 20260205,
         adapters: anthropicTextAdapters("claude-opus-4-6"),
         explicitPromptCaching: true,
@@ -258,10 +222,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Opus 4.8 is Anthropic's previous-generation premium model for complex reasoning, long-horizon agentic coding, and high-autonomy professional work. It remains a capable Claude 4 option for demanding tasks that do not require the newer Opus 5 generation.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-opus-4-8"
-        },
         releaseOrder: 20260528,
         adapters: anthropicTextAdapters("claude-opus-4-8"),
         explicitPromptCaching: true,
@@ -277,10 +237,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Opus 4.7 is Anthropic's previous generation premium reasoning model for harder research, deeper analysis, and more demanding professional tasks.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "claude-opus-4-7"
-        },
         releaseOrder: 20260416,
         adapters: anthropicTextAdapters("claude-opus-4-7"),
         explicitPromptCaching: true,
@@ -315,9 +271,6 @@ export const ANTHROPIC_MODELS: SharedModel[] = [
         description:
             "Claude Haiku 4.5 is Anthropic's previous-generation lightweight model for quick responses, drafting, and everyday assistant use. It trades some peak depth for speed and efficiency while keeping the core Claude workflow features intact.",
         developer: "Anthropic",
-        artificialAnalysis: {
-            type: "llm"
-        },
         releaseOrder: 20251015,
         adapters: anthropicTextAdapters("claude-haiku-4-5"),
         explicitPromptCaching: true,

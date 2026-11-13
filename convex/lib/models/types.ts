@@ -86,14 +86,6 @@ type EffortTierMap<T> = Partial<Record<ReasoningEffortTier, T>>
 type GoogleThinkingLevel = Exclude<ReasoningEffortTier, "off" | "xhigh" | "max">
 type StandardReasoningEffortTier = Exclude<ReasoningEffortTier, "off" | "minimal" | "xhigh" | "max">
 
-export type ArtificialAnalysisModelType = "llm" | "text-to-image" | "image-editing"
-
-export type ArtificialAnalysisModelRef = {
-    type: ArtificialAnalysisModelType
-    id?: string
-    slug?: string
-}
-
 export type ModelReasoningProfiles = {
     google?: EffortTierMap<{
         thinkingBudget?: number
@@ -128,7 +120,6 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     developer?: string
     knowledgeCutoff?: string
     addedOn?: string
-    artificialAnalysis?: ArtificialAnalysisModelRef
     releaseOrder?: number
     adapters: RegistryKey[]
     abilities: Abilities

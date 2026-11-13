@@ -64,7 +64,11 @@ export const upsertOpenRouterModelMetadataInternal = internalMutation({
                     ...compactModel,
                     ...(routing ? { routing } : {}),
                     // A count that couldn't be fetched this time keeps the last known one.
-                    providerCount: compactModel.providerCount ?? existing.providerCount
+                    providerCount: compactModel.providerCount ?? existing.providerCount,
+                    // Likewise for scores when the benchmarks feed couldn't be read.
+                    ...(compactModel.benchmarks || existing.benchmarks
+                        ? { benchmarks: compactModel.benchmarks ?? existing.benchmarks }
+                        : {})
                 })
             } else {
                 await ctx.db.insert("modelProviderMetadata", compactModel)
@@ -74,6 +78,21 @@ export const upsertOpenRouterModelMetadataInternal = internalMutation({
         return {
             upserted: args.models.length
         }
+    }
+})
+
+// Benchmark scores for one OpenRouter model, for the model picker's detail panel.
+export const getOpenRouterModelBenchmarks = query({
+    args: { providerModelId: v.string() },
+    handler: async (ctx, args) => {
+        const metadata = await ctx.db
+            .query("modelProviderMetadata")
+            .withIndex("byProviderModel", (q) =>
+                q.eq("provider", "openrouter").eq("providerModelId", args.providerModelId)
+            )
+            .first()
+
+        return metadata?.benchmarks ?? null
     }
 })
 

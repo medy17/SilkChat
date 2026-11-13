@@ -242,10 +242,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         description:
             "Gemini 3 Flash Preview is Google's fast general-purpose model for chat, search, and multimodal tasks. It emphasizes responsiveness while still supporting reasoning controls, tools, vision, and PDF workflows.",
         developer: "Google",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gemini-3-flash"
-        },
         releaseOrder: 20251217,
         adapters: googleTextAdapters("gemini-3-flash-preview"),
         ...AI_STUDIO_ROUTING,
@@ -264,10 +260,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         description:
             "Gemini 3.1 Flash Lite is optimized for quick everyday responses and lower-cost workloads. It is a good fit for simple assistants, short-form drafting, and fast multimodal interactions where efficiency matters most.",
         developer: "Google",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gemini-3-1-flash-lite-preview"
-        },
         releaseOrder: 20260507,
         adapters: googleTextAdapters("gemini-3.1-flash-lite"),
         ...AI_STUDIO_ROUTING,
@@ -305,10 +297,6 @@ export const GOOGLE_MODELS: SharedModel[] = [
         description:
             "Gemini 3.1 Pro Preview is Google's previous-generation flagship for complex reasoning, larger multimodal contexts, and harder analysis tasks. It is a strong choice when response quality matters more than pure speed.",
         developer: "Google",
-        artificialAnalysis: {
-            type: "llm",
-            slug: "gemini-3-1-pro-preview"
-        },
         releaseOrder: 20260219,
         adapters: googleTextAdapters("gemini-3.1-pro-preview"),
         ...AI_STUDIO_ROUTING,
