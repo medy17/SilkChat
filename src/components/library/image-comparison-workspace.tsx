@@ -4,13 +4,7 @@ import { useImageViewerActions } from "@/hooks/use-image-viewer-actions"
 import { ImageLoadIndicator } from "@/components/library/image-load-indicator"
 import { ReferenceImageThumbnails } from "@/components/library/image-metadata-panel"
 import { Button } from "@/components/ui/button"
-import {
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerTitle
-} from "@/components/ui/drawer"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { Doc } from "@/convex/_generated/dataModel"
@@ -1104,13 +1098,13 @@ export function ImageComparisonWorkspace({ images }: ImageComparisonWorkspacePro
                     id="comparison-details"
                     className="max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background"
                 >
-                    <DrawerHeader className="shrink-0 text-left">
-                        <DrawerTitle>Image details</DrawerTitle>
-                        <DrawerDescription>Prompts and settings for A and B.</DrawerDescription>
-                    </DrawerHeader>
+                    <DrawerTitle className="sr-only">Image details</DrawerTitle>
+                    <DrawerDescription>Prompts and settings for A and B.</DrawerDescription>
+                    {/* The margin stays outside the scroller so the strip under the handle
+                        can still be dragged. */}
                     <div
                         data-vaul-no-drag
-                        className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+                        className="mt-5 min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
                     >
                         {detailsSections}
                     </div>

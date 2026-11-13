@@ -214,7 +214,12 @@ export function PersonaAvatarCropper({
                 </div>
             </div>
             {isMobile ? (
-                <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                <DrawerFooter className="shrink-0 pt-0 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                    <DrawerClose asChild>
+                        <Button variant="outline" disabled={isSaving}>
+                            Cancel
+                        </Button>
+                    </DrawerClose>
                     <Button
                         onClick={() => croppedAreaPixels && void onConfirm(croppedAreaPixels)}
                         disabled={!croppedAreaPixels || isSaving}
@@ -222,11 +227,6 @@ export function PersonaAvatarCropper({
                         {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
                         Apply Crop
                     </Button>
-                    <DrawerClose asChild>
-                        <Button variant="outline" disabled={isSaving}>
-                            Cancel
-                        </Button>
-                    </DrawerClose>
                 </DrawerFooter>
             ) : (
                 <DialogFooter className="border-t px-6 py-4">

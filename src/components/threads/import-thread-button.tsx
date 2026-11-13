@@ -1434,9 +1434,7 @@ export function ImportThreadDialog({
                             </DrawerDescription>
                         </DrawerHeader>
                         {importBody}
-                        <DrawerFooter className="shrink-0 flex-row justify-end">
-                            {importFooter}
-                        </DrawerFooter>
+                        <DrawerFooter className="shrink-0">{importFooter}</DrawerFooter>
                     </DrawerContent>
                 </Drawer>
             ) : (

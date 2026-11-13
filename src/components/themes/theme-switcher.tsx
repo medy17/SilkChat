@@ -221,65 +221,47 @@ export function ThemeSwitcher({
                         title="Theme Selector"
                         description="Choose a theme for your interface"
                     >
-                        {/* Note: Title and description are already in ResponsivePopoverContent */}
                         <Separator className="hidden md:block" />
 
-                        {/* Search Input */}
-                        <div
-                            className={cn("px-4 pt-3 pb-3 md:p-2", !isMobile && "hidden md:block")}
-                        >
-                            <div className="relative">
-                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
+                        {/* Search, with shuffle and import on its right */}
+                        <div className="flex items-center gap-1 px-4 py-3 md:px-3 md:py-2">
+                            <div className="relative min-w-0 flex-1">
+                                <Search className="absolute top-1/2 left-0 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
                                 <Input
                                     placeholder="Search themes..."
-                                    className="h-9 rounded-none border-none bg-transparent pl-10 shadow-none dark:bg-transparent"
+                                    className="h-9 rounded-none border-none bg-transparent pr-0 pl-7 shadow-none dark:bg-transparent"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
-                        </div>
-                        <Separator />
-
-                        {/* Theme Count and Controls */}
-                        <div className="flex items-center justify-between px-4 py-2 md:px-3">
-                            <div className="text-muted-foreground text-sm">
-                                {isLoadingThemes
-                                    ? "Loading..."
-                                    : `${filteredThemes.length + 1} themes`}
-                            </div>
-                            <div className="flex items-center gap-1">
-                                {/* Randomizer */}
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-7"
-                                    onClick={randomizeTheme}
-                                    disabled={isLoadingThemes || filteredThemes.length === 0}
-                                    title="Random theme"
-                                >
-                                    <ShuffleIcon className="h-3.5 w-3.5" />
-                                    <span className="sr-only">Random theme</span>
-                                </Button>
-
-                                {/* Import Button */}
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        setIsImportDialogOpen(true)
-                                    }}
-                                    title={
-                                        canImportTheme
-                                            ? "Import theme"
-                                            : `You can save up to ${maxImportedThemes} themes`
-                                    }
-                                >
-                                    <PlusIcon className="h-3.5 w-3.5" />
-                                    Import
-                                </Button>
-                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0"
+                                onClick={randomizeTheme}
+                                disabled={isLoadingThemes || filteredThemes.length === 0}
+                                title="Random theme"
+                            >
+                                <ShuffleIcon className="size-4" />
+                                <span className="sr-only">Random theme</span>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 shrink-0"
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    setIsImportDialogOpen(true)
+                                }}
+                                title={
+                                    canImportTheme
+                                        ? "Import theme"
+                                        : `You can save up to ${maxImportedThemes} themes`
+                                }
+                            >
+                                <PlusIcon className="size-4" />
+                                <span className="sr-only">Import theme</span>
+                            </Button>
                         </div>
                         <Separator />
 
@@ -291,7 +273,7 @@ export function ThemeSwitcher({
                                     "h-[clamp(12rem,calc(var(--radix-popover-content-available-height)-8.5rem),20rem)]"
                             )}
                         >
-                            <div className="p-3">
+                            <div className="px-4 py-3 md:p-3">
                                 {isLoadingThemes ? (
                                     <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                                         <LoaderIcon className="size-4 animate-spin" />

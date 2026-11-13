@@ -120,11 +120,14 @@ function KeepTemporaryChatDialog({
         return (
             <Drawer open={open} onOpenChange={onOpenChange}>
                 <DrawerContent onCloseAutoFocus={onCloseAutoFocus}>
-                    <DrawerHeader>
+                    <DrawerHeader className="pb-0">
                         <DrawerTitle>{title}</DrawerTitle>
-                        <DrawerDescription>{description}</DrawerDescription>
                     </DrawerHeader>
-                    <DrawerFooter className="flex-row *:flex-1">
+                    {/* Shown, since it explains the choice between the two buttons. */}
+                    <DrawerDescription className="not-sr-only px-4 pt-2 text-muted-foreground text-sm">
+                        {description}
+                    </DrawerDescription>
+                    <DrawerFooter>
                         {keepAsIsButton}
                         {keepAndPersonalizeButton}
                     </DrawerFooter>

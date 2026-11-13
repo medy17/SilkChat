@@ -185,14 +185,14 @@ export function NewFolderDialog({
                         <FolderForm {...formProps} />
                     </div>
                     <DrawerFooter>
-                        <Button onClick={handleCreate} disabled={isCreating || !folderName.trim()}>
-                            {isCreating ? "Creating..." : "Create"}
-                        </Button>
                         <DrawerClose asChild>
                             <Button variant="outline" disabled={isCreating}>
                                 Cancel
                             </Button>
                         </DrawerClose>
+                        <Button onClick={handleCreate} disabled={isCreating || !folderName.trim()}>
+                            {isCreating ? "Creating..." : "Create"}
+                        </Button>
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>

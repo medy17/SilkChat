@@ -639,13 +639,11 @@ export function RetryMenu({
                     nested
                 >
                     <ResponsivePopoverContent
-                        className="z-[91] mx-auto w-[min(22rem,calc(100dvw-2rem))] rounded-[var(--radius-lg)] border border-border bg-popover text-popover-foreground"
+                        className="z-[91] p-0"
                         overlayClassName="z-[90]"
                         title="Why this model is unavailable"
                     >
-                        <p className="px-4 pb-4 text-muted-foreground text-sm">
-                            {mobileDisabledReason}
-                        </p>
+                        <p className="px-4 pt-5 pb-4 text-sm">{mobileDisabledReason}</p>
                     </ResponsivePopoverContent>
                 </ResponsivePopover>
             )}

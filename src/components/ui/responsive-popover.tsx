@@ -5,7 +5,6 @@ import {
     Drawer,
     DrawerContent,
     DrawerDescription,
-    DrawerHeader,
     DrawerTitle,
     DrawerTrigger
 } from "@/components/ui/drawer"
@@ -15,6 +14,8 @@ interface ResponsivePopoverProps {
     open?: boolean
     onOpenChange?: (open: boolean) => void
     children: React.ReactNode
+    // Desktop popover only. On mobile the drawer is always modal: it sits on the scrim and a
+    // tap outside closes it.
     modal?: boolean
     nested?: boolean
 }
@@ -28,6 +29,8 @@ interface ResponsivePopoverContentProps
     extends Omit<React.ComponentPropsWithoutRef<typeof PopoverContent>, "children"> {
     children: React.ReactNode
     className?: string
+    // Names the mobile drawer for assistive tech. Neither is shown: like the popover it
+    // replaces, the drawer opens straight into its content.
     title?: string
     description?: string
     side?: "top" | "right" | "bottom" | "left"
@@ -55,7 +58,7 @@ export function ResponsivePopover({
     if (isMobile) {
         return (
             <ResponsivePopoverContext.Provider value={contextValue}>
-                <Drawer open={open} onOpenChange={onOpenChange} modal={modal} nested={nested}>
+                <Drawer open={open} onOpenChange={onOpenChange} nested={nested}>
                     {children}
                 </Drawer>
             </ResponsivePopoverContext.Provider>
@@ -103,21 +106,17 @@ export function ResponsivePopoverContent({
         return (
             <DrawerContent
                 overlayClassName={overlayClassName}
-                className={cn(
-                    "max-h-[85dvh] w-full max-w-full overflow-y-auto overflow-x-hidden bg-popover",
-                    className
-                )}
+                className={cn("max-h-[85dvh] w-full max-w-full overflow-hidden", className)}
+                {...(description ? {} : { "aria-describedby": undefined })}
             >
-                {(title || description) && (
-                    <DrawerHeader className="pb-0 text-left">
-                        {title && <DrawerTitle>{title}</DrawerTitle>}
-                        {description && <DrawerDescription>{description}</DrawerDescription>}
-                    </DrawerHeader>
-                )}
+                {title && <DrawerTitle className="sr-only">{title}</DrawerTitle>}
+                {description && <DrawerDescription>{description}</DrawerDescription>}
+                {/* The content scrolls here, not on the drawer: vaul hangs a tall filler
+                    under the drawer, which a scrolling drawer would scroll into. */}
                 <div
                     className={cn(
-                        "flex min-h-0 flex-1 flex-col",
-                        !title && !description && !className?.includes("p-0") && "mt-4"
+                        "flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden",
+                        !className?.includes("p-0") && "mt-4"
                     )}
                 >
                     {children}

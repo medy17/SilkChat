@@ -101,21 +101,24 @@ const DrawerContent = React.forwardRef<
     )
 })
 
+// Only for a drawer that ends in a commit action, where the title says what the button
+// will do. Everything else opens straight into its content. See docs/SURFACES.md.
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
     return (
         <div
             data-slot="drawer-header"
-            className={cn("flex flex-col gap-0.5 p-4 text-left md:gap-1.5", className)}
+            className={cn("flex flex-col gap-0.5 p-4 text-left", className)}
             {...props}
         />
     )
 }
 
+// One row of equal buttons, secondary first and the commit action last.
 function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
     return (
         <div
             data-slot="drawer-footer"
-            className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+            className={cn("mt-auto flex gap-2 p-4 *:flex-1", className)}
             {...props}
         />
     )
@@ -131,6 +134,7 @@ function DrawerTitle({ className, ...props }: React.ComponentProps<typeof Drawer
     )
 }
 
+// Read by assistive tech only. Text the user needs in order to decide is body content.
 function DrawerDescription({
     className,
     ...props
@@ -138,7 +142,7 @@ function DrawerDescription({
     return (
         <DrawerPrimitive.Description
             data-slot="drawer-description"
-            className={cn("text-muted-foreground text-sm", className)}
+            className={cn("sr-only", className)}
             {...props}
         />
     )

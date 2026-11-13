@@ -53,7 +53,7 @@ type ToolSelectorPopoverProps = {
 
 function WebSearchInfoContent({ available }: { available: boolean }) {
     return (
-        <div className="space-y-3 p-3 text-sm">
+        <div className="space-y-3 p-4 pt-5 text-sm md:p-3">
             <div>
                 <div className="font-medium text-foreground">Web Search</div>
                 <p className="mt-1 text-muted-foreground text-xs">
@@ -101,7 +101,7 @@ function WebSearchInfoButton({ isMobile, available }: { isMobile: boolean; avail
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    className="z-[91] p-0"
                     overlayClassName="z-[90]"
                     title="Web Search"
                     description="Selected provider and configured keys"
@@ -149,7 +149,7 @@ function CodeExecutionInfoButton({
         </button>
     )
     const content = (
-        <div className="space-y-3 p-3 text-sm">
+        <div className="space-y-3 p-4 pt-5 text-sm md:p-3">
             <div>
                 <div className="font-bold text-foreground">Code Execution</div>
                 <p className="mt-1 text-muted-foreground text-xs">
@@ -174,7 +174,7 @@ function CodeExecutionInfoButton({
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    className="z-[91] p-0"
                     overlayClassName="z-[90]"
                     title="Code Execution"
                     description="Sandbox capabilities and usage warning"
@@ -222,7 +222,7 @@ function MathematicalInstrumentsInfoButton({
         </button>
     )
     const content = (
-        <div className="space-y-3 p-3 text-sm">
+        <div className="space-y-3 p-4 pt-5 text-sm md:p-3">
             <div>
                 <div className="font-medium text-foreground">Math Kit</div>
                 <p className="mt-1 text-muted-foreground text-xs">
@@ -244,7 +244,7 @@ function MathematicalInstrumentsInfoButton({
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    className="z-[91] p-0"
                     overlayClassName="z-[90]"
                     title="Math Kit"
                     description="Calculation and visualization details"
@@ -284,7 +284,7 @@ function MemoryInfoButton({ isMobile, available }: { isMobile: boolean; availabl
         </button>
     )
     const content = (
-        <div className="space-y-3 p-3 text-sm">
+        <div className="space-y-3 p-4 pt-5 text-sm md:p-3">
             <div>
                 <div className="font-medium text-foreground">Memory</div>
                 <p className="mt-1 text-muted-foreground text-xs">
@@ -306,7 +306,7 @@ function MemoryInfoButton({ isMobile, available }: { isMobile: boolean; availabl
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    className="z-[91] p-0"
                     overlayClassName="z-[90]"
                     title="Memory"
                     description="What Memory does and whether it is available"
@@ -369,7 +369,7 @@ function ToolCallLimitInfoButton({ isMobile }: { isMobile: boolean }) {
 function SilkScreenInfoButton({ isMobile, available }: { isMobile: boolean; available: boolean }) {
     const [open, setOpen] = useState(false)
     const content = (
-        <div className="space-y-3 p-3 text-sm">
+        <div className="space-y-3 p-4 pt-5 text-sm md:p-3">
             <div>
                 <div className="font-medium text-foreground">SilkScreen</div>
                 <p className="mt-1 text-muted-foreground text-xs">
@@ -413,7 +413,7 @@ function SilkScreenInfoButton({ isMobile, available }: { isMobile: boolean; avai
             <ResponsivePopover open={open} onOpenChange={setOpen} nested>
                 <ResponsivePopoverTrigger asChild>{trigger}</ResponsivePopoverTrigger>
                 <ResponsivePopoverContent
-                    className="z-[91] w-[min(24rem,calc(100vw-1rem))] p-0"
+                    className="z-[91] p-0"
                     overlayClassName="z-[90]"
                     title="SilkScreen"
                     description="Image preparation details"

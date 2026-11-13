@@ -214,17 +214,20 @@ export function ImportThemeDialog({
         return (
             <Drawer open={open} onOpenChange={onOpenChange} nested={nested}>
                 <DrawerContent
-                    className={cn("z-[90] max-h-[80dvh] bg-popover", className)}
+                    className={cn("z-[90] max-h-[80dvh]", className)}
                     overlayClassName="z-[80]"
                 >
-                    <DrawerHeader>
+                    <DrawerHeader className="pb-0">
                         <DrawerTitle>Import Theme</DrawerTitle>
-                        <DrawerDescription>{description}</DrawerDescription>
                     </DrawerHeader>
+                    {/* Shown, since the link is how a theme URL is found. */}
+                    <DrawerDescription className="not-sr-only px-4 pt-2 pb-4 text-muted-foreground text-sm">
+                        {description}
+                    </DrawerDescription>
                     <div className="px-4">{mobileFormContent}</div>
                     <DrawerFooter>
-                        {importButton}
                         {cancelButton}
+                        {importButton}
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>

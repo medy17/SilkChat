@@ -266,7 +266,7 @@ const MobileFilterSection = ({
 }) => (
     <section className="space-y-3 border-t pt-4 first:border-t-0 first:pt-0 md:border-t-0 md:pt-0">
         <div className="flex items-center justify-between gap-3">
-            <h3 className="font-semibold text-base">{title}</h3>
+            <h3 className="font-medium text-sm">{title}</h3>
             {action}
         </div>
         {children}
@@ -2547,7 +2547,7 @@ export function LibraryView({
                                 {mobileFilterControls}
                             </div>
 
-                            <DrawerFooter className="shrink-0 border-t px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                            <DrawerFooter className="shrink-0 flex-col border-t pb-[calc(env(safe-area-inset-bottom)+1rem)] *:flex-none">
                                 <div className="flex items-center justify-between gap-3 text-muted-foreground text-sm">
                                     <Button
                                         type="button"

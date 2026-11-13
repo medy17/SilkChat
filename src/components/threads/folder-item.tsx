@@ -589,12 +589,12 @@ export function FolderItem({
                                 <FolderForm {...editFormProps} />
                             </div>
                             <DrawerFooter>
-                                {saveButton}
                                 <DrawerClose asChild>
                                     <Button variant="outline" disabled={isEditing}>
                                         Cancel
                                     </Button>
                                 </DrawerClose>
+                                {saveButton}
                             </DrawerFooter>
                         </DrawerContent>
                     </Drawer>

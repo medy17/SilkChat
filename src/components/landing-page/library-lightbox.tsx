@@ -21,13 +21,7 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog"
-import {
-    Drawer,
-    DrawerContent,
-    DrawerDescription,
-    DrawerHeader,
-    DrawerTitle
-} from "@/components/ui/drawer"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { cn, downloadUrl } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -709,25 +703,26 @@ export function LibraryLightbox({ images, index, onClose, onNavigate }: LibraryL
                             open={isDetailsOpen}
                             onOpenChange={setIsDetailsOpen}
                             nested
+                            // The lightbox already owns the scrim, so this adds none. A tap
+                            // outside still closes it, below.
                             modal={false}
                         >
                             <DrawerContent
                                 ref={mobileDrawerRef}
                                 className="z-[80] max-h-[80dvh] min-h-0 overflow-hidden border-border/60 bg-background"
-                                overlayClassName="z-[79] bg-transparent backdrop-filter-none"
                                 onInteractOutside={(event) => {
                                     event.preventDefault()
                                     setIsDetailsOpen(false)
                                 }}
                                 style={{ maxHeight: `${layout.mobileDetailsMaxHeight}px` }}
                             >
-                                <DrawerHeader className="shrink-0 text-left">
-                                    <DrawerTitle>Image Details</DrawerTitle>
-                                    <DrawerDescription>Metadata for this image.</DrawerDescription>
-                                </DrawerHeader>
+                                <DrawerTitle className="sr-only">Image Details</DrawerTitle>
+                                <DrawerDescription>Metadata for this image.</DrawerDescription>
+                                {/* The margin stays outside the scroller so the strip under
+                                    the handle can still be dragged. */}
                                 <div
                                     data-vaul-no-drag
-                                    className="min-h-0 flex-1 touch-pan-y space-y-6 overflow-y-auto overscroll-contain px-5 pb-4"
+                                    className="mt-5 min-h-0 flex-1 touch-pan-y space-y-6 overflow-y-auto overscroll-contain px-4 pb-4"
                                     onTouchMoveCapture={(event) => event.stopPropagation()}
                                 >
                                     <div>
