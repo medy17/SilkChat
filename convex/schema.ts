@@ -225,6 +225,7 @@ export default defineSchema({
     userAccess: defineTable(UserAccess).index("byUser", ["userId"]),
     moderationCases: defineTable(ModerationCase)
         .index("byCaseId", ["caseId"])
+        .index("byCreatedAt", ["createdAt"])
         .index("byUserCreatedAt", ["userId", "createdAt"])
         .index("byAuthUserCreatedAt", ["authUserId", "createdAt"]),
     moderationCaseUpdates: defineTable(ModerationCaseUpdate).index("byCaseCreatedAt", [

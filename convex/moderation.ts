@@ -118,7 +118,7 @@ const createUniqueCaseId = async (ctx: MutationCtx) => {
 
 // Mirrors the active restriction onto the Better Auth user so sign-in is refused, and
 // clears it once nothing is left in effect. Returns whether a restriction remains.
-const syncAuthRestriction = async (ctx: MutationCtx, authUserId: string) => {
+export const syncAuthRestriction = async (ctx: MutationCtx, authUserId: string) => {
     const restriction = getActiveRestriction(
         await listCasesForAuthUser(ctx, authUserId),
         Date.now()
@@ -273,7 +273,11 @@ export const listRecentModerationCases = query({
     handler: async (ctx, { paginationOpts }) => {
         await requireOperator(ctx)
         const now = Date.now()
-        const result = await ctx.db.query("moderationCases").order("desc").paginate(paginationOpts)
+        const result = await ctx.db
+            .query("moderationCases")
+            .withIndex("byCreatedAt")
+            .order("desc")
+            .paginate(paginationOpts)
         const [appeals, updates] = await Promise.all([
             getAppealsByCase(ctx, result.page),
             getUpdatesByCase(ctx, result.page)

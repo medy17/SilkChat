@@ -44,6 +44,7 @@ import type * as computers from "../computers.js";
 import type * as computers_node from "../computers_node.js";
 import type * as credits from "../credits.js";
 import type * as crons from "../crons.js";
+import type * as dev_moderation_seed from "../dev_moderation_seed.js";
 import type * as direct_uploads from "../direct_uploads.js";
 import type * as fal_billing_node from "../fal_billing_node.js";
 import type * as fal_webhooks from "../fal_webhooks.js";
@@ -126,6 +127,7 @@ import type * as lib_moderation from "../lib/moderation.js";
 import type * as lib_moderation_gate from "../lib/moderation_gate.js";
 import type * as lib_ollama from "../lib/ollama.js";
 import type * as lib_openrouter_attribution from "../lib/openrouter_attribution.js";
+import type * as lib_openrouter_benchmarks from "../lib/openrouter_benchmarks.js";
 import type * as lib_openrouter_catalog from "../lib/openrouter_catalog.js";
 import type * as lib_pdf_validation_node from "../lib/pdf_validation_node.js";
 import type * as lib_persisted_tool_error from "../lib/persisted_tool_error.js";
@@ -139,6 +141,7 @@ import type * as lib_resumable_stream_context from "../lib/resumable_stream_cont
 import type * as lib_sandbox_billing from "../lib/sandbox_billing.js";
 import type * as lib_sandbox_errors from "../lib/sandbox_errors.js";
 import type * as lib_sandbox_runtime from "../lib/sandbox_runtime.js";
+import type * as lib_seeds_moderation from "../lib/seeds/moderation.js";
 import type * as lib_speech_config from "../lib/speech_config.js";
 import type * as lib_speech_ticket from "../lib/speech_ticket.js";
 import type * as lib_stored_pdf_validation_node from "../lib/stored_pdf_validation_node.js";
@@ -275,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   computers_node: typeof computers_node;
   credits: typeof credits;
   crons: typeof crons;
+  dev_moderation_seed: typeof dev_moderation_seed;
   direct_uploads: typeof direct_uploads;
   fal_billing_node: typeof fal_billing_node;
   fal_webhooks: typeof fal_webhooks;
@@ -357,6 +361,7 @@ declare const fullApi: ApiFromModules<{
   "lib/moderation_gate": typeof lib_moderation_gate;
   "lib/ollama": typeof lib_ollama;
   "lib/openrouter_attribution": typeof lib_openrouter_attribution;
+  "lib/openrouter_benchmarks": typeof lib_openrouter_benchmarks;
   "lib/openrouter_catalog": typeof lib_openrouter_catalog;
   "lib/pdf_validation_node": typeof lib_pdf_validation_node;
   "lib/persisted_tool_error": typeof lib_persisted_tool_error;
@@ -370,6 +375,7 @@ declare const fullApi: ApiFromModules<{
   "lib/sandbox_billing": typeof lib_sandbox_billing;
   "lib/sandbox_errors": typeof lib_sandbox_errors;
   "lib/sandbox_runtime": typeof lib_sandbox_runtime;
+  "lib/seeds/moderation": typeof lib_seeds_moderation;
   "lib/speech_config": typeof lib_speech_config;
   "lib/speech_ticket": typeof lib_speech_ticket;
   "lib/stored_pdf_validation_node": typeof lib_stored_pdf_validation_node;

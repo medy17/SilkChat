@@ -1,5 +1,4 @@
 import { useThemeAuditResultStore } from "@/components/dev/dev-runtime"
-import { ExportBuilderDialog } from "@/components/dev/export-builder-dialog"
 import { LogoSymbol } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,6 +49,7 @@ import {
     Copy,
     Database,
     FileText,
+    Gavel,
     ImageOff,
     Plus,
     RefreshCcw,
@@ -61,12 +61,33 @@ import {
     type CSSProperties,
     type MouseEvent as ReactMouseEvent,
     type PointerEvent as ReactPointerEvent,
+    Suspense,
+    lazy,
     useEffect,
     useMemo,
     useRef,
     useState
 } from "react"
 import { toast } from "sonner"
+
+// Each tool opens in its own dialog and loads on first use, so none of them weigh on the app.
+const ExportBuilderDialog = lazy(() =>
+    import("@/components/dev/export-builder-dialog").then((module) => ({
+        default: module.ExportBuilderDialog
+    }))
+)
+const ModerationSeedDialog = lazy(() =>
+    import("@/components/dev/moderation-seed-dialog").then((module) => ({
+        default: module.ModerationSeedDialog
+    }))
+)
+
+type DevDialog = "export-builder" | "moderation-seed"
+
+const DEV_DIALOGS: Array<{ id: DevDialog; label: string; icon: typeof FileText }> = [
+    { id: "export-builder", label: "Export builder", icon: FileText },
+    { id: "moderation-seed", label: "Moderation seed", icon: Gavel }
+]
 
 type CreditDevState = {
     account?: {
@@ -379,7 +400,18 @@ export function DevUtilityDock() {
     const [storageVersion, setStorageVersion] = useState(0)
     const [section, setSection] = useState<"tools" | "cache" | "info" | "repro">("tools")
     const [open, setOpen] = useState(false)
-    const [exportBuilderOpen, setExportBuilderOpen] = useState(false)
+    const [dialog, setDialog] = useState<DevDialog | null>(null)
+    // Stays mounted after closing so a dialog can animate out and keeps its state.
+    const [loadedDialogs, setLoadedDialogs] = useState<DevDialog[]>([])
+    const openDialog = (id: DevDialog) => {
+        setOpen(false)
+        setLoadedDialogs((loaded) => (loaded.includes(id) ? loaded : [...loaded, id]))
+        setDialog(id)
+    }
+    const dialogProps = (id: DevDialog) => ({
+        open: dialog === id,
+        onOpenChange: (next: boolean) => setDialog(next ? id : null)
+    })
     // Drag is disabled while the popover is open so the trigger and panel never desync.
     const {
         ref: wrapperRef,
@@ -577,6 +609,22 @@ export function DevUtilityDock() {
                                     value="tools"
                                     className="mt-3 h-[22rem] flex-none space-y-2 overflow-y-auto pr-1"
                                 >
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {DEV_DIALOGS.map(({ id, label, icon: Icon }) => (
+                                            <Button
+                                                key={id}
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="justify-start rounded-[var(--radius-md)] text-xs"
+                                                onClick={() => openDialog(id)}
+                                            >
+                                                <Icon className="size-3.5" />
+                                                {label}
+                                            </Button>
+                                        ))}
+                                    </div>
+
                                     <div className="flex items-center justify-between rounded-[var(--radius-lg)] border p-3">
                                         <div className="space-y-0.5">
                                             <p className="font-medium text-xs">
@@ -649,19 +697,6 @@ export function DevUtilityDock() {
                                             Switch to Dev mode to apply overrides.
                                         </p>
                                     )}
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full justify-start rounded-[var(--radius-md)] text-xs"
-                                        onClick={() => {
-                                            setOpen(false)
-                                            setExportBuilderOpen(true)
-                                        }}
-                                    >
-                                        <FileText className="size-3.5" />
-                                        Export builder
-                                    </Button>
                                 </TabsContent>
 
                                 <TabsContent
@@ -830,7 +865,14 @@ export function DevUtilityDock() {
                 </Popover>
             </div>
             {/* Outside the wrapper: React events bubble through portals into its drag handlers. */}
-            <ExportBuilderDialog open={exportBuilderOpen} onOpenChange={setExportBuilderOpen} />
+            <Suspense fallback={null}>
+                {loadedDialogs.includes("export-builder") && (
+                    <ExportBuilderDialog {...dialogProps("export-builder")} />
+                )}
+                {loadedDialogs.includes("moderation-seed") && (
+                    <ModerationSeedDialog {...dialogProps("moderation-seed")} />
+                )}
+            </Suspense>
         </>
     )
 }

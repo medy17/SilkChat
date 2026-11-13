@@ -481,6 +481,80 @@ describe("moderation overview", () => {
     })
 })
 
+describe("moderation seed", () => {
+    beforeEach(() => {
+        vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "1")
+    })
+    afterEach(() => {
+        vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "")
+    })
+
+    it("is refused for non-operators, and for everyone where dev tools are off", async () => {
+        const { operator, customer } = await setup()
+        const seed = (as: typeof operator.as) =>
+            as.mutation(api.dev_moderation_seed.seedModerationScenarios, {
+                scenarioIds: ["appeals"]
+            })
+        await expect(seed(customer.as)).rejects.toThrow("Moderator access required")
+        expect(await customer.as.query(api.dev_moderation_seed.getModerationSeedState, {})).toEqual(
+            { available: false, reason: "not_operator" }
+        )
+
+        vi.stubEnv("DEV_CREDIT_LAB_ENABLED", "")
+        await expect(seed(operator.as)).rejects.toThrow("turned off")
+        expect(await operator.as.query(api.dev_moderation_seed.getModerationSeedState, {})).toEqual(
+            { available: false, reason: "disabled" }
+        )
+    })
+
+    it("fills the review queue without emailing, starts a scenario over, and clears it", async () => {
+        const { t, operator, getAuthUser } = await setup()
+        const seed = (scenarioIds: string[]) =>
+            operator.as.mutation(api.dev_moderation_seed.seedModerationScenarios, { scenarioIds })
+        const pending = () => operator.as.query(api.moderation.listPendingAppeals, {})
+        const scenario = async (id: string) => {
+            const state = await operator.as.query(
+                api.dev_moderation_seed.getModerationSeedState,
+                {}
+            )
+            if (!state.available) throw new Error(state.reason)
+            return state.scenarios.find((entry) => entry.id === id)!
+        }
+
+        await seed(["appeals", "suspension"])
+        await t.finishAllScheduledFunctions(vi.runAllTimers)
+        expect(sendEmail).not.toHaveBeenCalled()
+        expect(await pending()).toHaveLength(2)
+        expect((await scenario("appeals")).status).toBe("fresh")
+        expect((await scenario("history")).status).toBe("absent")
+        const [suspended] = (await scenario("suspension")).accounts
+        expect(suspended.standing.status).toBe("suspended")
+        expect(await getAuthUser(suspended.authUserId)).toMatchObject({ banned: true })
+
+        // Acting on a seeded case uses it up; seeding again restores it without duplicates.
+        const [first] = await pending()
+        await operator.as.mutation(api.moderation.decideModerationAppeal, {
+            appealId: first.appealId,
+            decision: "upheld"
+        })
+        expect(await pending()).toHaveLength(1)
+        expect((await scenario("appeals")).status).toBe("changed")
+        await seed(["appeals"])
+        expect(await pending()).toHaveLength(2)
+        expect(await scenario("appeals")).toMatchObject({
+            status: "fresh",
+            accounts: [{}, {}]
+        })
+
+        await operator.as.mutation(api.dev_moderation_seed.clearModerationScenarios, {
+            scenarioIds: ["appeals", "suspension"]
+        })
+        expect(await pending()).toEqual([])
+        expect(await scenario("appeals")).toMatchObject({ status: "absent", accounts: [] })
+        expect(await getAuthUser(suspended.authUserId)).toBeNull()
+    })
+})
+
 describe("priority escalations", () => {
     const strike = (operator: Awaited<ReturnType<typeof setup>>["operator"], authUserId: string) =>
         operator.as.mutation(api.moderation.issueModerationAction, {
