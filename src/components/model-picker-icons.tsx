@@ -1,5 +1,6 @@
 import {
     BlackForestLabsIcon,
+    ByteDanceIcon,
     ClaudeIcon,
     DeepSeekIcon,
     FalAIIcon,
@@ -81,6 +82,8 @@ export const getProviderIcon = (model: DisplayModel, isCustom: boolean) => {
                 )
             case "bflabs":
                 return <BlackForestLabsIcon className="size-4" />
+            case "bytedance":
+                return <ByteDanceIcon className="size-4" />
             case "stability-ai":
                 return <StabilityIcon className="size-4" />
             case "meta":

@@ -22,10 +22,20 @@ yes.
 5. **Otherwise it is content.** Messages, sidebar rows, settings, library tiles, cards. Solid, with
    theme tokens. No blur.
 
+One exception to the first question: a selected row that opens to hold its own settings may borrow
+the Spotlight card (`SPOTLIGHT_CARD_CLASS`), as the selected models in the image sidebar do. It
+takes the card alone, with no header, chips, or frame, and only where the rows around it are plain,
+so the card is what marks the selection.
+
 ## Shared rules
 
 - Colors come from theme tokens and must hold up in the default theme (light and dark) and one
   imported theme.
+- Segmented controls and steppers are the exception once they leave the page background. Their
+  track and thumb are filled from `--background` and `--input`, and themes are free to put those
+  right next to `--sidebar` or `--card`, which hides the thumb. On those surfaces tint each layer
+  with black or white instead, as the image sidebar does (`SIDEBAR_TRACK_CLASS`), so the contrast
+  is the same in every theme.
 - Radii come from the theme scale (`--radius-sm` to `--radius-xl`).
 - Never hand-roll `bg-*/NN backdrop-blur-*`. If a surface needs translucency, it is glass and uses
   a recipe; if no recipe fits, add a tier to `glass.css` and the Glass guide rather than a

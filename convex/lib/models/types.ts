@@ -147,7 +147,7 @@ type SharedModelFields<Abilities extends ModelAbility[] = ModelAbility[]> = {
     /** fal endpoint accepts `background: "transparent"` (PNG with alpha). */
     supportsTransparentBackground?: boolean
     imagePricing?: ImagePricing
-    customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai"
+    customIcon?: "stability-ai" | "openai" | "bflabs" | "google" | "meta" | "xai" | "bytedance"
     supportsDisablingReasoning?: boolean
     /** Require every chart input field; independent of provider strict decoding. */
     useStrictCharts?: boolean

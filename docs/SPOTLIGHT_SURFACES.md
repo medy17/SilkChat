@@ -27,6 +27,7 @@ Read the owner for current values. This guide records the rules, not the class s
 `spotlight-surface`, an accent wash from `--chart-1` that fades into `--card` over a fixed length,
 so tall cards (recipes, long tables) tint their header rather than their whole body. Every
 artifact card and expanded tool panel uses it. Do not hand-roll a card border and background.
+Outside a message it has one use, the selected row described in [Surfaces](./SURFACES.md).
 
 **Frame.** `SpotlightFrame` is the card plus header, an `actions` slot, a `toolbar` slot, and the
 expand dialog. Native visualizations (chart, network) use it. State that the user sets, such as
