@@ -262,6 +262,18 @@ const ReferenceGallery = ({
     )
 }
 
+// A cover leads with one picture and stacks the rest beside it, so it reads as the dish
+// and two more looks at it rather than three equal thumbnails.
+const COVER_GRID_CLASS = "grid h-52 grid-cols-3 grid-rows-2 gap-0.5 sm:h-64"
+const coverTileClass = (index: number, count: number) =>
+    index > 0
+        ? count === 2
+            ? "row-span-2"
+            : undefined
+        : count === 1
+          ? "col-span-3 row-span-2"
+          : "col-span-2 row-span-2"
+
 export const VisualReferences = ({
     cue,
     title,
@@ -269,7 +281,8 @@ export const VisualReferences = ({
     variant,
     refs,
     itemTitles,
-    framed = false
+    framed = false,
+    cover = false
 }: {
     cue: string
     // Card heading for framed galleries; the search cue is the fallback.
@@ -280,6 +293,8 @@ export const VisualReferences = ({
     refs?: string[]
     itemTitles?: Record<string, string>
     framed?: boolean
+    // A gallery run edge to edge as its card's cover: fixed height, no rounding of its own.
+    cover?: boolean
 }) => {
     const context = useContext(VisualSelectionContext)
     const key = visualRequestKey({ cue, limit, variant, ...(refs !== undefined ? { refs } : {}) })
@@ -345,16 +360,19 @@ export const VisualReferences = ({
             className={
                 framed
                     ? "grid grid-cols-3 gap-2"
-                    : isGallery
-                      ? "grid grid-cols-3 gap-2 overflow-hidden rounded-[var(--radius-xl)]"
-                      : "overflow-hidden rounded-[var(--radius-lg)]"
+                    : cover
+                      ? COVER_GRID_CLASS
+                      : isGallery
+                        ? "grid grid-cols-3 gap-2 overflow-hidden rounded-[var(--radius-xl)]"
+                        : "overflow-hidden rounded-[var(--radius-lg)]"
             }
         >
             {Array.from({ length: isGallery ? limit : 1 }, (_, index) => (
                 <div
                     key={index}
                     className={cn(
-                        "aspect-[4/3] bg-muted",
+                        cover ? coverTileClass(index, limit) : "aspect-[4/3]",
+                        "bg-muted",
                         animate && "animate-pulse",
                         framed && "rounded-[var(--radius-md)]"
                     )}
@@ -385,12 +403,14 @@ export const VisualReferences = ({
         <div data-recipe-print-hide aria-label={`Visual references for ${cue}`}>
             <div
                 className={
-                    isGallery
-                        ? `grid ${galleryColumns} gap-2 overflow-hidden rounded-[var(--radius-xl)]`
-                        : "overflow-hidden rounded-[var(--radius-lg)]"
+                    cover
+                        ? COVER_GRID_CLASS
+                        : isGallery
+                          ? `grid ${galleryColumns} gap-2 overflow-hidden rounded-[var(--radius-xl)]`
+                          : "overflow-hidden rounded-[var(--radius-lg)]"
                 }
             >
-                {visibleVisuals.map((visual) => (
+                {visibleVisuals.map((visual, index) => (
                     <VisualTile
                         key={visual.id}
                         visual={visual}
@@ -400,7 +420,13 @@ export const VisualReferences = ({
                                 : undefined
                         }
                         cue={cue}
-                        className={isGallery ? "aspect-[5/4] bg-muted/60" : "bg-transparent"}
+                        className={
+                            cover
+                                ? cn(coverTileClass(index, visibleVisuals.length), "bg-muted/60")
+                                : isGallery
+                                  ? "aspect-[5/4] bg-muted/60"
+                                  : "bg-transparent"
+                        }
                         imgClassName={
                             isGallery
                                 ? "size-full object-cover group-hover:scale-[1.03]"

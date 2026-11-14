@@ -10,14 +10,16 @@ import {
     DialogHeader,
     DialogTitle
 } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { SPOTLIGHT_CARD_CLASS } from "@/components/renderers/spotlight-frame"
+import {
+    SPOTLIGHT_CARD_CLASS,
+    SPOTLIGHT_ICON_BUTTON_CLASS
+} from "@/components/renderers/spotlight-frame"
 import {
     TIMER_CHIP_CLASS,
     TimerReadout,
     formatTimerClock
 } from "@/components/renderers/spotlight-timer"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     type ParsedRecipe,
     type RecipeInlineToken,
@@ -30,7 +32,6 @@ import { cn } from "@/lib/utils"
 import {
     Check,
     ChefHat,
-    ChevronDown,
     ChevronLeft,
     ChevronRight,
     Flame,
@@ -40,18 +41,16 @@ import {
     Plus,
     Printer,
     RotateCcw,
-    Ruler,
-    Sparkles,
     Timer,
     X
 } from "lucide-react"
 import {
     type Dispatch,
     Fragment,
+    type ReactNode,
     type SetStateAction,
     useCallback,
     useEffect,
-    useId,
     useMemo,
     useRef,
     useState
@@ -82,6 +81,19 @@ export const advanceRecipeTimer = (timer: TimerState, now = Date.now()): TimerSt
         startedAt: finished ? undefined : timer.startedAt + elapsedSeconds * 1000
     }
 }
+
+const SECTION_HEADING_CLASS = "font-bold text-xl tracking-tight"
+// The servings stepper sits beside the unit switch, so it takes the stock Tabs track and thumb.
+const STEPPER_TRACK_CLASS =
+    "inline-flex h-7 items-center rounded-[var(--radius-md)] bg-black/5 p-0.5 dark:bg-black/20"
+const STEPPER_BUTTON_CLASS =
+    "flex h-full w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-input/30"
+
+const UNIT_OPTIONS = [
+    ["original", "Original"],
+    ["metric", "Metric"],
+    ["imperial", "Imperial"]
+] as const
 
 const cleanInlineText = (value: string) => value.replace(/\*\*|__/g, "")
 
@@ -155,10 +167,7 @@ const RecipeRichText = ({
             const id = `${tokenPrefix}-${index}`
             if (token.type === "quantity") {
                 return (
-                    <span
-                        key={id}
-                        className="font-semibold text-foreground underline decoration-primary/40 underline-offset-4"
-                    >
+                    <span key={id} className="font-semibold">
                         {formatRecipeQuantity(token, multiplier, measurementSystem)}
                     </span>
                 )
@@ -268,17 +277,7 @@ const CookModeTimer = ({
     )
 }
 
-export type RecipeCardLayout = "original" | "sheet" | "ledger" | "columns" | "fold"
-
-export const RecipeCard = ({
-    recipe,
-    layout = "original"
-}: {
-    recipe: ParsedRecipe
-    layout?: RecipeCardLayout
-}) => {
-    const IngredientsContainer = layout === "fold" ? "details" : "section"
-    const IngredientsHeading = layout === "fold" ? "summary" : "div"
+export const RecipeCard = ({ recipe }: { recipe: ParsedRecipe }) => {
     const [servings, setServings] = useState(recipe.servings)
     const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(() => new Set())
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(() => new Set())
@@ -286,8 +285,6 @@ export const RecipeCard = ({
     const [cookingOpen, setCookingOpen] = useState(false)
     const [cookingStarted, setCookingStarted] = useState(false)
     const [cookingStep, setCookingStep] = useState(0)
-    const [unitPopoverOpen, setUnitPopoverOpen] = useState(false)
-    const unitControlId = useId()
     const printRootRef = useRef<HTMLElement>(null)
     const announcedTimersRef = useRef(new Set<string>())
     const multiplier = servings / recipe.servings
@@ -306,10 +303,8 @@ export const RecipeCard = ({
     }, [recipe.ingredients, recipe.steps])
 
     const [measurementSystem, setMeasurementSystem] = useState<RecipeMeasurementSystem>()
-    const measurementSystemLabel = measurementSystem
-        ? `${measurementSystem[0]?.toLocaleUpperCase()}${measurementSystem.slice(1)}`
-        : "Original"
     const runningTimerCount = Object.values(timers).filter((timer) => timer.running).length
+    const hasProgress = checkedIngredients.size > 0 || completedSteps.size > 0
 
     useEffect(() => {
         const interval = window.setInterval(() => {
@@ -415,6 +410,15 @@ export const RecipeCard = ({
         setCompletedSteps(new Set())
     }
 
+    const openCookMode = () => {
+        const firstIncompleteStep = recipe.steps.findIndex(
+            (_step, index) => !completedSteps.has(index)
+        )
+        setCookingStep(firstIncompleteStep >= 0 ? firstIncompleteStep : 0)
+        setCookingStarted(false)
+        setCookingOpen(true)
+    }
+
     const advanceCookingStep = useCallback(() => {
         setCompletedSteps((current) => {
             if (current.has(cookingStep)) return current
@@ -482,226 +486,135 @@ export const RecipeCard = ({
     const currentStepTimers = currentStep?.tokens.flatMap((token, index) =>
         token.type === "timer" ? [{ id: `step-${cookingStep}-${index}`, token }] : []
     )
+    // Servings and units change the amounts, so they sit on the first heading above them.
+    const quantityControls = (
+        <div data-recipe-print-hide className="flex items-center gap-2">
+            <div className={STEPPER_TRACK_CLASS}>
+                <button
+                    type="button"
+                    className={STEPPER_BUTTON_CLASS}
+                    aria-label="Decrease servings"
+                    disabled={servings <= 1}
+                    onClick={() => setServings((current) => Math.max(1, current - 1))}
+                >
+                    <Minus className="size-3" />
+                </button>
+                <span className="px-1.5 font-medium text-xs tabular-nums">
+                    Serves {formatRecipeNumber(servings)}
+                </span>
+                <button
+                    type="button"
+                    className={STEPPER_BUTTON_CLASS}
+                    aria-label="Increase servings"
+                    onClick={() => setServings((current) => current + 1)}
+                >
+                    <Plus className="size-3" />
+                </button>
+            </div>
+
+            {availableMeasurementSystems.size > 0 && (
+                <Tabs
+                    value={measurementSystem ?? "original"}
+                    onValueChange={(value) =>
+                        setMeasurementSystem(
+                            value === "original" ? undefined : (value as RecipeMeasurementSystem)
+                        )
+                    }
+                >
+                    <TabsList className="h-7 p-0.5" aria-label="Units">
+                        {UNIT_OPTIONS.map(([value, label]) => (
+                            <TabsTrigger
+                                key={value}
+                                value={value}
+                                className="h-6 px-2 text-xs shadow-none"
+                            >
+                                {label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+            )}
+        </div>
+    )
+
+    const sectionHeading = (title: string, controls?: ReactNode) => (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <h4 className={SECTION_HEADING_CLASS}>{title}</h4>
+            {controls}
+        </div>
+    )
 
     return (
         <>
             <article
                 ref={printRootRef}
                 data-recipe-card
-                data-recipe-layout={layout}
                 className={cn(
-                    "not-prose mx-auto my-10 max-w-4xl p-6 sm:p-12",
+                    "@container not-prose my-5 w-full overflow-hidden",
                     SPOTLIGHT_CARD_CLASS
                 )}
             >
-                {/* Hero Header */}
-                <header className="space-y-6">
-                    <div
-                        data-recipe-actions
-                        className="flex flex-wrap items-center justify-between gap-4"
-                    >
-                        <span
-                            data-recipe-badge
-                            className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-primary/10 px-3 py-1 font-medium text-primary text-xs uppercase tracking-wider"
-                        >
-                            <ChefHat className="size-3.5" />
-                            Recipe
-                        </span>
-                        <div data-recipe-print-hide className="flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 rounded-[var(--radius-md)] text-muted-foreground hover:text-foreground"
-                                aria-label="Print recipe"
-                                onClick={printRecipe}
-                            >
-                                <Printer className="size-4" />
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-8 gap-1.5 rounded-[var(--radius-md)] px-2.5 text-muted-foreground text-xs hover:text-foreground"
-                                aria-label="Reset recipe progress"
-                                disabled={
-                                    checkedIngredients.size === 0 && completedSteps.size === 0
-                                }
-                                onClick={resetProgress}
-                            >
-                                <RotateCcw className="size-3.5" />
-                                Reset
-                            </Button>
-                            {recipe.steps.length > 0 && (
-                                <Button
-                                    type="button"
-                                    className="h-8 gap-1.5 rounded-[var(--radius-md)] px-3.5 font-semibold text-xs shadow-sm"
-                                    onClick={() => {
-                                        const firstIncompleteStep = recipe.steps.findIndex(
-                                            (_step, index) => !completedSteps.has(index)
-                                        )
-                                        setCookingStep(
-                                            firstIncompleteStep >= 0 ? firstIncompleteStep : 0
-                                        )
-                                        setCookingStarted(false)
-                                        setCookingOpen(true)
-                                    }}
-                                >
-                                    <Flame className="size-3.5" />
-                                    Cook Mode
-                                </Button>
-                            )}
-                        </div>
-                    </div>
+                {/* The dish leads: its pictures run edge to edge as the card's cover. */}
+                {recipe.visualCue && (
+                    <VisualReferences cue={recipe.visualCue} limit={3} variant="gallery" cover />
+                )}
 
-                    <div data-recipe-title className="space-y-3">
-                        <h1 className="font-extrabold text-3xl text-foreground tracking-tight sm:text-5xl">
-                            {recipe.title}
-                        </h1>
+                {/* The cover sits on top of the card's accent wash, so the body carries
+                    its own and the title is tinted with or without pictures above it. */}
+                <div className="spotlight-surface @md:px-8 px-5 pt-7 pb-8">
+                    <header>
+                        <div className="flex items-start gap-4">
+                            <h3 className="min-w-0 flex-1 text-balance font-extrabold @md:text-4xl text-2xl tracking-tight">
+                                {recipe.title}
+                            </h3>
+                            <div
+                                data-recipe-print-hide
+                                className="flex shrink-0 items-center gap-1.5 pt-1"
+                            >
+                                {/* Appears with the first tick, so an untouched card stays quiet. */}
+                                {hasProgress && (
+                                    <button
+                                        type="button"
+                                        className={cn("inline-flex", SPOTLIGHT_ICON_BUTTON_CLASS)}
+                                        aria-label="Reset recipe progress"
+                                        onClick={resetProgress}
+                                    >
+                                        <RotateCcw className="size-4" />
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    className={cn("inline-flex", SPOTLIGHT_ICON_BUTTON_CLASS)}
+                                    aria-label="Print recipe"
+                                    onClick={printRecipe}
+                                >
+                                    <Printer className="size-4" />
+                                </button>
+                                {recipe.steps.length > 0 && (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="rounded-[var(--radius-md)] font-semibold"
+                                        onClick={openCookMode}
+                                    >
+                                        <Flame className="size-3.5" />
+                                        <span className="sr-only @md:not-sr-only">Cook Mode</span>
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                         {recipe.description && (
-                            <p className="text-base text-muted-foreground leading-relaxed sm:text-lg">
+                            <p className="mt-3 max-w-prose text-pretty text-base text-muted-foreground leading-relaxed">
                                 {recipe.description}
                             </p>
                         )}
-                    </div>
+                    </header>
 
-                    {recipe.visualCue && (
-                        <VisualReferences cue={recipe.visualCue} limit={3} variant="gallery" />
-                    )}
-
-                    {/* Serving and unit controls */}
-                    <div
-                        data-recipe-controls
-                        data-recipe-print-hide
-                        className="flex flex-wrap items-center gap-3 pt-2"
-                    >
-                        <div className="inline-flex items-center rounded-[var(--radius-lg)] border border-border/70 bg-muted/30 p-1">
-                            <button
-                                type="button"
-                                className="inline-flex size-6 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-background hover:text-foreground disabled:opacity-30"
-                                aria-label="Decrease servings"
-                                disabled={servings <= 1}
-                                onClick={() => setServings((current) => Math.max(1, current - 1))}
-                            >
-                                <Minus className="size-3" />
-                            </button>
-                            <span className="px-3 font-medium text-xs">
-                                <strong className="font-bold text-foreground">
-                                    {formatRecipeNumber(servings)}
-                                </strong>{" "}
-                                servings
-                            </span>
-                            <button
-                                type="button"
-                                className="inline-flex size-6 items-center justify-center rounded-[var(--radius-md)] text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-                                aria-label="Increase servings"
-                                onClick={() => setServings((current) => current + 1)}
-                            >
-                                <Plus className="size-3" />
-                            </button>
-                        </div>
-
-                        {availableMeasurementSystems.size > 0 && (
-                            <Popover open={unitPopoverOpen} onOpenChange={setUnitPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 gap-2 rounded-[var(--radius-lg)] border-border/70 bg-muted/30 px-3 font-medium text-xs shadow-none hover:bg-muted/60"
-                                        aria-label={`Units: ${measurementSystemLabel}`}
-                                    >
-                                        <Ruler className="size-3.5 text-muted-foreground" />
-                                        <span>{measurementSystemLabel}</span>
-                                        <ChevronDown className="size-3 text-muted-foreground" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                    align="start"
-                                    className="w-60 rounded-[var(--radius-lg)] p-2"
-                                >
-                                    <div className="px-2 pt-1 pb-2">
-                                        <p className="font-semibold text-sm">Measurement units</p>
-                                        <p className="text-muted-foreground text-xs">
-                                            Choose how quantities are displayed.
-                                        </p>
-                                    </div>
-                                    <RadioGroup
-                                        value={measurementSystem ?? "original"}
-                                        className="gap-1"
-                                        onValueChange={(value) => {
-                                            setMeasurementSystem(
-                                                value === "original"
-                                                    ? undefined
-                                                    : (value as RecipeMeasurementSystem)
-                                            )
-                                            setUnitPopoverOpen(false)
-                                        }}
-                                    >
-                                        {(
-                                            [
-                                                ["original", "Original", "As written"],
-                                                ["metric", "Metric", "Grams and millilitres"],
-                                                ["imperial", "Imperial", "Ounces and US cups"]
-                                            ] as const
-                                        ).map(([value, label, description]) => (
-                                            <label
-                                                key={value}
-                                                htmlFor={`${unitControlId}-${value}`}
-                                                className="flex cursor-pointer items-center gap-3 rounded-[var(--radius-md)] px-2 py-2 transition-colors hover:bg-muted/60"
-                                            >
-                                                <RadioGroupItem
-                                                    id={`${unitControlId}-${value}`}
-                                                    value={value}
-                                                />
-                                                <span className="min-w-0">
-                                                    <span className="block font-medium text-sm">
-                                                        {label}
-                                                    </span>
-                                                    <span className="block text-muted-foreground text-xs">
-                                                        {description}
-                                                    </span>
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </RadioGroup>
-                                </PopoverContent>
-                            </Popover>
-                        )}
-                    </div>
-                </header>
-
-                <div data-recipe-body>
-                    {/* Ingredients: Two-column Checklist */}
                     {recipe.ingredients.length > 0 && (
-                        <IngredientsContainer
-                            data-recipe-ingredients
-                            open={layout === "fold" ? true : undefined}
-                            className="mt-12 border-border/60 border-t pt-10"
-                        >
-                            <IngredientsHeading className="mb-6 flex items-baseline justify-between">
-                                <div>
-                                    <h2 className="font-bold text-foreground text-xl tracking-tight sm:text-2xl">
-                                        Ingredients
-                                    </h2>
-                                    <p
-                                        data-recipe-helper
-                                        className="text-muted-foreground text-xs sm:text-sm"
-                                    >
-                                        Tick off items as you prepare
-                                    </p>
-                                </div>
-                                <span
-                                    data-recipe-print-hide
-                                    className="rounded-[var(--radius-md)] bg-muted/50 px-2.5 py-0.5 font-medium text-muted-foreground text-xs"
-                                >
-                                    {checkedIngredients.size} of {recipe.ingredients.length} checked
-                                </span>
-                            </IngredientsHeading>
+                        <section className="mt-9">
+                            {sectionHeading("Ingredients", quantityControls)}
 
-                            <div
-                                data-recipe-ingredient-list
-                                className="grid gap-x-12 sm:grid-cols-2"
-                            >
+                            <div className="grid @md:grid-cols-2 gap-x-10">
                                 {recipe.ingredients.map((ingredient, index) => {
                                     const isChecked = checkedIngredients.has(index)
                                     const prevGroup =
@@ -712,44 +625,41 @@ export const RecipeCard = ({
                                     return (
                                         <Fragment key={`${ingredient.raw}-${index}`}>
                                             {showGroup && (
-                                                <div
-                                                    data-recipe-group
-                                                    className="col-span-full border-border/40 border-b pt-6 pb-2 first:pt-0"
-                                                >
-                                                    <span className="font-bold text-muted-foreground text-xs uppercase tracking-wider">
-                                                        {ingredient.group}
-                                                    </span>
+                                                <div className="col-span-full pt-4 pb-1 font-semibold text-muted-foreground text-sm">
+                                                    {ingredient.group}
                                                 </div>
                                             )}
                                             <label
                                                 data-recipe-print-item
-                                                className="group flex cursor-pointer select-none items-start gap-3.5 border-border/30 border-b py-3 transition-colors hover:border-border/80"
+                                                className="group flex cursor-pointer select-none items-start gap-3 py-1.5"
                                             >
                                                 <input
                                                     type="checkbox"
-                                                    className="sr-only"
+                                                    className="peer sr-only"
                                                     checked={isChecked}
                                                     onChange={() =>
                                                         toggleSetValue(setCheckedIngredients, index)
                                                     }
                                                 />
                                                 <span
-                                                    className={`mt-1 inline-flex size-4.5 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border transition-all ${
+                                                    aria-hidden="true"
+                                                    className={cn(
+                                                        "mt-[0.3125rem] inline-flex size-4 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring",
                                                         isChecked
-                                                            ? "scale-100 border-primary bg-primary text-primary-foreground"
-                                                            : "border-muted-foreground/30 bg-transparent group-hover:border-foreground/60"
-                                                    }`}
+                                                            ? "border-primary bg-primary text-primary-foreground"
+                                                            : "border-muted-foreground/40 group-hover:border-foreground/70"
+                                                    )}
                                                 >
                                                     {isChecked && (
-                                                        <Check className="size-2.5 stroke-[3]" />
+                                                        <Check className="size-3 stroke-[3]" />
                                                     )}
                                                 </span>
                                                 <span
-                                                    className={`flex-1 text-sm leading-relaxed transition-opacity ${
-                                                        isChecked
-                                                            ? "text-muted-foreground line-through decoration-muted-foreground/40 opacity-60"
-                                                            : "text-foreground"
-                                                    }`}
+                                                    className={cn(
+                                                        "min-w-0 flex-1 text-[0.9375rem] leading-[1.625rem] transition-colors",
+                                                        isChecked &&
+                                                            "text-muted-foreground/70 line-through decoration-muted-foreground/40"
+                                                    )}
                                                 >
                                                     <RecipeRichText
                                                         tokens={ingredient.tokens}
@@ -766,42 +676,27 @@ export const RecipeCard = ({
                                     )
                                 })}
                             </div>
-                        </IngredientsContainer>
+                        </section>
                     )}
 
-                    {/* Method: Connected Timeline */}
                     {recipe.steps.length > 0 && (
-                        <section
-                            data-recipe-method
-                            className="mt-14 border-border/60 border-t pt-10"
-                        >
-                            <div className="mb-8">
-                                <h2 className="font-bold text-foreground text-xl tracking-tight sm:text-2xl">
-                                    Method
-                                </h2>
-                                <p
-                                    data-recipe-helper
-                                    className="text-muted-foreground text-xs sm:text-sm"
-                                >
-                                    Follow step by step
-                                </p>
-                            </div>
+                        <section className="mt-10">
+                            {sectionHeading(
+                                "Method",
+                                recipe.ingredients.length === 0 ? quantityControls : undefined
+                            )}
 
-                            <div data-recipe-step-list className="relative space-y-8 pl-8 sm:pl-10">
-                                {/* Running vertical guide line */}
-                                <div
-                                    data-recipe-timeline
-                                    className="absolute top-4 bottom-4 left-3.5 w-px -translate-x-1/2 bg-border sm:left-4"
-                                />
-
+                            <div className="space-y-5">
                                 {recipe.steps.map((step, index) => {
                                     const isDone = completedSteps.has(index)
                                     return (
                                         <div
                                             key={`${step.raw}-${index}`}
                                             data-recipe-print-item
-                                            className="group relative"
+                                            className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3"
                                         >
+                                            {/* The numeral is the step's tick box: set as large
+                                                as the title is bold, it turns into a check. */}
                                             <button
                                                 type="button"
                                                 aria-label={`Mark step ${index + 1} ${isDone ? "incomplete" : "complete"}`}
@@ -809,32 +704,26 @@ export const RecipeCard = ({
                                                 onClick={() =>
                                                     toggleSetValue(setCompletedSteps, index)
                                                 }
-                                                className={`absolute -left-8 inline-flex size-7 items-center justify-center rounded-[var(--radius-lg)] border font-bold text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:-left-10 sm:size-8 ${
+                                                className={cn(
+                                                    "flex h-7 items-center justify-start rounded-[var(--radius-sm)] font-extrabold text-2xl tabular-nums tracking-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                                     isDone
-                                                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                                                        : "border-border bg-background text-muted-foreground hover:border-primary hover:text-primary"
-                                                }`}
+                                                        ? "text-primary"
+                                                        : "text-foreground/30 hover:text-foreground"
+                                                )}
                                             >
                                                 {isDone ? (
-                                                    <Check className="size-3.5 stroke-[2.5]" />
+                                                    <Check className="size-5 stroke-[3]" />
                                                 ) : (
                                                     index + 1
                                                 )}
                                             </button>
 
-                                            <div
-                                                className={
-                                                    step.visualCue || step.visualRefs !== undefined
-                                                        ? "grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]"
-                                                        : undefined
-                                                }
-                                            >
-                                                <div
-                                                    className={`pt-0.5 text-base leading-relaxed transition-opacity sm:text-lg sm:leading-relaxed ${
-                                                        isDone
-                                                            ? "text-muted-foreground line-through decoration-muted-foreground/30 opacity-60"
-                                                            : "text-foreground"
-                                                    }`}
+                                            <div className="grid items-start gap-4 @md:has-[>:nth-child(2)]:grid-cols-[minmax(0,1fr)_10rem]">
+                                                <p
+                                                    className={cn(
+                                                        "max-w-prose text-base leading-7 transition-colors",
+                                                        isDone && "text-muted-foreground/60"
+                                                    )}
                                                 >
                                                     <RecipeRichText
                                                         tokens={step.tokens}
@@ -845,7 +734,7 @@ export const RecipeCard = ({
                                                         onToggleTimer={toggleTimer}
                                                         onResetTimer={resetTimer}
                                                     />
-                                                </div>
+                                                </p>
                                                 {(step.visualCue ||
                                                     step.visualRefs !== undefined) && (
                                                     <VisualReferences
@@ -862,24 +751,16 @@ export const RecipeCard = ({
                             </div>
                         </section>
                     )}
-                </div>
 
-                {/* Notes: Subtle Banner */}
-                {recipe.notes && (
-                    <footer className="mt-14 border-border/60 border-t pt-8">
-                        <div className="flex gap-3.5 rounded-[var(--radius-lg)] border border-border/40 bg-muted/20 p-5 sm:p-6">
-                            <Sparkles className="mt-0.5 size-5 shrink-0 text-primary" />
-                            <div className="space-y-1">
-                                <h3 className="font-semibold text-foreground text-sm">
-                                    Chef&apos;s Notes
-                                </h3>
-                                <p className="text-muted-foreground text-sm leading-relaxed">
-                                    {recipe.notes}
-                                </p>
-                            </div>
-                        </div>
-                    </footer>
-                )}
+                    {recipe.notes && (
+                        <section className="mt-10">
+                            {sectionHeading("Notes")}
+                            <p className="-mt-2 max-w-prose text-[0.9375rem] text-muted-foreground leading-[1.625rem]">
+                                {recipe.notes}
+                            </p>
+                        </section>
+                    )}
+                </div>
             </article>
 
             {/* Cook Mode Modal */}

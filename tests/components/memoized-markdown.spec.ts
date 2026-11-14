@@ -301,10 +301,11 @@ describe("MemoizedMarkdown", () => {
         expect(screen.getByText("200 g")).toBeTruthy()
         fireEvent.click(screen.getByRole("button", { name: "Increase servings" }))
         expect(screen.getByText("300 g")).toBeTruthy()
-        fireEvent.click(screen.getByRole("button", { name: "Units: Original" }))
-        fireEvent.click(screen.getByRole("radio", { name: /Imperial/ }))
+        fireEvent.mouseDown(screen.getByRole("tab", { name: "Imperial" }))
         expect(screen.getByText(/oz$/)).toBeTruthy()
-        expect(screen.getByRole("button", { name: "Units: Imperial" })).toBeTruthy()
+        expect(screen.getByRole("tab", { name: "Imperial" }).getAttribute("aria-selected")).toBe(
+            "true"
+        )
         expect(screen.getByRole("button", { name: "Start 8 minutes timer" })).toBeTruthy()
     })
 
@@ -372,9 +373,7 @@ describe("MemoizedMarkdown", () => {
                 .getByRole("button", { name: "Mark step 1 complete" })
                 .getAttribute("aria-pressed")
         ).toBe("false")
-        expect(
-            screen.getByRole("button", { name: "Reset recipe progress" }).hasAttribute("disabled")
-        ).toBe(true)
+        expect(screen.queryByRole("button", { name: "Reset recipe progress" })).toBeNull()
     })
 
     it("prints a body-level recipe clone and cleans it up after printing", () => {
@@ -400,7 +399,7 @@ describe("MemoizedMarkdown", () => {
         expect(printRoot?.textContent).toContain("Ingredients")
         expect(printRoot?.textContent).toContain("Method")
         expect(printRoot?.textContent).toContain("8 minutes")
-        expect(printRoot?.textContent).not.toContain("0 of 1 checked")
+        expect(printRoot?.textContent).not.toContain("Serves")
         expect(printRoot?.querySelector("[data-recipe-print-timer-control]")).toBeNull()
         expect(document.documentElement.classList.contains("recipe-printing")).toBe(true)
 
