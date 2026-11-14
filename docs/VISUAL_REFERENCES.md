@@ -49,6 +49,28 @@ All retained model-selected historical images continue to be attached on later v
 
 The stream finish event carries pending visual state after backend finalization. A stale history snapshot cannot remove that state or replace completed visuals with pending ones. A card keeps placeholders while its gallery width is first measured, avoiding an empty frame during the handoff. Review transitions from streaming to pending, partial card completion, and ready, as well as completion in a different order from the markup.
 
+## Video embeds
+
+Videos have no tool of their own. The Web Search skill tells the model to search with `domains: ["youtube.com"]` and to show a result with a tag alone on its line:
+
+```html
+<video url="https://www.youtube.com/watch?v=yTqVn8QJHJk" start="532" title="Lewandowski's brace"></video>
+```
+
+`web_search` normalizes every YouTube video it returns, filtered or not (`convex/lib/tools/video_results.ts`). The URL is reduced to its canonical watch form, repeats of one video are dropped, and the result gains a `video` object with the ID, channel, and duration. Videos that cannot be played are dropped before the model sees them, inside the same tool call.
+
+With `YOUTUBE_API_KEY` set, one YouTube Data API `videos.list` request covers every video in the search (one quota unit). A video is dropped when it is missing from the answer, private, not embeddable, or blocked in the user's country: `regionRestriction` lists either the only countries a video plays in or the countries it is blocked in. Rights-managed footage is often limited to a handful of countries, and Perplexity's own `country` option does not exclude such videos. The API also supplies the channel and duration.
+
+The user's country comes from the browser: `getUserCountry` maps the device's time zone to its ISO country and sends it as `userCountry` with the chat request. It is not shown to the model or sent to YouTube; the comparison happens on our server. Region blocks are enforced on the viewer's IP address, so a user on a VPN or travelling with an unchanged clock can still meet a blocked video. Without a country there is no region filter.
+
+Without the key, or when the API call fails, each video is checked against YouTube's keyless oEmbed endpoint instead: a 401, 403, or 404 means it was removed, made private, or cannot be embedded. oEmbed cannot see region blocks. A slow or failed lookup keeps the result. In that mode the channel comes from oEmbed, falling back to the snippet's `## Channel` line, and the duration from the snippet's `##### date (h:mm:ss)` line.
+
+Snippets can carry transcript excerpts marked `{ts:N}` in seconds, which is what `start` is taken from.
+
+The card renders only for a video that a web search returned somewhere in the conversation (`collectKnownVideos`), so a URL the model wrote from memory shows nothing. Its heading is the model's title, falling back to the video's own. `url` also accepts `src`, short links, and Shorts URLs; `start` accepts seconds or a clock time. A `<video>` tag that is inline, fenced, or not a YouTube video stays ordinary Markdown. At most three cards render per reply. Nothing is stored: the thumbnail loads from `i.ytimg.com`, and the `youtube-nocookie.com` player is mounted only when the user presses play. The player needs a referrer, so it must not be given `no-referrer`.
+
+The opening classifier has a `web_search_video` question so a request to watch something enables Web Search. It shares the Web Search threshold and has not been calibrated against live evals.
+
 ## Brave response fields
 
 The [Image Search API reference](https://api-dashboard.search.brave.com/api-reference/images/image_search) describes the search endpoint and response. The implementation requests 12 results with worldwide country selection and strict safe search, then attempts at most eight candidates to obtain up to six inspectable images. Quick looks select up to three, or one for a recipe step.

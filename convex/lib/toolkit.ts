@@ -31,6 +31,8 @@ export type ConditionalToolParams = {
     userSettings: Infer<typeof UserSettings>
     toolAvailability: ResolvedToolAvailabilityMap
     useStrictCharts?: boolean
+    // ISO 3166-1 alpha-2, as reported by the client. Used to drop region-blocked videos.
+    userCountry?: string
 }
 
 export type ToolCallBudgetController = {
@@ -137,7 +139,7 @@ export const getToolkit = async (
     enabledTools: AbilityId[],
     userSettings: Infer<typeof UserSettings>,
     controller?: ToolCallBudgetController,
-    modelOptions?: Pick<ConditionalToolParams, "useStrictCharts">
+    modelOptions?: Pick<ConditionalToolParams, "useStrictCharts" | "userCountry">
 ): Promise<Record<string, Tool>> => {
     const toolAvailability = resolveToolAvailability(userSettings)
     const sanitizedEnabledTools = sanitizeEnabledTools(enabledTools, toolAvailability)
@@ -148,7 +150,8 @@ export const getToolkit = async (
                 enabledTools: sanitizedEnabledTools,
                 userSettings,
                 toolAvailability,
-                useStrictCharts: modelOptions?.useStrictCharts
+                useStrictCharts: modelOptions?.useStrictCharts,
+                userCountry: modelOptions?.userCountry
             })
         )
     )

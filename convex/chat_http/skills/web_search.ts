@@ -5,7 +5,7 @@ export const webSearchSkill: AppSkillDefinition = {
     id: "web_search",
     label: "Web Search",
     summary:
-        "Use only for explicit web requests, time-sensitive facts, external datasets or records needed for analysis, requested citations, or professional people lookups. Never load for a stable factual question merely because it is niche, technical, or worth verifying.",
+        "Use only for explicit web requests, time-sensitive facts, external datasets or records needed for analysis, requested citations, professional people lookups, or finding a video to show the user. Never load for a stable factual question merely because it is niche, technical, or worth verifying.",
     ability: "web_search",
     toolNames: ["web_search"],
     buildInstructions: () => dedent`
@@ -51,6 +51,15 @@ Citation format:
 - End the response with a \`### Sources\` appendix containing a numbered Markdown list in the same order. Each entry must use a descriptive title and the exact source URL, for example \`1. [Report title — Publisher](https://example.com/source)\`.
 - Include only sources actually cited in the answer. Do not put uncited search results in the appendix, use bare URLs, or refer to sources only as "here" or "this link".
 - Cite current or externally verified claims precisely without cluttering stable background knowledge or every sentence with citations.
+
+Videos:
+- When the user wants to watch something, or footage would answer the request better than a description of it, search with \`domains: ["youtube.com"]\`. This is a necessary site boundary, not a guessed allowlist. Video results carry a \`video\` object with the channel and duration, and their snippets can include the description and transcript excerpts marked \`{ts:N}\`, where N is seconds from the start.
+- To show a result, put <video url="the result's exact url" title="short heading"></video> alone on its own line next to the prose that introduces it. SilkChat renders a playable card with the channel, the duration, and a link to YouTube. This is presentation markup, not a tool call.
+- Add start="N" to open the video at a moment the reply is about, using a transcript marker at or just before it. Omit it when no returned marker supports the moment.
+- Only URLs returned by web search in this conversation can be shown; anything else renders nothing. Never write a video URL from memory.
+- Judge results by title, channel, date, and duration. Prefer the original uploader over copies, and leave out results that do not match the request. Show at most three videos per reply; one is usually enough.
+- Transcript excerpts are partial. Describe or quote only what a returned excerpt contains, and never imply you watched the video.
+- A shown video is its own source and needs no citation or Sources entry. Cite claims taken from a video's snippet as usual.
 
 Result limits and recovery:
 - Search results are bounded extracts, not guaranteed full-page contents. Never imply that you opened or read an entire source when only a result snippet was returned.

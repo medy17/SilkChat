@@ -13,7 +13,7 @@ family regardless of which tool made them.
 | --- | --- |
 | `spotlight-surface` utility | `src/styles/globals.css` |
 | `spotlight-glass` utility (the glass material) | `src/styles/glass.css` |
-| `SPOTLIGHT_CARD_CLASS`, `SpotlightHeader`, `SpotlightChips`, `useSpotlightFilter`, `SpotlightFrame` | `src/components/renderers/spotlight-frame.tsx` |
+| `SPOTLIGHT_CARD_CLASS`, `SPOTLIGHT_ICON_BUTTON_CLASS`, `SpotlightHeader`, `SpotlightChips`, `useSpotlightFilter`, `SpotlightFrame` | `src/components/renderers/spotlight-frame.tsx` |
 | Countdown clock, timer chip, cook mode readout | `src/components/renderers/spotlight-timer.tsx` |
 | Chart plotting, formatting, fill gradients, ticks | `src/components/renderers/chart-plot.tsx` |
 | Chart data table | `src/components/renderers/chart-data-table.tsx` |

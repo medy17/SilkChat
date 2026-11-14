@@ -482,6 +482,20 @@ function PrivacyPolicyPage() {
                                 </ExternalLink>
                             </PolicyItem>
                             <PolicyItem>
+                                <strong>YouTube</strong>: Used to show videos found by web search.
+                                When a reply includes a video, your browser loads its preview image
+                                from YouTube. The player itself loads only when you press play, and
+                                from then on YouTube handles the video under Google's privacy
+                                policy. So that we can leave out videos that are blocked where you
+                                are, your browser tells us your country, taken from your device's
+                                time zone. We check each video's availability with YouTube from our
+                                servers and do not send YouTube your country or anything else about
+                                you. Privacy policy:{" "}
+                                <ExternalLink href="https://policies.google.com/privacy">
+                                    policies.google.com/privacy
+                                </ExternalLink>
+                            </PolicyItem>
+                            <PolicyItem>
                                 <strong>Vercel Sandbox</strong>: Used to run code when a chat uses
                                 code execution. Code written for your request runs in an isolated
                                 environment operated by Vercel, and files it produces are stored

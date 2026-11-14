@@ -96,6 +96,11 @@ vi.mock("@/lib/browser-env", () => ({
     optionalBrowserEnv: vi.fn(() => undefined)
 }))
 
+// Read from the device's time zone, which differs between machines.
+vi.mock("@/lib/user-country", () => ({
+    getUserCountry: () => "MY"
+}))
+
 vi.mock("@ai-sdk/react", () => ({
     useChat: useChatMock
 }))
@@ -440,7 +445,8 @@ describe("useChatIntegration", () => {
                 autoSelectTools: false,
                 folderId: "folder-1",
                 reasoningEffort: "medium",
-                clientId: "client-1"
+                clientId: "client-1",
+                userCountry: "MY"
             }
         })
         expect(useChatStore.getState().manuallyStoppedThreads["thread-1"]).toBe(false)

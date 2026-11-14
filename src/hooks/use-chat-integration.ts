@@ -14,6 +14,7 @@ import { getActiveDevContextOverride } from "@/lib/dev-overrides"
 import { decodeInlineDocumentDataUrl } from "@/lib/document-context"
 import { type ReasoningEffort, useModelStore } from "@/lib/model-store"
 import { resolvePublicFileUrl } from "@/lib/r2-public-url"
+import { getUserCountry } from "@/lib/user-country"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
@@ -491,6 +492,7 @@ export function useChatIntegration<IsShared extends boolean>({
                               reasoningEffort:
                                   requestBody.reasoningEffortOverride ?? reasoningEffort,
                               clientId,
+                              userCountry: getUserCountry(),
                               personaSelection: currentContext.threadId
                                   ? undefined
                                   : selectedPersona,

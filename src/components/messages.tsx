@@ -27,6 +27,7 @@ import {
     getMessageRenderFingerprint
 } from "@/lib/message-render-fingerprint"
 import { getMessageWebSearches, getMessageImageSearches } from "@/lib/message-web-searches"
+import { collectKnownVideos } from "@/lib/video-references"
 import { formatQuotedSelection } from "@/lib/quote-selection"
 import {
     SELECTION_TOOLBAR_HEIGHT_PX,
@@ -65,6 +66,7 @@ import { Virtualizer, type VirtualizerHandle } from "virtua"
 import { AttachmentTile } from "./attachment-tile"
 import { ChatActions } from "./chat-actions"
 import { ChatErrorNotice } from "./chat-error-notice"
+import { KnownVideosContext } from "./video-embed"
 import { VisualSelectionContext } from "./visual-references"
 import type { VisualSelection } from "@/lib/visual-selections"
 import { MemoizedMarkdown } from "./memoized-markdown"
@@ -1674,6 +1676,8 @@ export const Messages = forwardRef<
             copyOnlyActions
         ])
 
+        const knownVideos = useMemo(() => collectKnownVideos(messages), [messages])
+
         const keepMountedIndexes = useMemo(() => {
             const alwaysMountedIndexes = new Set<number>()
 
@@ -1932,7 +1936,7 @@ export const Messages = forwardRef<
         }, [onQuoteSelection])
 
         return (
-            <>
+            <KnownVideosContext.Provider value={knownVideos}>
                 <div
                     className="min-h-[calc(100dvh-var(--app-header-height)+var(--chat-composer-overlap))] overflow-y-auto p-4 pt-6 [overflow-anchor:none] md:[scrollbar-gutter:stable_both-edges]"
                     ref={scrollerRef}
@@ -2071,7 +2075,7 @@ export const Messages = forwardRef<
                         )}
                     </DialogContent>
                 </Dialog>
-            </>
+            </KnownVideosContext.Provider>
         )
     }
 )

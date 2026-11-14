@@ -175,6 +175,7 @@ import type * as lib_tools_image_search from "../lib/tools/image_search.js";
 import type * as lib_tools_native_chart from "../lib/tools/native_chart.js";
 import type * as lib_tools_roleplay_portrait from "../lib/tools/roleplay_portrait.js";
 import type * as lib_tools_supermemory from "../lib/tools/supermemory.js";
+import type * as lib_tools_video_results from "../lib/tools/video_results.js";
 import type * as lib_tools_web_search from "../lib/tools/web_search.js";
 import type * as lib_usage_metering from "../lib/usage_metering.js";
 import type * as lib_usage_reset_state from "../lib/usage_reset_state.js";
@@ -409,6 +410,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tools/native_chart": typeof lib_tools_native_chart;
   "lib/tools/roleplay_portrait": typeof lib_tools_roleplay_portrait;
   "lib/tools/supermemory": typeof lib_tools_supermemory;
+  "lib/tools/video_results": typeof lib_tools_video_results;
   "lib/tools/web_search": typeof lib_tools_web_search;
   "lib/usage_metering": typeof lib_usage_metering;
   "lib/usage_reset_state": typeof lib_usage_reset_state;

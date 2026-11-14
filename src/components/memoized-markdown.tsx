@@ -12,11 +12,17 @@ import {
     splitVisualContent,
     type VisualContentSegment
 } from "@/lib/visual-references"
+import {
+    MAX_VIDEO_EMBEDS,
+    splitVideoContent,
+    type VideoContentSegment
+} from "@/lib/video-references"
 import { memo } from "react"
 import { parseMarkdownIntoBlocks, Streamdown } from "streamdown"
 import { CodePreviewContext } from "./codeblock"
 import { RecipeCard } from "./recipe-card"
 import { SilkAppBlock, type SilkAppSourceProps } from "./silk-app/silk-app-block"
+import { VideoEmbed } from "./video-embed"
 import { VisualReferences } from "./visual-references"
 import { streamdownComponents, streamdownPlugins } from "./streamdown-config"
 
@@ -91,6 +97,7 @@ export const MemoizedMarkdown = memo(
         }
 
         let visualCount = 0
+        let videoCount = 0
         const segments = splitRoleplayContent(content, isAnimating)
             .flatMap<RoleplaySegment | RecipeContentSegment>((segment) =>
                 segment.type === "roleplay" ? [segment] : splitRecipeContent(segment.content)
@@ -109,6 +116,18 @@ export const MemoizedMarkdown = memo(
                     : [segment]
             )
             .filter((segment) => segment.type !== "visual" || ++visualCount <= MAX_VISUAL_SEARCHES)
+            .flatMap<
+                | RoleplaySegment
+                | RecipeContentSegment
+                | SilkAppContentSegment
+                | VisualContentSegment
+                | VideoContentSegment
+            >((segment) =>
+                segment.type === "markdown"
+                    ? splitVideoContent(segment.content, isAnimating)
+                    : [segment]
+            )
+            .filter((segment) => segment.type !== "video" || ++videoCount <= MAX_VIDEO_EMBEDS)
 
         // Each segment is its own Markdown document, so carry the message's link definitions
         // into the segments that lack them; a [ref] then resolves across a split.
@@ -160,6 +179,17 @@ export const MemoizedMarkdown = memo(
                                     limit={3}
                                     variant="gallery"
                                     framed
+                                />
+                            </div>
+                        )
+                    }
+                    if (segment.type === "video") {
+                        return (
+                            <div key={`video-${index}`} className="my-4">
+                                <VideoEmbed
+                                    id={segment.id}
+                                    start={segment.start}
+                                    title={segment.title}
                                 />
                             </div>
                         )

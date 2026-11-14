@@ -75,6 +75,12 @@ export const createOpeningToolsCaller = ({
                 "Does fulfilling the user's request require retrieving a publicly accessible dataset, measurements, records, or source documents that are not supplied in the request? Include historical records needed for a specific comparison or analysis; the records need not be recent. Exclude private or user-specific records that cannot be found on the public web, ordinary stable knowledge questions, simple definitions, and calculations whose inputs are already supplied. Judge the work required, even if the user does not explicitly say search or browse." +
                 SKILL_REQUEST_RULES
         }
+        questions.web_search_video = {
+            type: "noul",
+            instructions:
+                "Does fulfilling `request` mean finding an existing video for the user to watch? Web search can find videos and show them in the conversation. Judge whether watching footage is what the user is after, even if they never say search. Exclude making, scripting, editing, or generating a video, questions about a video the user already has, and requests a written answer fully satisfies." +
+                SKILL_REQUEST_RULES
+        }
         questions.web_search_forbidden = {
             type: "noul",
             instructions:
@@ -141,7 +147,8 @@ export const createOpeningToolsCaller = ({
                             "web_search",
                             "web_search_current",
                             "web_search_after_cutoff",
-                            "web_search_data"
+                            "web_search_data",
+                            "web_search_video"
                         ) >= thresholds.web_search
                     )
                 if (id === "math") return need("math", "math_visualization") >= thresholds.math

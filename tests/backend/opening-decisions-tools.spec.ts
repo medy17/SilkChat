@@ -128,6 +128,7 @@ describe("opening tool decisions", () => {
             "web_search_current",
             "web_search_after_cutoff",
             "web_search_data",
+            "web_search_video",
             "web_search_forbidden"
         ])
         expect(request.questions.web_search.type).toBe("noul")

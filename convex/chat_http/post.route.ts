@@ -853,6 +853,8 @@ async function handleChatPost(
         // Only read when the request creates the thread.
         temporary?: boolean
         clientId?: string
+        // The device's country, derived from its time zone.
+        userCountry?: string
         devContextOverride?: { hostedInputLimit?: number; modelInputLimit?: number }
     }
 
@@ -2222,7 +2224,14 @@ async function handleChatPost(
                                   )
                               }
                           },
-                          { useStrictCharts: modelData.useStrictCharts }
+                          {
+                              useStrictCharts: modelData.useStrictCharts,
+                              userCountry:
+                                  typeof body.userCountry === "string" &&
+                                  /^[A-Z]{2}$/.test(body.userCountry)
+                                      ? body.userCountry
+                                      : undefined
+                          }
                       )
                     : {}
                 const providerPaidTools =

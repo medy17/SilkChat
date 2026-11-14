@@ -24,7 +24,8 @@ export type SpotlightSize = {
 export const SPOTLIGHT_CARD_CLASS =
     "rounded-[var(--radius-lg)] border border-border text-card-foreground shadow-sm spotlight-surface"
 
-const iconButtonClass =
+/** Icon-sized control for a Spotlight header's action slot. */
+export const SPOTLIGHT_ICON_BUTTON_CLASS =
     "size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 
 export function SpotlightHeader({
@@ -209,7 +210,10 @@ export function SpotlightFrame({
                                     <button
                                         type="button"
                                         aria-label={`Expand ${kind}`}
-                                        className={cn("hidden md:flex", iconButtonClass)}
+                                        className={cn(
+                                            "hidden md:flex",
+                                            SPOTLIGHT_ICON_BUTTON_CLASS
+                                        )}
                                     >
                                         <Maximize2 className="size-4" />
                                     </button>
@@ -242,7 +246,7 @@ export function SpotlightFrame({
                                 <button
                                     type="button"
                                     aria-label={`Close expanded ${kind}`}
-                                    className={cn("inline-flex", iconButtonClass)}
+                                    className={cn("inline-flex", SPOTLIGHT_ICON_BUTTON_CLASS)}
                                 >
                                     <X className="size-4" />
                                 </button>

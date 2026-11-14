@@ -3,6 +3,7 @@ import { z } from "zod"
 import type { ToolAdapter } from "../toolkit"
 import { PerplexitySearchAdapter } from "./adapters"
 import { getDeploymentSearchApiKey } from "./availability"
+import { normalizeVideoResults } from "./video_results"
 
 const dateFilterSchema = z
     .string()
@@ -74,7 +75,7 @@ export const webSearchInputSchema = z.object({
         .max(20)
         .optional()
         .describe(
-            "Set only for an explicit or necessary site boundary—not merely to seek reliable sources. Domains or paths allowlisted normally or denylisted with -"
+            "Set only for an explicit or necessary site boundary—not merely to seek reliable sources. Use youtube.com to find videos. Domains or paths allowlisted normally or denylisted with -"
         ),
     publishedAfter: dateFilterSchema
         .optional()
@@ -104,7 +105,7 @@ export const WebSearchAdapter: ToolAdapter = async (params) => {
     return {
         web_search: tool({
             description:
-                "Use only after loading Web Search, and only for an explicit web request, time-sensitive facts, external datasets or records needed for analysis, requested citations, or professional people lookups. Do not use for stable factual questions merely because they are niche, technical, unfamiliar, or worth verifying. Start with one query and no optional refinements; narrow only when the user requests a boundary or a broad search proves insufficient.",
+                "Use only after loading Web Search, and only for an explicit web request, time-sensitive facts, external datasets or records needed for analysis, requested citations, professional people lookups, or finding a video to show. Do not use for stable factual questions merely because they are niche, technical, unfamiliar, or worth verifying. Start with one query and no optional refinements; narrow only when the user requests a boundary or a broad search proves insufficient.",
             inputSchema: webSearchInputSchema,
             execute: async ({
                 query,
@@ -147,12 +148,16 @@ export const WebSearchAdapter: ToolAdapter = async (params) => {
                         recency: exactDateFilterSelected ? undefined : recency
                     })
 
+                    const results = await normalizeVideoResults(response.results, {
+                        country: params.userCountry
+                    })
+
                     return {
                         success: true,
                         query,
                         searchType,
-                        results: response.results,
-                        count: response.results.length,
+                        results,
+                        count: results.length,
                         ...(response.id ? { requestId: response.id } : {}),
                         ...(response.serverTime !== undefined
                             ? { serverTime: response.serverTime }
