@@ -130,11 +130,6 @@ const parseAspectRatioForDisplay = (value: unknown) => {
     return DEFAULT_ASPECT_RATIO
 }
 
-const clampGridDimension = (value: number) => {
-    if (!Number.isFinite(value)) return 20
-    return Math.min(80, Math.max(1, Math.round(value)))
-}
-
 const MAX_IMAGE_LOAD_RETRIES = 3
 
 // ConvexError carries the clean, user-facing message in `data`; plain action
@@ -492,24 +487,6 @@ export const ImageGenerationToolRenderer = memo(
             [aspectRatio]
         )
 
-        // Calculate optimal rows and cols based on aspect ratio
-        const { rows, cols } = useMemo(() => {
-            const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
-            const baseSize = 20 // Base number of dots for smaller dimension
-            if (!isFinitePositiveNumber(widthRatio) || !isFinitePositiveNumber(heightRatio)) {
-                return { rows: baseSize, cols: baseSize }
-            }
-
-            if (widthRatio >= heightRatio) {
-                // Landscape or square
-                const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
-                return { rows: baseSize, cols: clampGridDimension(calculatedCols) }
-            }
-            // Portrait
-            const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
-            return { rows: clampGridDimension(calculatedRows), cols: baseSize }
-        }, [cssAspectRatio])
-
         if (isLoading) {
             return (
                 <div
@@ -780,10 +757,6 @@ export const ImageGenerationToolRenderer = memo(
                                     aria-label={`Variant ${visibleSlotIndex + 1} of ${totalSlots} is still generating`}
                                 >
                                     <ImageSkeleton
-                                        rows={rows}
-                                        cols={cols}
-                                        dotSize={3}
-                                        gap={4}
                                         loadingDuration={99999}
                                         autoLoop={false}
                                         className="h-full w-full border-0 bg-transparent"
@@ -800,10 +773,6 @@ export const ImageGenerationToolRenderer = memo(
                                 </div>
                             ) : isWorking ? (
                                 <ImageSkeleton
-                                    rows={rows}
-                                    cols={cols}
-                                    dotSize={3}
-                                    gap={4}
                                     loadingDuration={99999}
                                     autoLoop={false}
                                     className="h-full w-full border-0 bg-transparent"

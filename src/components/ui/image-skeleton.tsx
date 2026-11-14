@@ -1,19 +1,12 @@
 "use client"
 
-import { type ComponentProps, useEffect, useMemo, useRef, useState } from "react"
-
-type DotData = {
-    row: number
-    col: number
-    speed: number
-    offset: number
-}
+import { type ComponentProps, useEffect, useRef, useState } from "react"
 
 type ImageSkeletonProps = {
-    rows?: number
-    cols?: number
+    /** Dot width in CSS pixels. */
     dotSize?: number
-    gap?: number
+    /** Distance between dot centers in CSS pixels, the same on both axes. */
+    pitch?: number
     imageUrl?: string
     loadingDuration?: number
     autoLoop?: boolean
@@ -21,29 +14,25 @@ type ImageSkeletonProps = {
 
 const REVEAL_DURATION_MS = 800
 const LOOP_RESET_DELAY_MS = 3000
-const MAX_DOTS = 4000
+const MAX_DOTS = 10000
+// How far the cursor lights dots, in CSS pixels, and how long they take to fade
+// once it has moved on.
+const POINTER_REACH_PX = 72
+const POINTER_TRAIL_MS = 220
+// The lit area bulges like a lens: dots are pushed away from the cursor by up to
+// this many CSS pixels, and take this long to catch up with it.
+const POINTER_BULGE_PX = 8
+const POINTER_BULGE_LAG_MS = 70
 
-const normalizeGridDimension = (value: number | undefined, fallback: number) => {
-    if (!Number.isFinite(value)) return fallback
-    return Math.min(120, Math.max(1, Math.floor(value ?? fallback)))
-}
-
-function createDots(rows: number, cols: number): DotData[] {
-    const count = Math.min(MAX_DOTS, rows * cols)
-
-    return Array.from({ length: count }, (_, index) => ({
-        row: Math.floor(index / cols),
-        col: index % cols,
-        speed: 0.001 + Math.random() * 0.002,
-        offset: Math.random() * Math.PI * 2
-    }))
+// A stable 0..1 value per dot, so a dot keeps its rhythm when the grid is rebuilt.
+const dotNoise = (row: number, col: number, seed: number) => {
+    const value = Math.sin(row * 127.1 + col * 311.7 + seed) * 43758.5453
+    return value - Math.floor(value)
 }
 
 export const ImageSkeleton = ({
-    rows = 15,
-    cols = 25,
-    dotSize = 0,
-    gap = 6,
+    dotSize = 3,
+    pitch = 10,
     imageUrl = "/placeholder.svg?height=400&width=600",
     loadingDuration = 3000,
     autoLoop = true,
@@ -52,15 +41,19 @@ export const ImageSkeleton = ({
 }: ImageSkeletonProps) => {
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
-    const themeColorRef = useRef("rgb(59 130 246)")
+    // Dots take the primary color. Near the cursor they pick up the chart colors.
+    const themeColorsRef = useRef({
+        dot: "rgb(59 130 246)",
+        core: "rgb(59 130 246)",
+        halo: "rgb(59 130 246)"
+    })
 
     const [showImage, setShowImage] = useState(false)
     const [isShimmering, setIsShimmering] = useState(true)
     const [animationKey, setAnimationKey] = useState(0)
 
-    const safeRows = normalizeGridDimension(rows, 15)
-    const safeCols = normalizeGridDimension(cols, 25)
-    const dots = useMemo(() => createDots(safeRows, safeCols), [safeRows, safeCols])
+    // Each skeleton shimmers in its own pattern.
+    const [seed] = useState(() => Math.random() * 1000)
 
     useEffect(() => {
         let isMounted = true
@@ -110,16 +103,16 @@ export const ImageSkeleton = ({
 
         const updateThemeColor = () => {
             const computedStyle = window.getComputedStyle(container)
-            const primaryColor = computedStyle.getPropertyValue("--primary").trim()
-
-            if (primaryColor && CSS.supports("color", primaryColor)) {
-                themeColorRef.current = primaryColor
-                return
+            const readColor = (name: string) => {
+                const value = computedStyle.getPropertyValue(name).trim()
+                return value && CSS.supports("color", value) ? value : null
             }
 
-            const resolvedColor = computedStyle.color
-            if (resolvedColor) {
-                themeColorRef.current = resolvedColor
+            const dot = readColor("--primary") || computedStyle.color || themeColorsRef.current.dot
+            themeColorsRef.current = {
+                dot,
+                core: readColor("--chart-1") ?? dot,
+                halo: readColor("--chart-2") ?? dot
             }
         }
 
@@ -145,6 +138,38 @@ export const ImageSkeleton = ({
 
         let animationFrameId = 0
         let fadeAlpha = 1
+        let lastTime = 0
+        let grid = {
+            rows: 0,
+            cols: 0,
+            speeds: new Float32Array(0),
+            offsets: new Float32Array(0),
+            // How lit each dot is by the cursor, 0..1.
+            energy: new Float32Array(0),
+            // How far each dot is pushed off its place, in canvas pixels.
+            shiftX: new Float32Array(0),
+            shiftY: new Float32Array(0),
+            glowing: false
+        }
+
+        // Tracked on the window because the canvas sits under other layers and takes
+        // no pointer events. Touch is left out: a finger on a tile is scrolling.
+        const pointer = { x: 0, y: 0, active: false }
+        const handlePointerMove = (event: PointerEvent) => {
+            if (event.pointerType === "touch") return
+            pointer.x = event.clientX
+            pointer.y = event.clientY
+            pointer.active = true
+        }
+        const handlePointerGone = () => {
+            pointer.active = false
+        }
+        const followsPointer = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        if (followsPointer) {
+            window.addEventListener("pointermove", handlePointerMove, { passive: true })
+            window.addEventListener("blur", handlePointerGone)
+            document.documentElement.addEventListener("pointerleave", handlePointerGone)
+        }
 
         const render = (time: number) => {
             const rect = canvas.getBoundingClientRect()
@@ -157,33 +182,143 @@ export const ImageSkeleton = ({
                 canvas.height = targetHeight
             }
 
-            fadeAlpha = isShimmering
-                ? Math.min(1, fadeAlpha + 0.05)
-                : Math.max(0, fadeAlpha - 0.05)
+            fadeAlpha = isShimmering ? Math.min(1, fadeAlpha + 0.05) : Math.max(0, fadeAlpha - 0.05)
 
             context.clearRect(0, 0, canvas.width, canvas.height)
 
             if (fadeAlpha > 0) {
-                const cellWidth = canvas.width / safeCols
-                const cellHeight = canvas.height / safeRows
-                const actualGap = gap * dpr
-                const baseDotSize =
-                    dotSize > 0
-                        ? Math.min(dotSize * dpr, Math.max(cellWidth - actualGap, 1), Math.max(cellHeight - actualGap, 1))
-                        : Math.max(Math.min(cellWidth, cellHeight) - actualGap, 1)
+                // The grid is laid out from the element's own size at a fixed pitch, so
+                // every skeleton has the same dot density whatever its shape. Only a
+                // surface too large for the dot budget spaces its dots further apart.
+                const safePitch = Math.max(pitch, 1)
+                const step =
+                    Math.max(safePitch, Math.sqrt((rect.width * rect.height) / MAX_DOTS)) * dpr
+                const cols = Math.max(1, Math.floor(canvas.width / step))
+                const rows = Math.max(1, Math.floor(canvas.height / step))
+                const size = Math.max(1, Math.round(Math.min(dotSize, safePitch) * dpr))
 
-                context.fillStyle = themeColorRef.current
-
-                for (const dot of dots) {
-                    const phase = time * dot.speed + dot.offset
-                    const pulse = (Math.sin(phase) + 1) / 2
-                    context.globalAlpha = (0.18 + pulse * 0.62) * fadeAlpha
-
-                    const x = dot.col * cellWidth + (cellWidth - baseDotSize) / 2
-                    const y = dot.row * cellHeight + (cellHeight - baseDotSize) / 2
-
-                    context.fillRect(x, y, baseDotSize, baseDotSize)
+                if (grid.rows !== rows || grid.cols !== cols) {
+                    const speeds = new Float32Array(rows * cols)
+                    const offsets = new Float32Array(rows * cols)
+                    for (let row = 0; row < rows; row++) {
+                        for (let col = 0; col < cols; col++) {
+                            const index = row * cols + col
+                            speeds[index] = 0.001 + dotNoise(row, col, seed) * 0.002
+                            offsets[index] = dotNoise(row, col, seed + 500) * Math.PI * 2
+                        }
+                    }
+                    grid = {
+                        rows,
+                        cols,
+                        speeds,
+                        offsets,
+                        energy: new Float32Array(rows * cols),
+                        shiftX: new Float32Array(rows * cols),
+                        shiftY: new Float32Array(rows * cols),
+                        glowing: false
+                    }
                 }
+
+                const elapsed = Math.min(100, time - lastTime)
+                lastTime = time
+                const fade = Math.exp(-elapsed / POINTER_TRAIL_MS)
+                // Dots chase the cursor quickly and settle back at the pace of the trail.
+                const chase = 1 - Math.exp(-elapsed / POINTER_BULGE_LAG_MS)
+                const settle = 1 - fade
+                const reach = POINTER_REACH_PX * dpr
+                // The push is zero at the cursor and at the rim and peaks a third of
+                // the way out, where it reaches POINTER_BULGE_PX.
+                const bulge = (POINTER_BULGE_PX * dpr * 6.75) / reach
+                const pointerX = (pointer.x - rect.left) * dpr
+                const pointerY = (pointer.y - rect.top) * dpr
+                const pointerNear =
+                    pointer.active &&
+                    pointerX > -reach &&
+                    pointerX < canvas.width + reach &&
+                    pointerY > -reach &&
+                    pointerY < canvas.height + reach
+                // Skips the per-dot work while the cursor is away and nothing is fading.
+                const lit = pointerNear || grid.glowing
+                let glowing = false
+
+                // Centered, so the leftover space is split evenly between both edges.
+                const originX = (canvas.width - cols * step) / 2 + (step - size) / 2
+                const originY = (canvas.height - rows * step) / 2 + (step - size) / 2
+
+                const colors = themeColorsRef.current
+                context.fillStyle = colors.dot
+
+                for (let row = 0; row < rows; row++) {
+                    const y = Math.round(originY + row * step)
+                    for (let col = 0; col < cols; col++) {
+                        const index = row * cols + col
+                        const x = Math.round(originX + col * step)
+                        const phase = time * grid.speeds[index] + grid.offsets[index]
+                        const pulse = (Math.sin(phase) + 1) / 2
+                        const shimmer = 0.18 + pulse * 0.62
+
+                        let energy = 0
+                        let shiftX = 0
+                        let shiftY = 0
+                        if (lit) {
+                            energy = grid.energy[index] * fade
+                            let pushX = 0
+                            let pushY = 0
+                            let ease = settle
+                            if (pointerNear) {
+                                const awayX = x + size / 2 - pointerX
+                                const awayY = y + size / 2 - pointerY
+                                const distance = Math.hypot(awayX, awayY)
+                                if (distance < reach) {
+                                    const closeness = 1 - distance / reach
+                                    const strength = closeness * closeness
+                                    energy = Math.max(energy, strength)
+                                    pushX = awayX * strength * bulge
+                                    pushY = awayY * strength * bulge
+                                    ease = chase
+                                }
+                            }
+                            shiftX = grid.shiftX[index]
+                            shiftY = grid.shiftY[index]
+                            shiftX += (pushX - shiftX) * ease
+                            shiftY += (pushY - shiftY) * ease
+                            if (energy < 0.004) energy = 0
+                            if (energy > 0 || Math.abs(shiftX) + Math.abs(shiftY) > 0.05) {
+                                glowing = true
+                            } else {
+                                shiftX = 0
+                                shiftY = 0
+                            }
+                            grid.energy[index] = energy
+                            grid.shiftX[index] = shiftX
+                            grid.shiftY[index] = shiftY
+                        }
+
+                        // A lit dot grows by up to a pixel a side. A pushed dot sits
+                        // between pixels, so it moves smoothly instead of in steps.
+                        const grow = Math.round(energy * dpr)
+                        const left = x + shiftX - grow
+                        const top = y + shiftY - grow
+                        const side = size + grow * 2
+                        context.globalAlpha = shimmer * fadeAlpha
+                        context.fillRect(left, top, side, side)
+
+                        if (energy > 0) {
+                            // Color is painted over the dot: a wide halo in one chart
+                            // color and a tight core in the other. The halo falls off
+                            // more slowly, so it is also what lingers in the trail.
+                            context.fillStyle = colors.halo
+                            context.globalAlpha = Math.sqrt(energy) * fadeAlpha
+                            context.fillRect(left, top, side, side)
+                            context.fillStyle = colors.core
+                            context.globalAlpha = energy * fadeAlpha
+                            context.fillRect(left, top, side, side)
+                            context.fillStyle = colors.dot
+                        }
+                    }
+                }
+
+                grid.glowing = glowing
 
                 context.globalAlpha = 1
             }
@@ -199,8 +334,11 @@ export const ImageSkeleton = ({
 
         return () => {
             window.cancelAnimationFrame(animationFrameId)
+            window.removeEventListener("pointermove", handlePointerMove)
+            window.removeEventListener("blur", handlePointerGone)
+            document.documentElement.removeEventListener("pointerleave", handlePointerGone)
         }
-    }, [safeRows, safeCols, dots, isShimmering, gap, dotSize])
+    }, [isShimmering, pitch, dotSize, seed])
 
     return (
         <div

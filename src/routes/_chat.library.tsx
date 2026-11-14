@@ -531,19 +531,6 @@ const PendingImageItem = memo(
             return "1/1"
         }, [aspectRatio])
 
-        // Calculate optimal rows and cols based on aspect ratio
-        const { rows, cols } = useMemo(() => {
-            const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
-            const baseSize = 20
-
-            if (widthRatio >= heightRatio) {
-                const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
-                return { rows: baseSize, cols: calculatedCols }
-            }
-            const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
-            return { rows: calculatedRows, cols: baseSize }
-        }, [cssAspectRatio])
-
         const isStoringFailed = status === "storing_failed"
 
         return (
@@ -552,10 +539,6 @@ const PendingImageItem = memo(
                 style={{ aspectRatio: cssAspectRatio }}
             >
                 <ImageSkeleton
-                    rows={rows}
-                    cols={cols}
-                    dotSize={3}
-                    gap={4}
                     loadingDuration={99999}
                     autoLoop={false}
                     className="h-full w-full rounded-[var(--radius-xl)] border-0 bg-transparent"
@@ -839,17 +822,6 @@ const GeneratedImageItem = memo(
             return "1/1"
         }, [aspectRatio])
 
-        const { rows, cols } = useMemo(() => {
-            const [widthRatio, heightRatio] = cssAspectRatio.split("/").map(Number)
-            const baseSize = 20
-            if (widthRatio >= heightRatio) {
-                const calculatedCols = Math.round(baseSize * (widthRatio / heightRatio))
-                return { rows: baseSize, cols: calculatedCols }
-            }
-            const calculatedRows = Math.round(baseSize * (heightRatio / widthRatio))
-            return { rows: calculatedRows, cols: baseSize }
-        }, [cssAspectRatio])
-
         const sourceImageUrl = getGeneratedImageProxyUrl(image.storageKey)
         const copyImageUrl = getGeneratedImageCopyUrl(image.storageKey)
         const fullResolutionUrl = getGeneratedImageDirectUrl(image.storageKey) || sourceImageUrl
@@ -964,10 +936,6 @@ const GeneratedImageItem = memo(
                             >
                                 {placeholder === "tiles" ? (
                                     <ImageSkeleton
-                                        rows={rows}
-                                        cols={cols}
-                                        dotSize={3}
-                                        gap={4}
                                         loadingDuration={99999}
                                         autoLoop={false}
                                         className="h-full w-full border-0 bg-transparent"
