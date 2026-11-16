@@ -100,14 +100,16 @@ export function ComputerDisclosure({
     label,
     children,
     className,
-    triggerClassName
+    triggerClassName,
+    defaultOpen = false
 }: {
     label: string
     children: ReactNode
     className?: string
     triggerClassName?: string
+    defaultOpen?: boolean
 }) {
-    const [open, setOpen] = useState(false)
+    const [open, setOpen] = useState(defaultOpen)
     return (
         <section className={className}>
             <button

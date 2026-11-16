@@ -33,6 +33,7 @@ import { Computer } from "./schema/computer"
 import { ComputerKey } from "./schema/computer_key"
 import { ThreadPersonaSnapshot, UserPersona } from "./schema/persona"
 import { UserSettings } from "./schema/settings"
+import { Skill, SkillVersion, ThreadSkill } from "./schema/skill"
 import { ResumableStream } from "./schema/streams"
 import { SharedThread, Thread } from "./schema/thread"
 import { UsageEvent } from "./schema/usage"
@@ -215,6 +216,12 @@ export default defineSchema({
         .index("byAuthor", ["authorId"])
         .index("byAuthorUpdatedAt", ["authorId", "updatedAt"]),
     threadPersonaSnapshots: defineTable(ThreadPersonaSnapshot).index("byThreadId", ["threadId"]),
+    skills: defineTable(Skill).index("byUserSlug", ["userId", "slug"]),
+    skillVersions: defineTable(SkillVersion).index("byUserSlugHash", ["userId", "slug", "hash"]),
+    threadSkills: defineTable(ThreadSkill)
+        .index("byThread", ["threadId"])
+        .index("byVersion", ["versionId"])
+        .index("byUserSlug", ["userId", "slug"]),
 
     sharedThreads: defineTable(SharedThread).index("byAuthorId", ["authorId"]),
     streams: defineTable(ResumableStream).index("byThreadId", ["threadId"]),

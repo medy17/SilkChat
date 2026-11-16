@@ -57,6 +57,13 @@ crons.daily(
     internal.reference_uploads.sweepStaleReferenceUploads
 )
 
+crons.daily(
+    "sweep skill versions no chat uses",
+    { hourUTC: 4, minuteUTC: 30 },
+    internal.skills.sweepThreadSkills,
+    {}
+)
+
 crons.weekly(
     "queue inactive account notices",
     { dayOfWeek: "monday", hourUTC: 9, minuteUTC: 0 },

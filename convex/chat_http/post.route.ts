@@ -46,6 +46,8 @@ import { dbMessagesToCore } from "../lib/db_to_core_messages"
 import { EPHEMERAL_CACHE_CONTROL, withCacheBreakpoint } from "../lib/prompt_caching"
 import { MAX_INLINE_TEXT_ATTACHMENT_TOKENS } from "../lib/file_constants"
 import { getUserIdentity } from "../lib/identity"
+import { MAX_SKILLS_PER_CHAT } from "../lib/skill_bundle"
+import { type ChatSkill, getChatSkillFileKey } from "../lib/thread_skills"
 import {
     type PreparedImageReference,
     formatImageModelCapabilitySummary,
@@ -104,6 +106,11 @@ import { manualStreamTransform } from "./manual_stream_transform"
 import { runOpeningDecisions } from "./decisions/engine"
 import { consumeOpeningTools, createOpeningToolsCaller } from "./decisions/tools"
 import { createVerbosityCaller, resolveVerbosity } from "./decisions/verbosity"
+import {
+    type ReadSkillFile,
+    getPreviouslyLoadedCustomSkillSlugs,
+    restoreCustomSkillResults
+} from "./skills/custom"
 import { shouldPreloadRoleplay } from "./skills/roleplay"
 import {
     buildCapabilityContext,
@@ -419,6 +426,12 @@ export const resolvePersonaOpeningForRequest = async (
         messageId: request?.messageId ?? `${fallbackMessageId}:opening`,
         parts: [{ type: "text", text: opening.text }]
     }
+}
+
+const fetchStoredText = async (key: string) => {
+    const response = await fetch(await r2.getUrl(key))
+    if (!response.ok) throw new Error(`Failed to fetch stored file: ${key}`)
+    return await response.text()
 }
 
 const fetchPersonaDocumentText = async (key: string) => {
@@ -852,6 +865,9 @@ async function handleChatPost(
         personaOpening?: PersonaOpeningRequest
         // Only read when the request creates the thread.
         temporary?: boolean
+        // The installed skills picked for a new chat, by name. Left out, the chat gets the
+        // ones switched on for new chats.
+        skills?: string[]
         clientId?: string
         // The device's country, derived from its time zone.
         userCountry?: string
@@ -891,7 +907,14 @@ async function handleChatPost(
     try {
         readiness = await ctx.runQuery(internal.chat_readiness.get, {
             userId: user.id,
-            threadId: body.id as Id<"threads"> | undefined
+            threadId: body.id as Id<"threads"> | undefined,
+            ...(!body.id && Array.isArray(body.skills)
+                ? {
+                      skillSlugs: body.skills
+                          .filter((slug) => typeof slug === "string")
+                          .slice(0, MAX_SKILLS_PER_CHAT)
+                  }
+                : {})
         })
     } catch (error) {
         console.error("[cvx][chat] Failed to read turn readiness", error)
@@ -1055,6 +1078,9 @@ async function handleChatPost(
                 personaSnapshot: personaSnapshot ?? undefined,
                 openingMessage: personaOpening ?? undefined,
                 temporary: !body.id && body.temporary === true ? true : undefined,
+                skillVersionIds: !body.id
+                    ? readiness.newThreadSkills.map((skill) => skill.versionId)
+                    : undefined,
                 openingToolSelection: !body.id
                     ? {
                           enabledTools: callableEnabledTools,
@@ -1214,6 +1240,25 @@ async function handleChatPost(
         enabledTools: callableEnabledTools,
         imageGenerationEnabled: hasInternalImagePreparationTool
     })
+    // The chat's installed skills: fixed when it was created, or about to be. They load
+    // through load_skill, so a model without function calling gets none.
+    const chatSkills: ChatSkill[] = modelSupportsFunctionCalling
+        ? ((body.id ? readiness.context?.skills : readiness.newThreadSkills) ?? [])
+        : []
+    const customSkillIndex = { skills: chatSkills, loadedSlugs: new Set<string>() }
+    const skillFileReads = new Map<string, Promise<string>>()
+    const readSkillFile: ReadSkillFile = (skill, path) => {
+        const chatSkill = chatSkills.find((candidate) => candidate.slug === skill.slug)
+        if (!chatSkill) return Promise.reject(new Error("Skill unavailable"))
+        const key = getChatSkillFileKey(chatSkill, path)
+        // One more try before a read counts as failed, and a failure isn't remembered, so
+        // the model's own retry reaches storage again.
+        const pending =
+            skillFileReads.get(key) ?? fetchStoredText(key).catch(() => fetchStoredText(key))
+        skillFileReads.set(key, pending)
+        pending.catch(() => skillFileReads.delete(key))
+        return pending
+    }
     const retryToolCallLimitFloor =
         body.targetMode === "retry" && Number.isFinite(body.toolCallLimitFloorOverride)
             ? (body.toolCallLimitFloorOverride as number)
@@ -1339,7 +1384,12 @@ async function handleChatPost(
                         effectiveToolCallLimitPerTurn,
                         undefined,
                         modelSupportsFunctionCalling
-                            ? buildSkillIndexContext(availableSkillIdsForTurn)
+                            ? buildSkillIndexContext(
+                                  availableSkillIdsForTurn,
+                                  undefined,
+                                  undefined,
+                                  customSkillIndex
+                              )
                             : undefined
                     )
                 }
@@ -1873,7 +1923,7 @@ async function handleChatPost(
             const dbMessages = committedContext.messages
             const normalizedDbMessages = Array.isArray(dbMessages) ? dbMessages : []
             const imageReferences = buildPreparedImageReferences(normalizedDbMessages, user.id)
-            const mapped_messages = await dbMessagesToCore(
+            const storedMessages = await dbMessagesToCore(
                 normalizedDbMessages,
                 modelData.abilities,
                 {
@@ -1884,6 +1934,15 @@ async function handleChatPost(
                     attachmentReferer,
                     validatePdfs
                 }
+            )
+            for (const slug of getPreviouslyLoadedCustomSkillSlugs(storedMessages, chatSkills)) {
+                customSkillIndex.loadedSlugs.add(slug)
+            }
+            // Past loads are stored as labels only; give the model back what they returned.
+            const mapped_messages = await restoreCustomSkillResults(
+                storedMessages,
+                chatSkills,
+                readSkillFile
             )
 
             const streamId = await ctx.runMutation(internal.streams.appendStreamId, {
@@ -2280,7 +2339,17 @@ async function handleChatPost(
                     availableImageSelectionSummary
                 }
                 const baseSkillIndexTokens = estimateModelMessagesTokens(
-                    [{ role: "system", content: buildSkillIndexContext(availableSkillIdsForTurn) }],
+                    [
+                        {
+                            role: "system",
+                            content: buildSkillIndexContext(
+                                availableSkillIdsForTurn,
+                                undefined,
+                                undefined,
+                                customSkillIndex
+                            )
+                        }
+                    ],
                     tokenizerFamily
                 )
                 // Preloading must not bypass the context admission check performed earlier.
@@ -2297,7 +2366,8 @@ async function handleChatPost(
                                     content: buildSkillIndexContext(
                                         availableSkillIdsForTurn,
                                         candidateSkillIds,
-                                        skillContext
+                                        skillContext,
+                                        customSkillIndex
                                     )
                                 }
                             ],
@@ -2326,13 +2396,22 @@ async function handleChatPost(
                 const openingSkillContext = buildSkillIndexContext(
                     availableSkillIdsForTurn,
                     loadedSkillIds,
-                    skillContext
+                    skillContext,
+                    customSkillIndex
                 )
                 const skillLoaderTools = modelSupportsFunctionCalling
                     ? getLoadSkillTool({
                           availableSkillIds: availableSkillIdsForTurn,
                           context: skillContext,
-                          onLoad: (skillId) => loadedSkillIds.add(skillId)
+                          onLoad: (skillId) => loadedSkillIds.add(skillId),
+                          custom:
+                              chatSkills.length > 0
+                                  ? {
+                                        skills: chatSkills,
+                                        loadedSlugs: customSkillIndex.loadedSlugs,
+                                        readFile: readSkillFile
+                                    }
+                                  : undefined
                       })
                     : {}
                 const unguardedTools: Record<string, Tool> = {

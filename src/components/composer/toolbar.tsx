@@ -43,9 +43,14 @@ import {
     clampToolCallLimitPerTurn
 } from "@/lib/tool-call-limit"
 import { cn } from "@/lib/utils"
+import { summarizeSkillNames } from "@/components/skills/skill-types"
+import { FlyoutLock, SKILL_LIMIT_NOTE } from "@/components/skills/skills-flyout"
+import { useChatMagic } from "@/hooks/use-chat-magic"
+import { useChatSkillPicker } from "@/hooks/use-chat-skill-picker"
 import { useConvexMutation } from "@convex-dev/react-query"
 import { useConvexAuth } from "convex/react"
 import {
+    ArrowUpRight,
     BrainCircuit,
     Check,
     ChevronDown,
@@ -57,12 +62,13 @@ import {
     MoreHorizontal,
     Paperclip,
     Plus,
+    Puzzle,
     Sigma,
     Sparkles,
     SquareTerminal,
     X
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 export type ComposerOverlay = "model" | "persona" | "tools" | "reasoning" | "mobile-menu"
@@ -327,7 +333,129 @@ function MobileToolRow({
     )
 }
 
+// The Magic line of the mobile menu. Magic picks tools from a chat's first message only, so
+// once the chat has started the line says whether it did, like Skills below it.
+function MobileMagicRow({
+    threadId,
+    enabled,
+    available,
+    onToggle
+}: {
+    threadId?: string
+    enabled: boolean
+    available: boolean
+    onToggle: () => void
+}) {
+    const magic = useChatMagic(threadId)
+    if (!magic.locked) {
+        return (
+            <MobileToolRow
+                label="Magic"
+                icon={<Sparkles className="size-4" />}
+                enabled={enabled}
+                available={available}
+                onClick={onToggle}
+            />
+        )
+    }
+
+    return (
+        <div className={cn(mobileMenuRowClassName, "cursor-default hover:bg-transparent")}>
+            <Sparkles className={cn("size-4 shrink-0", !magic.used && "text-muted-foreground")} />
+            <span className="shrink-0">Magic</span>
+            <span className="min-w-0 flex-1 truncate text-right text-muted-foreground text-xs">
+                {magic.used === undefined ? "" : magic.used ? "On" : "Off"}
+            </span>
+            <FlyoutLock />
+        </div>
+    )
+}
+
+// The Skills line of the mobile menu. It opens in place, like Reasoning above it. Once the
+// chat has started its skills are fixed, so the line only reports them.
+function MobileSkillsRow({ threadId, onClose }: { threadId?: string; onClose: () => void }) {
+    const picker = useChatSkillPicker(threadId)
+    const [expanded, setExpanded] = useState(false)
+    const switchId = useId()
+    if (!picker.visible) return null
+
+    const summary = (
+        <span className="min-w-0 flex-1 truncate text-right text-muted-foreground text-xs">
+            {summarizeSkillNames(picker.selectedNames, 1) ?? "None"}
+        </span>
+    )
+    if (picker.locked) {
+        return (
+            <div className={cn(mobileMenuRowClassName, "cursor-default hover:bg-transparent")}>
+                <Puzzle className="size-4 shrink-0" />
+                <span className="shrink-0">Skills</span>
+                {summary}
+                <FlyoutLock />
+            </div>
+        )
+    }
+
+    return (
+        <>
+            <button
+                type="button"
+                className={mobileMenuRowClassName}
+                aria-expanded={expanded}
+                onClick={() => setExpanded((current) => !current)}
+            >
+                <Puzzle className="size-4 shrink-0" />
+                <span className="shrink-0">Skills</span>
+                {summary}
+                {expanded ? (
+                    <ChevronUp className="size-4 shrink-0" />
+                ) : (
+                    <ChevronDown className="size-4 shrink-0" />
+                )}
+            </button>
+            {expanded && (
+                <div className="space-y-1 px-2 pb-1">
+                    {picker.atLimit && (
+                        <p className="py-1 pl-9 text-muted-foreground text-xs">
+                            {SKILL_LIMIT_NOTE}
+                        </p>
+                    )}
+                    {picker.skills.map((skill) => (
+                        <label
+                            key={skill.slug}
+                            htmlFor={`${switchId}-${skill.slug}`}
+                            className={cn(
+                                "flex w-full items-center gap-2 rounded-md py-2 pr-0.5 pl-9 text-sm transition-colors",
+                                picker.atLimit && !picker.selectedSlugs.has(skill.slug)
+                                    ? "cursor-not-allowed"
+                                    : "cursor-pointer hover:bg-accent/60"
+                            )}
+                        >
+                            <span className="min-w-0 flex-1 truncate">{skill.slug}</span>
+                            <Switch
+                                id={`${switchId}-${skill.slug}`}
+                                checked={picker.selectedSlugs.has(skill.slug)}
+                                disabled={picker.atLimit && !picker.selectedSlugs.has(skill.slug)}
+                                aria-label={`Use ${skill.slug} in this chat`}
+                                onCheckedChange={(on) => picker.toggle(skill.slug, on)}
+                            />
+                        </label>
+                    ))}
+                    <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md py-2 pr-2 pl-9 text-left text-sm transition-colors hover:bg-accent/60"
+                        onClick={() => picker.browse(onClose)}
+                    >
+                        <span className="min-w-0 flex-1 truncate">Browse skills</span>
+                        <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                </div>
+            )}
+        </>
+    )
+}
+
 function MobileOverflowMenu({
+    threadId,
     open,
     onOpenChange,
     selectedModel,
@@ -351,6 +479,7 @@ function MobileOverflowMenu({
     onToggleTool,
     onAttachClick
 }: {
+    threadId?: string
     open: boolean
     onOpenChange: (open: boolean) => void
     selectedModel: string | null
@@ -516,32 +645,35 @@ function MobileOverflowMenu({
                     )}
 
                     {!isImageModel && (
-                        <MobileToolRow
-                            label="Magic"
-                            icon={<Sparkles className="size-4" />}
+                        <MobileMagicRow
+                            threadId={threadId}
                             enabled={autoSelectTools}
                             available={modelSupportsFunctionCalling}
-                            onClick={() => setAutoSelectTools(!autoSelectTools)}
+                            onToggle={() => setAutoSelectTools(!autoSelectTools)}
+                        />
+                    )}
+
+                    {!isImageModel && modelSupportsFunctionCalling && (
+                        <MobileSkillsRow threadId={threadId} onClose={() => onOpenChange(false)} />
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Web Search"
+                            icon={<Globe className="size-4" />}
+                            enabled={webSearchEnabled}
+                            available={modelSupportsFunctionCalling && webSearchAvailable}
+                            onClick={() => onToggleTool("web_search")}
                         />
                     )}
 
                     {!isImageModel && (
                         <MobileToolRow
-                            label="Code execution"
+                            label="Code Execution"
                             icon={<SquareTerminal className="size-4" />}
                             enabled={codeExecutionEnabled}
                             available={modelSupportsFunctionCalling && codeExecutionAvailable}
                             onClick={() => onToggleTool("code_execution")}
-                        />
-                    )}
-
-                    {!isImageModel && (
-                        <MobileToolRow
-                            label="Memory"
-                            icon={<BrainCircuit className="size-4" />}
-                            enabled={memoryEnabled}
-                            available={modelSupportsFunctionCalling && memoryAvailable}
-                            onClick={() => onToggleTool("supermemory")}
                         />
                     )}
 
@@ -554,6 +686,16 @@ function MobileOverflowMenu({
                                 modelSupportsFunctionCalling && mathematicalInstrumentsAvailable
                             }
                             onClick={() => onToggleTool("mathematical_instruments")}
+                        />
+                    )}
+
+                    {!isImageModel && (
+                        <MobileToolRow
+                            label="Memory"
+                            icon={<BrainCircuit className="size-4" />}
+                            enabled={memoryEnabled}
+                            available={modelSupportsFunctionCalling && memoryAvailable}
+                            onClick={() => onToggleTool("supermemory")}
                         />
                     )}
 
@@ -584,16 +726,6 @@ function MobileOverflowMenu({
                                 />
                             )}
                         </div>
-                    )}
-
-                    {!isImageModel && (
-                        <MobileToolRow
-                            label="Search"
-                            icon={<Globe className="size-4" />}
-                            enabled={webSearchEnabled}
-                            available={modelSupportsFunctionCalling && webSearchAvailable}
-                            onClick={() => onToggleTool("web_search")}
-                        />
                     )}
 
                     {!isImageModel && (
@@ -1048,6 +1180,7 @@ export function ComposerDesktopActions({
                     >
                         <span className="inline-flex">
                             <ToolSelectorPopover
+                                threadId={threadId}
                                 enabledTools={enabledTools}
                                 onEnabledToolsChange={setEnabledTools}
                                 modelSupportsFunctionCalling={state.modelSupportsFunctionCalling}
@@ -1083,11 +1216,13 @@ export function ComposerDesktopActions({
 
 export function ComposerMobileMenu({
     state,
+    threadId,
     onAttachClick,
     open: controlledOpen,
     onOpenChange
 }: {
     state: ComposerToolbarState
+    threadId?: string
     onAttachClick: () => void
     open?: boolean
     onOpenChange?: (open: boolean) => void
@@ -1103,6 +1238,7 @@ export function ComposerMobileMenu({
     return (
         <div className="@3xl:hidden shrink-0">
             <MobileOverflowMenu
+                threadId={threadId}
                 open={open}
                 onOpenChange={(nextOpen) => {
                     if (controlledOpen === undefined) setInternalOpen(nextOpen)

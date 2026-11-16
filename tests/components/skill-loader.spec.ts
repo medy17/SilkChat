@@ -53,4 +53,24 @@ describe("skill loading feedback", () => {
         expect(screen.queryByLabelText("Loading skill")).toBeNull()
         expect(screen.getByRole("status").textContent).toBe("Failed to load Web Search skill")
     })
+
+    it("names an installed skill by its own name, and the file it read", () => {
+        const reading: UIToolInvocation<Tool> = {
+            state: "input-available",
+            toolCallId: "skill-2",
+            input: { skill: "pdf", files: ["references/forms.md"] }
+        }
+        const { rerender } = render(view({ ...reading, input: { skill: "pdf" } }))
+        expect(screen.getByRole("status").textContent).toBe("Loading pdf skill")
+        rerender(view(reading))
+        expect(screen.getByRole("status").textContent).toBe("Reading forms.md from pdf")
+        rerender(
+            view({
+                ...reading,
+                state: "output-available",
+                output: { success: true, label: "pdf", files: ["references/forms.md"] }
+            })
+        )
+        expect(screen.getByRole("status").textContent).toBe("Read forms.md from pdf")
+    })
 })

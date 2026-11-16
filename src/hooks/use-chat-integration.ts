@@ -1,4 +1,5 @@
 import { ABILITIES, type AbilityId } from "@/lib/tool-abilities"
+import { useSkillDraftStore } from "@/lib/skill-draft-store"
 import { useTemporaryChatStore } from "@/lib/temporary-chat"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
@@ -446,6 +447,7 @@ export function useChatIntegration<IsShared extends boolean>({
                           useTemporaryChatStore.getState().beginRequest(proposedNewAssistantId)
                       }
                       if (!currentContext.threadId) {
+                          useSkillDraftStore.getState().beginRequest(proposedNewAssistantId)
                           const state = useModelStore.getState()
                           openingToolRequestsRef.current.set(proposedNewAssistantId, {
                               revision: state.toolRevision,
@@ -507,6 +509,10 @@ export function useChatIntegration<IsShared extends boolean>({
                                         }
                                       : undefined,
                               temporary: isTemporaryRequest || undefined,
+                              // A new chat's skills. Left out, it gets the ones that are on.
+                              skills: currentContext.threadId
+                                  ? undefined
+                                  : (useSkillDraftStore.getState().picked ?? undefined),
                               devContextOverride: getActiveDevContextOverride()
                           }
                       }

@@ -715,9 +715,11 @@ describe("branchThread", () => {
                 }
             ]
             const messageQuery = createMessageQuery(sourceMessages)
+            // Also answers the thread's skill links: there are none.
             const personaSnapshotQuery = {
                 withIndex: vi.fn().mockReturnValue({
-                    first: vi.fn().mockResolvedValue(null)
+                    first: vi.fn().mockResolvedValue(null),
+                    collect: vi.fn().mockResolvedValue([])
                 })
             }
             const ctx = {

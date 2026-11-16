@@ -6,9 +6,17 @@ import {
     ResponsivePopoverContent,
     ResponsivePopoverTrigger
 } from "@/components/ui/responsive-popover"
+import {
+    FlyoutPageSwap,
+    MagicFlyoutLockedRow,
+    SkillsFlyoutPage,
+    SkillsFlyoutRow
+} from "@/components/skills/skills-flyout"
 import { Switch } from "@/components/ui/switch"
 import { api } from "@/convex/_generated/api"
 import { useSession } from "@/hooks/auth-hooks"
+import { useChatMagic } from "@/hooks/use-chat-magic"
+import { useChatSkillPicker } from "@/hooks/use-chat-skill-picker"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useComposerModelStore as useModelStore } from "@/components/composer/model-context"
 import {
@@ -40,6 +48,8 @@ import { memo, useId, useState } from "react"
 import { toast } from "sonner"
 
 type ToolSelectorPopoverProps = {
+    // The chat the composer belongs to, once it has one.
+    threadId?: string
     enabledTools: AbilityId[]
     onEnabledToolsChange: (tools: AbilityId[]) => void
     modelSupportsFunctionCalling: boolean
@@ -436,6 +446,7 @@ function SilkScreenInfoButton({ isMobile, available }: { isMobile: boolean; avai
 
 export const ToolSelectorPopover = memo(
     ({
+        threadId,
         enabledTools,
         onEnabledToolsChange,
         modelSupportsFunctionCalling,
@@ -450,6 +461,11 @@ export const ToolSelectorPopover = memo(
         const session = useSession()
         const isMobile = useIsMobile()
         const [internalOpen, setInternalOpen] = useState(false)
+        const skillPicker = useChatSkillPicker(threadId)
+        const magic = useChatMagic(threadId)
+        // The skill picker takes the flyout over, in place of the tool list.
+        const [pickingSkills, setPickingSkills] = useState(false)
+        const showsSkillPicker = pickingSkills && !skillPicker.locked
         const autoSelectTools = useModelStore((state) => state.autoSelectTools)
         const setAutoSelectTools = useModelStore((state) => state.setAutoSelectTools)
         const sessionToolLimit = useModelStore((state) => state.toolCallLimitPerTurn)
@@ -616,6 +632,7 @@ export const ToolSelectorPopover = memo(
                 onOpenChange={(nextOpen) => {
                     setOpen(nextOpen)
                     if (nextOpen) {
+                        setPickingSkills(false)
                         captureBrowserEvent(TELEMETRY_EVENTS.advancedOptionsOpened, {
                             surface: "desktop_tools",
                             enabled_tool_ids: enabledTools
@@ -649,286 +666,330 @@ export const ToolSelectorPopover = memo(
                     title="Tool Settings"
                     description="Configure available tools for your conversation"
                 >
-                    <Command
-                        shouldFilter={false}
-                        className="rounded-none bg-transparent md:rounded-md"
+                    {/* The skill picker takes the tool list's place and gives it back. Both
+                        stay mounted, so each is where it was left. */}
+                    <FlyoutPageSwap
+                        detailOpen={showsSkillPicker}
+                        detail={
+                            !skillPicker.locked && (
+                                <Command
+                                    shouldFilter={false}
+                                    className="rounded-none bg-transparent md:rounded-md"
+                                >
+                                    <SkillsFlyoutPage
+                                        skills={skillPicker.skills}
+                                        selectedSlugs={skillPicker.selectedSlugs}
+                                        atLimit={skillPicker.atLimit}
+                                        onToggle={skillPicker.toggle}
+                                        onBack={() => setPickingSkills(false)}
+                                        onBrowse={() => skillPicker.browse(() => setOpen(false))}
+                                    />
+                                </Command>
+                            )
+                        }
                     >
-                        <label
-                            htmlFor={magicSwitchId}
-                            className="flex cursor-pointer items-center justify-between gap-4 border-border border-b px-4 py-3"
+                        <Command
+                            shouldFilter={false}
+                            className="rounded-none bg-transparent md:rounded-md"
                         >
-                            <span className="min-w-0">
-                                <span className="block font-medium text-sm">Magic</span>
-                                <span className="block text-muted-foreground text-xs">
-                                    Preselect tools based on your request
-                                </span>
-                            </span>
-                            <Switch
-                                id={magicSwitchId}
-                                aria-label="Magic"
-                                checked={autoSelectTools}
-                                onCheckedChange={setAutoSelectTools}
-                                disabled={!modelSupportsFunctionCalling}
-                                className="shrink-0"
-                            />
-                        </label>
-                        <CommandList>
-                            <div>
-                                <CommandGroup heading="Tools">
-                                    <CommandItem className="flex items-center justify-between p-3">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <Globe className="h-4 w-4 shrink-0" />
-                                            <span className="text-sm">Web Search</span>
-                                            <WebSearchInfoButton
-                                                isMobile={isMobile}
-                                                available={webSearchAvailable}
-                                            />
-                                        </div>
-                                        <Switch
-                                            checked={
-                                                webSearchAvailable &&
-                                                enabledTools.includes("web_search")
-                                            }
-                                            onCheckedChange={handleWebSearchToggle}
-                                            disabled={webSearchDisabled}
-                                        />
-                                    </CommandItem>
-
-                                    <CommandItem className="flex items-center justify-between p-3">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <Sigma className="h-4 w-4 shrink-0" />
-                                            <span className="text-sm">Math Kit</span>
-                                            <MathematicalInstrumentsInfoButton
-                                                isMobile={isMobile}
-                                                available={mathematicalInstrumentsAvailable}
-                                            />
-                                        </div>
-                                        <Switch
-                                            checked={
-                                                mathematicalInstrumentsAvailable &&
-                                                enabledTools.includes("mathematical_instruments")
-                                            }
-                                            onCheckedChange={handleMathematicalInstrumentsToggle}
-                                            disabled={
-                                                !modelSupportsFunctionCalling ||
-                                                !mathematicalInstrumentsAvailable
-                                            }
-                                        />
-                                    </CommandItem>
-
-                                    <CommandItem className="flex items-center justify-between p-3">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <SquareTerminal className="h-4 w-4 shrink-0" />
-                                            <span className="text-sm">Code Execution</span>
-                                            <CodeExecutionInfoButton
-                                                isMobile={isMobile}
-                                                available={codeExecutionAvailable}
-                                            />
-                                        </div>
-                                        <Switch
-                                            checked={
-                                                codeExecutionAvailable &&
-                                                enabledTools.includes("code_execution")
-                                            }
-                                            onCheckedChange={handleCodeExecutionToggle}
-                                            disabled={
-                                                !modelSupportsFunctionCalling ||
-                                                !codeExecutionAvailable
-                                            }
-                                        />
-                                    </CommandItem>
-
-                                    <CommandItem className="flex items-center justify-between p-3">
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <BrainCircuit className="size-4 shrink-0" />
-                                            <span className="text-sm">Memory</span>
-                                            <MemoryInfoButton
-                                                isMobile={isMobile}
-                                                available={memoryAvailable}
-                                            />
-                                        </div>
-                                        <Switch
-                                            checked={memoryEnabled}
-                                            onCheckedChange={handleMemoryToggle}
-                                            disabled={!memoryAvailable}
-                                        />
-                                    </CommandItem>
-
-                                    <CommandItem
-                                        className={cn(
-                                            "flex items-center justify-between p-3",
-                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
-                                        )}
-                                    >
-                                        <div className="flex min-w-0 items-center gap-3">
-                                            <Image className="h-4 w-4 shrink-0" />
-                                            <span className="text-sm">SilkScreen</span>
-                                            <SilkScreenInfoButton
-                                                isMobile={isMobile}
-                                                available={silkScreenAvailable}
-                                            />
-                                        </div>
-                                        <span className="shrink-0 text-muted-foreground text-xs">
-                                            {silkScreenAvailable ? "Auto" : "Unavailable"}
+                            {magic.locked ? (
+                                <MagicFlyoutLockedRow used={magic.used} />
+                            ) : (
+                                <label
+                                    htmlFor={magicSwitchId}
+                                    className="flex cursor-pointer items-center justify-between gap-4 border-border border-b px-4 py-3"
+                                >
+                                    <span className="min-w-0">
+                                        <span className="block font-medium text-sm">Magic</span>
+                                        <span className="block text-muted-foreground text-xs">
+                                            Preselect tools based on your request
                                         </span>
-                                    </CommandItem>
-
-                                    <CommandItem
-                                        className={cn(
-                                            "flex items-center justify-between gap-3 p-3",
-                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
-                                        )}
-                                    >
-                                        <span className="text-sm">Default resolution</span>
-                                        <div className="flex items-center gap-1">
-                                            {IMAGE_RESOLUTION_OPTIONS.map((option) => {
-                                                const isActive = defaultImageResolution === option
-                                                return (
-                                                    <button
-                                                        key={option}
-                                                        type="button"
-                                                        disabled={!silkScreenAvailable}
-                                                        className={cn(
-                                                            "flex h-6 min-w-9 items-center justify-center rounded border px-2 text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                                                            isActive
-                                                                ? "border-primary bg-primary text-primary-foreground"
-                                                                : "border-border/60 text-foreground hover:bg-muted/60"
-                                                        )}
-                                                        onClick={() => {
-                                                            if (!silkScreenAvailable) return
-                                                            void updateImageDefaults({
-                                                                resolution: option
-                                                            })
-                                                        }}
-                                                    >
-                                                        {option}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </CommandItem>
-
-                                    <CommandItem
-                                        className={cn(
-                                            "flex items-center justify-between gap-3 p-3",
-                                            !silkScreenAvailable && "cursor-not-allowed opacity-50"
-                                        )}
-                                    >
-                                        <span className="text-sm">Default variants</span>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                disabled={
-                                                    !silkScreenAvailable ||
-                                                    defaultImageVariants <= 1
-                                                }
-                                                onClick={() => {
-                                                    if (!silkScreenAvailable) return
-                                                    void updateImageDefaults({
-                                                        variants: Math.max(
-                                                            1,
-                                                            defaultImageVariants - 1
-                                                        )
-                                                    })
-                                                }}
-                                            >
-                                                -
-                                            </button>
-                                            <div className="min-w-6 text-center text-sm tabular-nums">
-                                                {defaultImageVariants}
+                                    </span>
+                                    <Switch
+                                        id={magicSwitchId}
+                                        aria-label="Magic"
+                                        checked={autoSelectTools}
+                                        onCheckedChange={setAutoSelectTools}
+                                        disabled={!modelSupportsFunctionCalling}
+                                        className="shrink-0"
+                                    />
+                                </label>
+                            )}
+                            {skillPicker.visible && (
+                                <SkillsFlyoutRow
+                                    selectedNames={skillPicker.selectedNames}
+                                    locked={skillPicker.locked}
+                                    onOpen={() => setPickingSkills(true)}
+                                />
+                            )}
+                            <CommandList>
+                                <div>
+                                    <CommandGroup heading="Tools">
+                                        <CommandItem className="flex items-center justify-between p-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <Globe className="h-4 w-4 shrink-0" />
+                                                <span className="text-sm">Web Search</span>
+                                                <WebSearchInfoButton
+                                                    isMobile={isMobile}
+                                                    available={webSearchAvailable}
+                                                />
                                             </div>
-                                            <button
-                                                type="button"
-                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                disabled={
-                                                    !silkScreenAvailable ||
-                                                    defaultImageVariants >= MAX_DEFAULT_VARIANTS
+                                            <Switch
+                                                checked={
+                                                    webSearchAvailable &&
+                                                    enabledTools.includes("web_search")
                                                 }
-                                                onClick={() => {
-                                                    if (!silkScreenAvailable) return
-                                                    void updateImageDefaults({
-                                                        variants: Math.min(
-                                                            MAX_DEFAULT_VARIANTS,
-                                                            defaultImageVariants + 1
-                                                        )
-                                                    })
-                                                }}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </CommandItem>
-                                </CommandGroup>
+                                                onCheckedChange={handleWebSearchToggle}
+                                                disabled={webSearchDisabled}
+                                            />
+                                        </CommandItem>
 
-                                <CommandGroup heading="Limits">
-                                    <CommandItem
-                                        className={cn(
-                                            "flex items-center justify-between gap-3 p-3",
-                                            activeCount === 0 && "cursor-not-allowed opacity-50"
-                                        )}
-                                    >
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <span className="text-sm">Tool Calls</span>
-                                            <ToolCallLimitInfoButton isMobile={isMobile} />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                type="button"
-                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                disabled={
-                                                    activeCount === 0 ||
-                                                    effectiveToolCallLimit <=
-                                                        MIN_TOOL_CALL_LIMIT_PER_TURN
-                                                }
-                                                onClick={() => {
-                                                    void updateToolCallLimit(
-                                                        Math.max(
-                                                            MIN_TOOL_CALL_LIMIT_PER_TURN,
-                                                            effectiveToolCallLimit - 1
-                                                        ),
-                                                        activeCount > 0
-                                                    )
-                                                }}
-                                            >
-                                                -
-                                            </button>
-                                            <div className="min-w-7 text-center text-sm tabular-nums">
-                                                {effectiveToolCallLimit ||
-                                                    DEFAULT_TOOL_CALL_LIMIT_PER_TURN}
+                                        <CommandItem className="flex items-center justify-between p-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <SquareTerminal className="h-4 w-4 shrink-0" />
+                                                <span className="text-sm">Code Execution</span>
+                                                <CodeExecutionInfoButton
+                                                    isMobile={isMobile}
+                                                    available={codeExecutionAvailable}
+                                                />
                                             </div>
-                                            <button
-                                                type="button"
-                                                className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
-                                                disabled={
-                                                    activeCount === 0 ||
-                                                    effectiveToolCallLimit >=
-                                                        MAX_TOOL_CALL_LIMIT_PER_TURN
+                                            <Switch
+                                                checked={
+                                                    codeExecutionAvailable &&
+                                                    enabledTools.includes("code_execution")
                                                 }
-                                                onClick={() => {
-                                                    void updateToolCallLimit(
-                                                        Math.min(
-                                                            MAX_TOOL_CALL_LIMIT_PER_TURN,
-                                                            effectiveToolCallLimit + 1
-                                                        ),
-                                                        activeCount > 0
-                                                    )
-                                                }}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </CommandItem>
-                                </CommandGroup>
+                                                onCheckedChange={handleCodeExecutionToggle}
+                                                disabled={
+                                                    !modelSupportsFunctionCalling ||
+                                                    !codeExecutionAvailable
+                                                }
+                                            />
+                                        </CommandItem>
 
-                                {!modelSupportsFunctionCalling && (
-                                    <div className="px-4 py-3 text-center text-muted-foreground text-sm">
-                                        Current model doesn't support function calling
-                                    </div>
-                                )}
-                            </div>
-                        </CommandList>
-                    </Command>
+                                        <CommandItem className="flex items-center justify-between p-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <Sigma className="h-4 w-4 shrink-0" />
+                                                <span className="text-sm">Math Kit</span>
+                                                <MathematicalInstrumentsInfoButton
+                                                    isMobile={isMobile}
+                                                    available={mathematicalInstrumentsAvailable}
+                                                />
+                                            </div>
+                                            <Switch
+                                                checked={
+                                                    mathematicalInstrumentsAvailable &&
+                                                    enabledTools.includes(
+                                                        "mathematical_instruments"
+                                                    )
+                                                }
+                                                onCheckedChange={
+                                                    handleMathematicalInstrumentsToggle
+                                                }
+                                                disabled={
+                                                    !modelSupportsFunctionCalling ||
+                                                    !mathematicalInstrumentsAvailable
+                                                }
+                                            />
+                                        </CommandItem>
+
+                                        <CommandItem className="flex items-center justify-between p-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <BrainCircuit className="size-4 shrink-0" />
+                                                <span className="text-sm">Memory</span>
+                                                <MemoryInfoButton
+                                                    isMobile={isMobile}
+                                                    available={memoryAvailable}
+                                                />
+                                            </div>
+                                            <Switch
+                                                checked={memoryEnabled}
+                                                onCheckedChange={handleMemoryToggle}
+                                                disabled={!memoryAvailable}
+                                            />
+                                        </CommandItem>
+
+                                        <CommandItem
+                                            className={cn(
+                                                "flex items-center justify-between p-3",
+                                                !silkScreenAvailable &&
+                                                    "cursor-not-allowed opacity-50"
+                                            )}
+                                        >
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <Image className="h-4 w-4 shrink-0" />
+                                                <span className="text-sm">SilkScreen</span>
+                                                <SilkScreenInfoButton
+                                                    isMobile={isMobile}
+                                                    available={silkScreenAvailable}
+                                                />
+                                            </div>
+                                            <span className="shrink-0 text-muted-foreground text-xs">
+                                                {silkScreenAvailable ? "Auto" : "Unavailable"}
+                                            </span>
+                                        </CommandItem>
+                                    </CommandGroup>
+
+                                    <CommandGroup heading="Image Defaults">
+                                        <CommandItem
+                                            className={cn(
+                                                "flex items-center justify-between gap-3 p-3",
+                                                !silkScreenAvailable &&
+                                                    "cursor-not-allowed opacity-50"
+                                            )}
+                                        >
+                                            <span className="text-sm">Resolution</span>
+                                            <div className="flex items-center gap-1">
+                                                {IMAGE_RESOLUTION_OPTIONS.map((option) => {
+                                                    const isActive =
+                                                        defaultImageResolution === option
+                                                    return (
+                                                        <button
+                                                            key={option}
+                                                            type="button"
+                                                            disabled={!silkScreenAvailable}
+                                                            className={cn(
+                                                                "flex h-6 min-w-9 items-center justify-center rounded border px-2 text-xs tabular-nums transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                                                                isActive
+                                                                    ? "border-primary bg-primary text-primary-foreground"
+                                                                    : "border-border/60 text-foreground hover:bg-muted/60"
+                                                            )}
+                                                            onClick={() => {
+                                                                if (!silkScreenAvailable) return
+                                                                void updateImageDefaults({
+                                                                    resolution: option
+                                                                })
+                                                            }}
+                                                        >
+                                                            {option}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </CommandItem>
+
+                                        <CommandItem
+                                            className={cn(
+                                                "flex items-center justify-between gap-3 p-3",
+                                                !silkScreenAvailable &&
+                                                    "cursor-not-allowed opacity-50"
+                                            )}
+                                        >
+                                            <span className="text-sm">Variants</span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    disabled={
+                                                        !silkScreenAvailable ||
+                                                        defaultImageVariants <= 1
+                                                    }
+                                                    onClick={() => {
+                                                        if (!silkScreenAvailable) return
+                                                        void updateImageDefaults({
+                                                            variants: Math.max(
+                                                                1,
+                                                                defaultImageVariants - 1
+                                                            )
+                                                        })
+                                                    }}
+                                                >
+                                                    -
+                                                </button>
+                                                <div className="min-w-6 text-center text-sm tabular-nums">
+                                                    {defaultImageVariants}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    disabled={
+                                                        !silkScreenAvailable ||
+                                                        defaultImageVariants >= MAX_DEFAULT_VARIANTS
+                                                    }
+                                                    onClick={() => {
+                                                        if (!silkScreenAvailable) return
+                                                        void updateImageDefaults({
+                                                            variants: Math.min(
+                                                                MAX_DEFAULT_VARIANTS,
+                                                                defaultImageVariants + 1
+                                                            )
+                                                        })
+                                                    }}
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                        </CommandItem>
+                                    </CommandGroup>
+
+                                    <CommandGroup heading="Limits">
+                                        <CommandItem
+                                            className={cn(
+                                                "flex items-center justify-between gap-3 p-3",
+                                                activeCount === 0 && "cursor-not-allowed opacity-50"
+                                            )}
+                                        >
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <span className="text-sm">Tool Calls</span>
+                                                <ToolCallLimitInfoButton isMobile={isMobile} />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    disabled={
+                                                        activeCount === 0 ||
+                                                        effectiveToolCallLimit <=
+                                                            MIN_TOOL_CALL_LIMIT_PER_TURN
+                                                    }
+                                                    onClick={() => {
+                                                        void updateToolCallLimit(
+                                                            Math.max(
+                                                                MIN_TOOL_CALL_LIMIT_PER_TURN,
+                                                                effectiveToolCallLimit - 1
+                                                            ),
+                                                            activeCount > 0
+                                                        )
+                                                    }}
+                                                >
+                                                    -
+                                                </button>
+                                                <div className="min-w-7 text-center text-sm tabular-nums">
+                                                    {effectiveToolCallLimit ||
+                                                        DEFAULT_TOOL_CALL_LIMIT_PER_TURN}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="flex h-6 w-6 items-center justify-center rounded border border-border/60 text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    disabled={
+                                                        activeCount === 0 ||
+                                                        effectiveToolCallLimit >=
+                                                            MAX_TOOL_CALL_LIMIT_PER_TURN
+                                                    }
+                                                    onClick={() => {
+                                                        void updateToolCallLimit(
+                                                            Math.min(
+                                                                MAX_TOOL_CALL_LIMIT_PER_TURN,
+                                                                effectiveToolCallLimit + 1
+                                                            ),
+                                                            activeCount > 0
+                                                        )
+                                                    }}
+                                                >
+                                                    +
+                                                </button>
+                                            </div>
+                                        </CommandItem>
+                                    </CommandGroup>
+
+                                    {!modelSupportsFunctionCalling && (
+                                        <div className="px-4 py-3 text-center text-muted-foreground text-sm">
+                                            Current model doesn't support function calling
+                                        </div>
+                                    )}
+                                </div>
+                            </CommandList>
+                        </Command>
+                    </FlyoutPageSwap>
                 </ResponsivePopoverContent>
             </ResponsivePopover>
         )

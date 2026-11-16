@@ -1263,6 +1263,7 @@ export const MultimodalInput = forwardRef<
                                         {renderContextRing("end", "@3xl:hidden flex")}
                                         <ComposerMobileMenu
                                             state={composerToolbar}
+                                            threadId={threadId}
                                             onAttachClick={() => uploadInputRef.current?.click()}
                                             open={activeComposerOverlay === "mobile-menu"}
                                             onOpenChange={(open) =>

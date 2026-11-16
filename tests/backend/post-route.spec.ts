@@ -462,14 +462,17 @@ const withReadinessQueries =
                 context: args?.threadId
                     ? {
                           messages: (await contextFixture("getMessagesByThreadId")) ?? [],
-                          personaSnapshot: await contextFixture("getThreadPersonaSnapshotInternal")
+                          personaSnapshot: await contextFixture("getThreadPersonaSnapshotInternal"),
+                          skills: []
                       }
-                    : null
+                    : null,
+                newThreadSkills: []
             }
         if (name === "getThreadContext")
             return {
                 messages: (await fixture("getMessagesByThreadId")) ?? [],
-                personaSnapshot: await fixture("getThreadPersonaSnapshotInternal")
+                personaSnapshot: await fixture("getThreadPersonaSnapshotInternal"),
+                skills: []
             }
         return fixture(name)
     }

@@ -30,6 +30,7 @@ import { Route as ChatLibraryRouteImport } from './routes/_chat.library'
 import { Route as ApiCreditSummaryRouteImport } from './routes/api/credit-summary'
 import { Route as ApiOgRouteImport } from './routes/api/og'
 import { Route as ApiSearchTrendsRouteImport } from './routes/api/search-trends'
+import { Route as ApiSkillStoreRouteImport } from './routes/api/skill-store'
 import { Route as ApiVisualReferencesRouteImport } from './routes/api/visual-references'
 import { Route as AuthPathnameRouteImport } from './routes/auth/$pathname'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
@@ -52,6 +53,7 @@ import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
 import { Route as SettingsProvidersRouteImport } from './routes/settings/providers'
 import { Route as SettingsSafetyRouteImport } from './routes/settings/safety'
+import { Route as SettingsSkillsRouteImport } from './routes/settings/skills'
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SettingsUsageResetsRouteImport } from './routes/settings/usage-resets'
 import { Route as ChatSSharedThreadIdRouteImport } from './routes/_chat.s.$sharedThreadId'
@@ -169,6 +171,11 @@ const ApiOgRoute = ApiOgRouteImport.update({
 const ApiSearchTrendsRoute = ApiSearchTrendsRouteImport.update({
   id: '/api/search-trends',
   path: '/api/search-trends',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSkillStoreRoute = ApiSkillStoreRouteImport.update({
+  id: '/api/skill-store',
+  path: '/api/skill-store',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVisualReferencesRoute = ApiVisualReferencesRouteImport.update({
@@ -290,6 +297,11 @@ const SettingsSafetyRoute = SettingsSafetyRouteImport.update({
   path: '/safety',
   getParentRoute: () => SettingsRouteLazyRoute,
 } as any)
+const SettingsSkillsRoute = SettingsSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => SettingsRouteLazyRoute,
+} as any)
 const SettingsUsageRoute = SettingsUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -356,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/skill-store': typeof ApiSkillStoreRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -378,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas/start': typeof PersonasStartLazyRoute
@@ -407,6 +421,7 @@ export interface FileRoutesByTo {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/skill-store': typeof ApiSkillStoreRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -429,6 +444,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas/start': typeof PersonasStartLazyRoute
@@ -461,6 +477,7 @@ export interface FileRoutesById {
   '/api/credit-summary': typeof ApiCreditSummaryRoute
   '/api/og': typeof ApiOgRoute
   '/api/search-trends': typeof ApiSearchTrendsRoute
+  '/api/skill-store': typeof ApiSkillStoreRoute
   '/api/visual-references': typeof ApiVisualReferencesRoute
   '/auth/$pathname': typeof AuthPathnameRoute
   '/settings/account': typeof SettingsAccountRoute
@@ -483,6 +500,7 @@ export interface FileRoutesById {
   '/settings/profile': typeof SettingsProfileRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/safety': typeof SettingsSafetyRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/settings/usage': typeof SettingsUsageRoute
   '/settings/usage-resets': typeof SettingsUsageResetsRoute
   '/personas_/start': typeof PersonasStartLazyRoute
@@ -516,6 +534,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/og'
     | '/api/search-trends'
+    | '/api/skill-store'
     | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
@@ -538,6 +557,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/safety'
+    | '/settings/skills'
     | '/settings/usage'
     | '/settings/usage-resets'
     | '/personas/start'
@@ -567,6 +587,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/og'
     | '/api/search-trends'
+    | '/api/skill-store'
     | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
@@ -589,6 +610,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/safety'
+    | '/settings/skills'
     | '/settings/usage'
     | '/settings/usage-resets'
     | '/personas/start'
@@ -620,6 +642,7 @@ export interface FileRouteTypes {
     | '/api/credit-summary'
     | '/api/og'
     | '/api/search-trends'
+    | '/api/skill-store'
     | '/api/visual-references'
     | '/auth/$pathname'
     | '/settings/account'
@@ -642,6 +665,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/providers'
     | '/settings/safety'
+    | '/settings/skills'
     | '/settings/usage'
     | '/settings/usage-resets'
     | '/personas_/start'
@@ -673,6 +697,7 @@ export interface RootRouteChildren {
   ApiCreditSummaryRoute: typeof ApiCreditSummaryRoute
   ApiOgRoute: typeof ApiOgRoute
   ApiSearchTrendsRoute: typeof ApiSearchTrendsRoute
+  ApiSkillStoreRoute: typeof ApiSkillStoreRoute
   ApiVisualReferencesRoute: typeof ApiVisualReferencesRoute
   AuthPathnameRoute: typeof AuthPathnameRoute
   PersonasStartLazyRoute: typeof PersonasStartLazyRoute
@@ -820,6 +845,13 @@ declare module '@tanstack/react-router' {
       path: '/api/search-trends'
       fullPath: '/api/search-trends'
       preLoaderRoute: typeof ApiSearchTrendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/skill-store': {
+      id: '/api/skill-store'
+      path: '/api/skill-store'
+      fullPath: '/api/skill-store'
+      preLoaderRoute: typeof ApiSkillStoreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/visual-references': {
@@ -983,6 +1015,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSafetyRouteImport
       parentRoute: typeof SettingsRouteLazyRoute
     }
+    '/settings/skills': {
+      id: '/settings/skills'
+      path: '/skills'
+      fullPath: '/settings/skills'
+      preLoaderRoute: typeof SettingsSkillsRouteImport
+      parentRoute: typeof SettingsRouteLazyRoute
+    }
     '/settings/usage': {
       id: '/settings/usage'
       path: '/usage'
@@ -1096,6 +1135,7 @@ interface SettingsRouteLazyRouteChildren {
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsProvidersRoute: typeof SettingsProvidersRoute
   SettingsSafetyRoute: typeof SettingsSafetyRoute
+  SettingsSkillsRoute: typeof SettingsSkillsRoute
   SettingsUsageRoute: typeof SettingsUsageRoute
   SettingsUsageResetsRoute: typeof SettingsUsageResetsRoute
 }
@@ -1121,6 +1161,7 @@ const SettingsRouteLazyRouteChildren: SettingsRouteLazyRouteChildren = {
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsProvidersRoute: SettingsProvidersRoute,
   SettingsSafetyRoute: SettingsSafetyRoute,
+  SettingsSkillsRoute: SettingsSkillsRoute,
   SettingsUsageRoute: SettingsUsageRoute,
   SettingsUsageResetsRoute: SettingsUsageResetsRoute,
 }
@@ -1147,6 +1188,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCreditSummaryRoute: ApiCreditSummaryRoute,
   ApiOgRoute: ApiOgRoute,
   ApiSearchTrendsRoute: ApiSearchTrendsRoute,
+  ApiSkillStoreRoute: ApiSkillStoreRoute,
   ApiVisualReferencesRoute: ApiVisualReferencesRoute,
   AuthPathnameRoute: AuthPathnameRoute,
   PersonasStartLazyRoute: PersonasStartLazyRoute,

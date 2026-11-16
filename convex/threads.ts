@@ -30,6 +30,7 @@ import { dbMessagesToCore } from "./lib/db_to_core_messages"
 import { isImportedPdf, PDF_IMPORT_ERROR } from "@/lib/import-attachment-policy"
 import { getUserIdentity } from "./lib/identity"
 import { isTemporaryThread, nextTemporaryExpiry } from "./lib/temporary_threads"
+import { readThreadSkills, snapshotThreadSkills } from "./lib/thread_skills"
 import type { Thread } from "./schema"
 import {
     HTTPAIMessage,
@@ -310,7 +311,9 @@ export const createThreadOrInsertMessages = internalMutation({
         personaSnapshot: v.optional(ThreadPersonaSnapshotInput),
         openingMessage: v.optional(HTTPAIMessage),
         openingToolSelection: v.optional(OpeningToolSelection),
-        temporary: v.optional(v.boolean())
+        temporary: v.optional(v.boolean()),
+        // Only read when the request creates the thread.
+        skillVersionIds: v.optional(v.array(v.id("skillVersions")))
     },
     handler: async (
         ctx,
@@ -326,7 +329,8 @@ export const createThreadOrInsertMessages = internalMutation({
             personaSnapshot,
             openingMessage,
             openingToolSelection,
-            temporary
+            temporary,
+            skillVersionIds
         }
     ) => {
         if (!userMessage) return new ChatError("bad_request:chat")
@@ -458,6 +462,13 @@ export const createThreadOrInsertMessages = internalMutation({
                     threadId: newId,
                     ...personaSnapshot,
                     createdAt: now
+                })
+            }
+            if (skillVersionIds?.length) {
+                await snapshotThreadSkills(ctx, {
+                    threadId: newId,
+                    userId: authorId,
+                    versionIds: skillVersionIds
                 })
             }
 
@@ -1173,6 +1184,13 @@ export const branchThread = mutation({
                 metadata: snapshotMessageMetadata(message.metadata)
             })
         }
+
+        // A branch is the same chat continued, so it keeps the same skills.
+        await snapshotThreadSkills(ctx, {
+            threadId: newThreadId,
+            userId: user.id,
+            versionIds: (await readThreadSkills(ctx, threadId)).map((skill) => skill.versionId)
+        })
 
         const personaSnapshot = await ctx.db
             .query("threadPersonaSnapshots")

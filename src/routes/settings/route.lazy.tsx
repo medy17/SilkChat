@@ -22,6 +22,7 @@ import {
     Laptop,
     PaintBucket,
     Paperclip,
+    Puzzle,
     Shield,
     ShieldCheck,
     Ticket,
@@ -62,6 +63,11 @@ const settingsNavItems = [
         title: "Personas",
         href: "/settings/personas",
         icon: Users
+    },
+    {
+        title: "Skills",
+        href: "/settings/skills",
+        icon: Puzzle
     },
     {
         title: "Look & Feel",

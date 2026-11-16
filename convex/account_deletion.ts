@@ -808,6 +808,43 @@ export const purgeAccountData = internalMutation({
         )
         if (personas) return personas
 
+        // Their files go with the rest of the account's stored objects.
+        const threadSkills = await deleteUserBatch(
+            "purging_thread_skills",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("threadSkills")
+                    .withIndex("byUserSlug", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (threadSkills) return threadSkills
+
+        const skills = await deleteUserBatch(
+            "purging_skills",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("skills")
+                    .withIndex("byUserSlug", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (skills) return skills
+
+        const skillVersions = await deleteUserBatch(
+            "purging_skill_versions",
+            deleteBatch(
+                ctx,
+                ctx.db
+                    .query("skillVersions")
+                    .withIndex("byUserSlugHash", (q) => q.eq("userId", userId))
+                    .take(ACCOUNT_DELETION_BATCH_SIZE)
+            )
+        )
+        if (skillVersions) return skillVersions
+
         const projects = await deleteUserBatch(
             "purging_projects",
             deleteBatch(

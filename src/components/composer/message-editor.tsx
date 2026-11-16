@@ -455,6 +455,7 @@ const MessageEditor = memo(
 
                             <ComposerMobileMenu
                                 state={composerToolbar}
+                                threadId={threadId}
                                 onAttachClick={() => fileInputRef.current?.click()}
                             />
 
