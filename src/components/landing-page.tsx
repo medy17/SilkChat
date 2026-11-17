@@ -11,7 +11,7 @@ import { ImageGallerySection } from "./landing-page/image-gallery-section"
 import { ModelsSection } from "./landing-page/models-section"
 import { PricingSection } from "./landing-page/pricing-section"
 import { SecuritySection } from "./landing-page/security-section"
-import { SilkBackdrop } from "./landing-page/shared"
+import { LANDING_THEME_CSS, SilkBackdrop } from "./landing-page/shared"
 import { SocialProofSection } from "./landing-page/social-proof-section"
 import { StickyNav } from "./landing-page/sticky-nav"
 import { UseCasesSection } from "./landing-page/use-cases-section"
@@ -22,21 +22,7 @@ export function LandingPage() {
     return (
         <>
             <style>
-                {`
-                    .landing-page-root {
-                        --landing-bg: var(--background);
-                        --landing-fg: var(--foreground);
-                        --landing-muted: color-mix(in oklab, var(--foreground) 68%, transparent);
-                        --landing-muted-soft: color-mix(in oklab, var(--foreground) 54%, transparent);
-                        --landing-muted-faint: color-mix(in oklab, var(--foreground) 40%, transparent);
-                        --landing-border: color-mix(in oklab, var(--foreground) 12%, transparent);
-                        --landing-border-strong: color-mix(in oklab, var(--foreground) 18%, transparent);
-                        --landing-surface: color-mix(in oklab, var(--foreground) 2%, var(--background));
-                        --landing-surface-strong: color-mix(in oklab, var(--foreground) 4%, var(--background));
-                        --landing-surface-stronger: color-mix(in oklab, var(--foreground) 7%, var(--background));
-                        --landing-surface-contrast: color-mix(in oklab, var(--foreground) 10%, var(--background));
-                    }
-
+                {`${LANDING_THEME_CSS}
                     .landing-page-scroll-root {
                         -ms-overflow-style: none;
                         scrollbar-width: none;

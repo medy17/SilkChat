@@ -12,6 +12,12 @@ export function FooterSection() {
                 </div>
                 <div className="flex gap-5">
                     <Link
+                        to="/pricing"
+                        className="transition-colors hover:[color:var(--landing-fg)]"
+                    >
+                        Pricing
+                    </Link>
+                    <Link
                         to="/terms-of-service"
                         className="transition-colors hover:[color:var(--landing-fg)]"
                     >

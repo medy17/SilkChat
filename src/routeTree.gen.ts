@@ -20,6 +20,7 @@ import { Route as MeRouteImport } from './routes/me'
 import { Route as OgBackgroundsRouteImport } from './routes/og-backgrounds'
 import { Route as OgDemoRouteImport } from './routes/og-demo'
 import { Route as PersonasRouteImport } from './routes/personas'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -112,6 +113,11 @@ const PersonasRoute = PersonasRouteImport.update({
   path: '/personas',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/personas.lazy').then((d) => d.Route))
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/pricing.lazy').then((d) => d.Route))
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -358,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
   '/personas': typeof PersonasRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
@@ -411,6 +418,7 @@ export interface FileRoutesByTo {
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
   '/personas': typeof PersonasRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
@@ -467,6 +475,7 @@ export interface FileRoutesById {
   '/og-backgrounds': typeof OgBackgroundsRoute
   '/og-demo': typeof OgDemoRoute
   '/personas': typeof PersonasRoute
+  '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms': typeof TermsRoute
@@ -524,6 +533,7 @@ export interface FileRouteTypes {
     | '/og-backgrounds'
     | '/og-demo'
     | '/personas'
+    | '/pricing'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
@@ -577,6 +587,7 @@ export interface FileRouteTypes {
     | '/og-backgrounds'
     | '/og-demo'
     | '/personas'
+    | '/pricing'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
@@ -632,6 +643,7 @@ export interface FileRouteTypes {
     | '/og-backgrounds'
     | '/og-demo'
     | '/personas'
+    | '/pricing'
     | '/privacy'
     | '/privacy-policy'
     | '/terms'
@@ -688,6 +700,7 @@ export interface RootRouteChildren {
   OgBackgroundsRoute: typeof OgBackgroundsRoute
   OgDemoRoute: typeof OgDemoRoute
   PersonasRoute: typeof PersonasRoute
+  PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsRoute: typeof TermsRoute
@@ -768,6 +781,13 @@ declare module '@tanstack/react-router' {
       path: '/personas'
       fullPath: '/personas'
       preLoaderRoute: typeof PersonasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -1179,6 +1199,7 @@ const rootRouteChildren: RootRouteChildren = {
   OgBackgroundsRoute: OgBackgroundsRoute,
   OgDemoRoute: OgDemoRoute,
   PersonasRoute: PersonasRoute,
+  PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsRoute: TermsRoute,

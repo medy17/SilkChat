@@ -110,6 +110,11 @@ export function StickyNav({ containerRef }: StickyNavProps) {
                 >
                     <ThemeSwitcher />
                     <div className="h-4 w-px bg-border" />
+                    <Link to="/pricing" className="hidden sm:block">
+                        <Button variant="ghost" size="sm">
+                            Pricing
+                        </Button>
+                    </Link>
                     <Link to="/about" className="hidden sm:block">
                         <Button variant="ghost" size="sm">
                             About

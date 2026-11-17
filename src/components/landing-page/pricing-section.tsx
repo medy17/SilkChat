@@ -1,15 +1,38 @@
 "use client"
 
+import { Link } from "@tanstack/react-router"
 import { Crown, Wallet } from "lucide-react"
 
 import { pricingOptions } from "@/components/landing-page/content"
 import { SectionHead, SignInButton, Tile } from "@/components/landing-page/shared"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
-export function PricingSection() {
+const BILLING_PATH = "/settings/billing"
+
+export function PricingSection({
+    standalone = false,
+    signedIn = false
+}: {
+    /** Rendered as its own page (/pricing) instead of a landing-page section. */
+    standalone?: boolean
+    signedIn?: boolean
+}) {
     return (
-        <section id="pricing" className="border-t py-24 [border-color:var(--landing-border)]">
+        <section
+            id="pricing"
+            className={cn(
+                standalone
+                    ? "pt-10 pb-16 md:pt-16"
+                    : "border-t py-24 [border-color:var(--landing-border)]"
+            )}
+        >
             <div className="mx-auto w-full max-w-7xl px-5 md:px-8">
-                <SectionHead centered title="Simple Pricing. Serious AI Access.">
+                <SectionHead
+                    centered
+                    as={standalone ? "h1" : "h2"}
+                    title="Simple Pricing. Serious AI Access."
+                >
                     Start free. Upgrade Anytime.
                 </SectionHead>
 
@@ -67,12 +90,25 @@ export function PricingSection() {
                                         </li>
                                     ))}
                                 </ul>
-                                <SignInButton
-                                    variant={featured ? "default" : "outline"}
-                                    className="w-full"
-                                >
-                                    {cta}
-                                </SignInButton>
+                                {signedIn ? (
+                                    <Link to={featured ? BILLING_PATH : "/"}>
+                                        <Button
+                                            size="lg"
+                                            variant={featured ? "default" : "outline"}
+                                            className="h-12 w-full rounded-[var(--radius-lg)] px-5 font-semibold"
+                                        >
+                                            {cta}
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <SignInButton
+                                        variant={featured ? "default" : "outline"}
+                                        className="w-full"
+                                        redirect={standalone && featured ? BILLING_PATH : undefined}
+                                    >
+                                        {cta}
+                                    </SignInButton>
+                                )}
                             </Tile>
                         )
                     )}

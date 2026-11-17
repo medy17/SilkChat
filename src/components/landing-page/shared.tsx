@@ -10,6 +10,23 @@ import { useResolvedThemeMode } from "@/hooks/use-resolved-theme-mode"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 
+// Colour tokens shared by the public marketing pages (landing, pricing).
+export const LANDING_THEME_CSS = `
+    .landing-page-root {
+        --landing-bg: var(--background);
+        --landing-fg: var(--foreground);
+        --landing-muted: color-mix(in oklab, var(--foreground) 68%, transparent);
+        --landing-muted-soft: color-mix(in oklab, var(--foreground) 54%, transparent);
+        --landing-muted-faint: color-mix(in oklab, var(--foreground) 40%, transparent);
+        --landing-border: color-mix(in oklab, var(--foreground) 12%, transparent);
+        --landing-border-strong: color-mix(in oklab, var(--foreground) 18%, transparent);
+        --landing-surface: color-mix(in oklab, var(--foreground) 2%, var(--background));
+        --landing-surface-strong: color-mix(in oklab, var(--foreground) 4%, var(--background));
+        --landing-surface-stronger: color-mix(in oklab, var(--foreground) 7%, var(--background));
+        --landing-surface-contrast: color-mix(in oklab, var(--foreground) 10%, var(--background));
+    }
+`
+
 export function useReducedMotion() {
     const [reduced, setReduced] = useState(false)
 
@@ -95,6 +112,7 @@ export function SectionHead({
     title,
     children,
     centered = false,
+    as: Heading = "h2",
     className
 }: {
     eyebrow?: string
@@ -102,6 +120,7 @@ export function SectionHead({
     title: ReactNode
     children?: ReactNode
     centered?: boolean
+    as?: "h1" | "h2"
     className?: string
 }) {
     return (
@@ -117,9 +136,9 @@ export function SectionHead({
                     {eyebrow}
                 </div>
             ) : null}
-            <h2 className="mb-4 text-balance font-medium text-3xl leading-[1.05] tracking-normal [color:var(--landing-fg)] md:text-5xl">
+            <Heading className="mb-4 text-balance font-medium text-3xl leading-[1.05] tracking-normal [color:var(--landing-fg)] md:text-5xl">
                 {title}
-            </h2>
+            </Heading>
             {children ? (
                 <p
                     className={cn(
