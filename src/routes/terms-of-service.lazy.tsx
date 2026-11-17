@@ -7,9 +7,10 @@ export const Route = createLazyFileRoute("/terms-of-service")({
     component: TermsOfServicePage
 })
 
-const EFFECTIVE_DATE = "October 10, 2026"
+const EFFECTIVE_DATE = "November 17, 2026"
 const APP_NAME = "SilkChat"
 const COMPANY_NAME = "DropSilk"
+const OPERATOR_LEGAL_NAME = "Ahmed Arat"
 const APP_URL = "https://silkchat.dev"
 
 function TermsOfServicePage() {
@@ -43,7 +44,8 @@ function TermsOfServicePage() {
                         integrations, and any related software or services we make available
                         (collectively, the "Services"), is governed by these Terms. For purposes of
                         these Terms, "we," "our," "us," and "{APP_NAME}" refer to {COMPANY_NAME},
-                        the provider and operator of the Services.
+                        the trading name of {OPERATOR_LEGAL_NAME}, a sole proprietor, who provides
+                        and operates the Services.
                     </p>
                     <p className="text-muted-foreground">
                         You must agree to these Terms in order to use the Services. If you are using
@@ -362,6 +364,15 @@ function TermsOfServicePage() {
                             annual-plan discount.
                         </TermsItem>
                         <TermsItem>
+                            Our order process is conducted by our online reseller{" "}
+                            <ExternalLink href="https://www.paddle.com">Paddle.com</ExternalLink>.
+                            Paddle.com is the Merchant of Record for all our orders and handles
+                            payment, billing, and applicable sales taxes. Subscriptions started
+                            through Lemon Squeezy, our previous Merchant of Record, continue to be
+                            billed by Lemon Squeezy until they are canceled or moved to Paddle, and
+                            no later than March 31, 2027.
+                        </TermsItem>
+                        <TermsItem>
                             Listed prices do not include applicable taxes and do not include any
                             trial period unless expressly stated in-product.
                         </TermsItem>
@@ -380,9 +391,14 @@ function TermsOfServicePage() {
 
                 <TermsSection number="7" title="Refund Policy">
                     <p className="text-muted-foreground">
-                        All purchases, subscription payments, and credit purchases made through the
-                        Services are <strong>final and non-refundable</strong>, except where
-                        non-waivable consumer rights apply under applicable law.
+                        In line with{" "}
+                        <ExternalLink href="https://www.paddle.com/legal/refund-policy">
+                            Paddle's refund policy
+                        </ExternalLink>{" "}
+                        and these Terms, all purchases, subscription payments, and credit purchases
+                        made through the Services are <strong>non-refundable by default</strong>,
+                        except as set out in this Section and Section 8, or where non-waivable
+                        consumer rights apply under applicable law.
                     </p>
                     <TermsList>
                         <TermsItem>
@@ -392,20 +408,43 @@ function TermsOfServicePage() {
                         <TermsItem>
                             You may cancel your subscription at any time; cancellation stops future
                             billing but does not entitle you to a refund for the current or any
-                            prior billing period.
+                            prior billing period. Your paid features remain available until the end
+                            of your active billing period.
+                        </TermsItem>
+                        <TermsItem>
+                            If you were charged in error, such as a duplicate charge or a renewal
+                            after you canceled, contact <strong>support@silkchat.dev</strong>. We
+                            will work with you to correct the issue, which may include a partial or
+                            full refund or another appropriate remedy, such as a usage reset.
                         </TermsItem>
                         <TermsItem>
                             If we terminate or suspend your access for violating these Terms, you
                             are not entitled to a refund for any unused portion of a paid plan.
                         </TermsItem>
+                        <TermsItem>
+                            If you file a chargeback with your bank or card provider, we may suspend
+                            or terminate your account.
+                        </TermsItem>
+                        <TermsItem>
+                            For purchases processed by Paddle, you may also request a refund from
+                            Paddle at{" "}
+                            <ExternalLink href="https://paddle.net">paddle.net</ExternalLink>.
+                            Paddle reviews those requests under its refund policy.
+                        </TermsItem>
                     </TermsList>
                 </TermsSection>
 
-                <TermsSection number="8" title="Right of Withdrawal (EU Customers)">
+                <TermsSection number="8" title="Right of Withdrawal (EU, EEA, and UK Customers)">
                     <p className="text-muted-foreground">
-                        Except where non-waivable consumer rights apply under applicable law, we do
-                        not offer refunds, money-back guarantees, or trial periods for paid digital
-                        services.
+                        If you are a consumer in the EU, EEA, or UK, you may withdraw from a
+                        purchase and receive a full refund within 14 days of the purchase date,
+                        provided you have not used your subscription during that time. Paid features
+                        are available immediately, so this right ends once you start using them.
+                    </p>
+                    <p className="text-muted-foreground">
+                        Except as described here and where non-waivable consumer rights apply under
+                        applicable law, we do not offer money-back guarantees or trial periods for
+                        paid digital services.
                     </p>
                 </TermsSection>
 
@@ -675,7 +714,8 @@ function TermsOfServicePage() {
                     </p>
                     <TermsList>
                         <TermsItem>
-                            <strong>Operator</strong>: {COMPANY_NAME}
+                            <strong>Operator</strong>: {OPERATOR_LEGAL_NAME}, trading as{" "}
+                            {COMPANY_NAME}
                         </TermsItem>
                         <TermsItem>
                             <strong>Website</strong>:{" "}
