@@ -142,12 +142,12 @@ function PricingPage() {
                             <p className="leading-relaxed [color:var(--landing-muted)]">
                                 In line with{" "}
                                 <a
-                                    href="https://www.paddle.com/legal/refund-policy"
+                                    href="https://dodopayments.com/buyer-terms"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={inlineLinkClass}
                                 >
-                                    Paddle's refund policy
+                                    the Dodo Payments Buyer Terms
                                 </a>{" "}
                                 and our Terms, subscription payments are non-refundable by default,
                                 including partial billing periods, unused usage, downgrades, and

@@ -365,12 +365,14 @@ function TermsOfServicePage() {
                         </TermsItem>
                         <TermsItem>
                             Our order process is conducted by our online reseller{" "}
-                            <ExternalLink href="https://www.paddle.com">Paddle.com</ExternalLink>.
-                            Paddle.com is the Merchant of Record for all our orders and handles
+                            <ExternalLink href="https://dodopayments.com">
+                                Dodo Payments
+                            </ExternalLink>
+                            , which is the Merchant of Record for all our orders and handles
                             payment, billing, and applicable sales taxes. Subscriptions started
                             through Lemon Squeezy, our previous Merchant of Record, continue to be
-                            billed by Lemon Squeezy until they are canceled or moved to Paddle, and
-                            no later than March 31, 2027.
+                            billed by Lemon Squeezy until they are canceled or moved to Dodo
+                            Payments, and no later than March 31, 2027.
                         </TermsItem>
                         <TermsItem>
                             Listed prices do not include applicable taxes and do not include any
@@ -391,9 +393,9 @@ function TermsOfServicePage() {
 
                 <TermsSection number="7" title="Refund Policy">
                     <p className="text-muted-foreground">
-                        In line with{" "}
-                        <ExternalLink href="https://www.paddle.com/legal/refund-policy">
-                            Paddle's refund policy
+                        In line with the{" "}
+                        <ExternalLink href="https://dodopayments.com/buyer-terms">
+                            Dodo Payments Buyer Terms
                         </ExternalLink>{" "}
                         and these Terms, all purchases, subscription payments, and credit purchases
                         made through the Services are <strong>non-refundable by default</strong>,
@@ -426,10 +428,8 @@ function TermsOfServicePage() {
                             or terminate your account.
                         </TermsItem>
                         <TermsItem>
-                            For purchases processed by Paddle, you may also request a refund from
-                            Paddle at{" "}
-                            <ExternalLink href="https://paddle.net">paddle.net</ExternalLink>.
-                            Paddle reviews those requests under its refund policy.
+                            As Merchant of Record, Dodo Payments may also review refund requests for
+                            purchases it processes under its Buyer Terms.
                         </TermsItem>
                     </TermsList>
                 </TermsSection>

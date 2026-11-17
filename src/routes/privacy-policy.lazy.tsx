@@ -194,12 +194,12 @@ function PrivacyPolicyPage() {
                                 allowance at different rates.
                             </PolicyItem>
                             <PolicyItem>
-                                Payments for paid plans are processed by <strong>Paddle.com</strong>
-                                , which acts as our <strong>Merchant of Record</strong>.
-                                Subscriptions started through <strong>Lemon Squeezy</strong>, our
-                                previous Merchant of Record, continue to be billed by Lemon Squeezy
-                                until they are canceled or moved to Paddle, and no later than March
-                                31, 2027.
+                                Payments for paid plans are processed by{" "}
+                                <strong>Dodo Payments</strong>, which acts as our{" "}
+                                <strong>Merchant of Record</strong>. Subscriptions started through{" "}
+                                <strong>Lemon Squeezy</strong>, our previous Merchant of Record,
+                                continue to be billed by Lemon Squeezy until they are canceled or
+                                moved to Dodo Payments, and no later than March 31, 2027.
                             </PolicyItem>
                         </PolicyList>
                     </PolicySubsection>
@@ -457,11 +457,11 @@ function PrivacyPolicyPage() {
                                 email aliases, we proxy via Cloudflare's email routing services.
                             </PolicyItem>
                             <PolicyItem>
-                                <strong>Payment processor</strong>: <strong>Paddle.com</strong>,
+                                <strong>Payment processor</strong>: <strong>Dodo Payments</strong>,
                                 which acts as our <strong>Merchant of Record</strong> and receives
                                 the contact, billing, and transaction details needed to process your
                                 purchase, calculate taxes, and prevent fraud. Subscriptions started
-                                before our move to Paddle are billed by{" "}
+                                before our move to Dodo Payments are billed by{" "}
                                 <strong>Lemon Squeezy</strong>, our previous Merchant of Record. If
                                 your account is suspended or banned, we instruct the payment
                                 processor that bills you to cancel your subscription.
@@ -605,15 +605,16 @@ function PrivacyPolicyPage() {
                             account deletion.
                         </PolicyItem>
                         <PolicyItem>
-                            <strong>Billing records</strong>: Payments are processed by Paddle.com,
-                            our Merchant of Record, or, for subscriptions started before our move to
-                            Paddle, by Lemon Squeezy, our previous Merchant of Record. We retain
-                            subscription and transaction metadata for as long as necessary to
-                            administer billing, provide paid features, process refunds, address
-                            disputes or chargebacks, prevent fraud, and comply with applicable tax,
-                            accounting, and legal obligations. Paddle and Lemon Squeezy each retain
-                            payment and billing records in accordance with their own policies and
-                            legal obligations. We do not store your full payment card details.
+                            <strong>Billing records</strong>: Payments are processed by Dodo
+                            Payments, our Merchant of Record, or, for subscriptions started before
+                            our move to Dodo Payments, by Lemon Squeezy, our previous Merchant of
+                            Record. We retain subscription and transaction metadata for as long as
+                            necessary to administer billing, provide paid features, process refunds,
+                            address disputes or chargebacks, prevent fraud, and comply with
+                            applicable tax, accounting, and legal obligations. Dodo Payments and
+                            Lemon Squeezy each retain payment and billing records in accordance with
+                            their own policies and legal obligations. We do not store your full
+                            payment card details.
                         </PolicyItem>
                     </PolicyList>
                 </PolicySection>
