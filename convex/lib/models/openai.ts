@@ -30,19 +30,50 @@ const FREE_UP_TO_LOW_REASONING_ACCESS = {
 
 export const OPENAI_MODELS: SharedModel[] = [
     {
+        id: "gpt-6.2-astra",
+        name: "GPT 6.2 Astra",
+        addedOn: "2026-11-18",
+        shortName: "6.2 Astra",
+        shortDescription:
+            "OpenAI's GPT-6.2 flagship for the hardest engineering, research, and professional projects",
+        description:
+            "GPT 6.2 Astra is OpenAI's flagship GPT-6.2 model for real-world engineering, professional work, and scientific research. It finishes demanding tasks in fewer output tokens, keeps code changes clean with focused tests, and rebuilds interfaces from screenshots down to layout, color, and font size. It accepts text, images, and PDFs, with tool calling and reasoning that stays on for every request.",
+        developer: "OpenAI",
+        releaseOrder: 20261033,
+        adapters: openAiTextAdapters("gpt-6.2-astra"),
+        supportsVerbosity: true,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+    },
+    {
+        id: "gpt-6.2-sol",
+        name: "GPT 6.2 Sol",
+        addedOn: "2026-11-18",
+        shortName: "6.2 Sol",
+        shortDescription:
+            "OpenAI's efficient GPT-6.2 model for everyday coding and writing, using fewer output tokens per task",
+        description:
+            "GPT 6.2 Sol is OpenAI's efficient, versatile GPT-6.2 model for everyday coding and writing. It completes demanding tasks in fewer output tokens and holds up on hard coding work at its highest reasoning effort. It accepts text, images, and PDFs, with tool calling and adjustable reasoning that stays enabled for every request.",
+        developer: "OpenAI",
+        releaseOrder: 20261032,
+        adapters: openAiTextAdapters("gpt-6.2-sol"),
+        supportsVerbosity: true,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+    },
+    {
         id: "gpt-6.1-sol",
         name: "GPT 6.1 Sol",
         addedOn: "2026-09-30",
         shortName: "6.1 Sol",
         shortDescription:
-            "OpenAI's updated Sol model for coding and document work, with improved factual accuracy and instruction following",
+            "OpenAI's previous Sol model for coding and document work, with improved factual accuracy and instruction following",
         description:
-            "GPT 6.1 Sol is OpenAI's updated Sol model for coding, document analysis, and multi-step business tasks. It improves factual accuracy and adherence to explicit instructions. It accepts text, images, and PDFs, with tool calling and adjustable reasoning that stays enabled for every request.",
+            "GPT 6.1 Sol is OpenAI's previous-generation Sol model for coding, document analysis, and multi-step business tasks. It improved factual accuracy and adherence to explicit instructions. It accepts text, images, and PDFs, with tool calling and adjustable reasoning that stays enabled for every request.",
         developer: "OpenAI",
         releaseOrder: 20261030,
         adapters: openAiTextAdapters("gpt-6.1-sol"),
         supportsVerbosity: true,
-        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        replacementId: "gpt-6.2-sol"
     },
     {
         id: "gpt-6.1-terra",
@@ -100,29 +131,34 @@ export const OPENAI_MODELS: SharedModel[] = [
         name: "GPT 6 Astra",
         addedOn: "2026-09-05",
         shortName: "6 Astra",
-        shortDescription: "OpenAI's flagship for true next generation coding, and multimodal work",
+        shortDescription: "OpenAI's previous-generation flagship for coding and multimodal work",
         description:
-            "GPT 6 Astra is OpenAI's true next-generation flagship model for complex work spanning analysis, software engineering, scientific research, and document creation. It handles text, images, and PDFs, with adjustable reasoning and tool calling for tasks that require many steps. It's OpenAI's largest model by parameter count since GPT-4.5.",
+            "GPT 6 Astra is OpenAI's previous-generation flagship model for complex work spanning analysis, software engineering, scientific research, and document creation. It handles text, images, and PDFs, with adjustable reasoning and tool calling for tasks that require many steps. It's OpenAI's largest model by parameter count since GPT-4.5.",
         developer: "OpenAI",
         releaseOrder: 20261027,
         adapters: openAiTextAdapters("gpt-6-astra"),
         supportsVerbosity: true,
-        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"]
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        replacementId: "gpt-6.2-astra",
+        nudgeToReplacement: true,
+        nudgeMessages: ["{to} is OpenAI's newer flagship and costs 20% less per token than {from}."]
     },
     {
         id: "gpt-5.6-sol",
         name: "GPT 5.6 Sol",
         addedOn: "2026-07-09",
         shortName: "5.6 Sol",
-        shortDescription: "Flagship GPT-5.6 series model for complex reasoning, coding, and agents",
+        shortDescription:
+            "OpenAI's previous-generation top GPT-5.6 model for complex reasoning, coding, and agents",
         description:
-            "GPT 5.6 Sol is the flagship GPT-5.6 model, built for complex reasoning, coding, multimodal input, tool use, and long-horizon agentic workflows.",
+            "GPT 5.6 Sol is OpenAI's previous-generation top GPT-5.6 model, built for complex reasoning, coding, multimodal input, tool use, and long-horizon agentic workflows.",
         developer: "OpenAI",
         releaseOrder: 20261026,
         adapters: openAiTextAdapters("gpt-5.6-sol"),
         supportsVerbosity: true,
         abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
         supportsDisablingReasoning: true,
+        legacy: true,
         replacementId: "gpt-6-sol"
     },
     {
