@@ -644,7 +644,12 @@ describe("case updates", () => {
             caseId: suspension.id,
             days: 7
         })
-        expect((await getAuthUser(customer.id))?.banExpires).toBe(Date.now() + 7 * DAY)
+        // Each mutation's clock runs at or after the test's, as in Convex, so the end is
+        // checked against the case rather than to the millisecond.
+        const [shortened] = await casesFor(operator, customer.id)
+        expect((await getAuthUser(customer.id))?.banExpires).toBe(shortened.endsAt)
+        expect(shortened.endsAt! - Date.now()).toBeGreaterThanOrEqual(7 * DAY)
+        expect(shortened.endsAt! - Date.now()).toBeLessThan(7 * DAY + 1000)
         await operator.as.mutation(api.moderation.changeModerationCaseEnd, {
             caseId: suspension.id,
             days: 60
@@ -664,9 +669,10 @@ describe("case updates", () => {
         expect(
             await other.t.run((ctx) => ctx.db.query("moderationIdentityBlocks").collect())
         ).toEqual([])
+        const [shortenedBan] = await casesFor(other.operator, other.customer.id)
         expect(
             (await other.customer.as.query(api.moderation.getMySafety, {}))?.standing
-        ).toMatchObject({ status: "suspended", endsAt: Date.now() + 30 * DAY })
+        ).toMatchObject({ status: "suspended", endsAt: shortenedBan.endsAt })
     })
 
     it("emails each change once, and says access is restored only when nothing else restricts it", async () => {

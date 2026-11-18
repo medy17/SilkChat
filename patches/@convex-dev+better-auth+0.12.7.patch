@@ -1,4 +1,5 @@
 diff --git a/node_modules/@convex-dev/better-auth/dist/auth-options.js b/node_modules/@convex-dev/better-auth/dist/auth-options.js
+index 1b67f02e..0ec9f92d 100644
 --- a/node_modules/@convex-dev/better-auth/dist/auth-options.js
 +++ b/node_modules/@convex-dev/better-auth/dist/auth-options.js
 @@ -1,3 +1,4 @@
@@ -6,7 +7,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/auth-options.js b/node_mo
  import { anonymous } from "better-auth/plugins/anonymous";
  import { bearer } from "better-auth/plugins/bearer";
  import { emailOTP } from "better-auth/plugins/email-otp";
-@@ -18,6 +19,7 @@
+@@ -18,6 +19,7 @@ export const options = {
          storage: "database",
      },
      plugins: [
@@ -15,9 +16,10 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/auth-options.js b/node_mo
          anonymous(),
          username(),
 diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts b/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
+index 2ac4afad..47474781 100644
 --- a/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
 +++ b/node_modules/@convex-dev/better-auth/dist/component/_generated/component.d.ts
-@@ -32,6 +32,10 @@
+@@ -32,6 +32,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      name: string;
                      phoneNumber?: null | string;
                      phoneNumberVerified?: null | boolean;
@@ -28,7 +30,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      twoFactorEnabled?: null | boolean;
                      updatedAt: number;
                      userId?: null | string;
-@@ -46,6 +50,7 @@
+@@ -46,6 +50,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      token: string;
                      updatedAt: number;
                      userAgent?: null | string;
@@ -36,7 +38,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      userId: string;
                  };
                  model: "session";
-@@ -144,7 +149,7 @@
+@@ -144,7 +149,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  model: "user";
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -45,7 +47,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -153,7 +158,7 @@
+@@ -153,7 +158,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  model: "session";
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -54,7 +56,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -246,7 +251,7 @@
+@@ -246,7 +251,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  model: "user";
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -63,7 +65,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -255,7 +260,7 @@
+@@ -255,7 +260,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  model: "session";
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -72,7 +74,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -386,6 +391,10 @@
+@@ -386,6 +391,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      name?: string;
                      phoneNumber?: null | string;
                      phoneNumberVerified?: null | boolean;
@@ -83,7 +85,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      twoFactorEnabled?: null | boolean;
                      updatedAt?: number;
                      userId?: null | string;
-@@ -393,7 +402,7 @@
+@@ -393,7 +402,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  };
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -92,7 +94,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -407,11 +416,12 @@
+@@ -407,11 +416,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      token?: string;
                      updatedAt?: number;
                      userAgent?: null | string;
@@ -106,7 +108,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -582,6 +592,10 @@
+@@ -582,6 +592,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      name?: string;
                      phoneNumber?: null | string;
                      phoneNumberVerified?: null | boolean;
@@ -117,7 +119,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      twoFactorEnabled?: null | boolean;
                      updatedAt?: number;
                      userId?: null | string;
-@@ -589,7 +603,7 @@
+@@ -589,7 +603,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                  };
                  where?: Array<{
                      connector?: "AND" | "OR";
@@ -126,7 +128,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -603,11 +617,12 @@
+@@ -603,11 +617,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      token?: string;
                      updatedAt?: number;
                      userAgent?: null | string;
@@ -140,7 +142,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                      mode?: "sensitive" | "insensitive";
                      operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                      value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -776,6 +791,10 @@
+@@ -776,6 +791,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -151,7 +153,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -791,6 +810,7 @@
+@@ -791,6 +810,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -159,7 +161,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -889,7 +909,7 @@
+@@ -889,7 +909,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -168,7 +170,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -898,7 +918,7 @@
+@@ -898,7 +918,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -177,7 +179,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -991,7 +1011,7 @@
+@@ -991,7 +1011,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -186,7 +188,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1000,7 +1020,7 @@
+@@ -1000,7 +1020,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -195,7 +197,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1135,6 +1155,10 @@
+@@ -1135,6 +1155,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -206,7 +208,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -1143,7 +1167,7 @@
+@@ -1143,7 +1167,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -215,7 +217,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1157,11 +1181,12 @@
+@@ -1157,11 +1181,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -229,7 +231,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1336,6 +1361,10 @@
+@@ -1336,6 +1361,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -240,7 +242,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -1344,7 +1373,7 @@
+@@ -1344,7 +1373,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -249,7 +251,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1358,11 +1387,12 @@
+@@ -1358,11 +1387,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -263,7 +265,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1531,6 +1561,10 @@
+@@ -1531,6 +1561,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -274,7 +276,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -1546,6 +1580,7 @@
+@@ -1546,6 +1580,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -282,7 +284,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -1651,6 +1686,10 @@
+@@ -1651,6 +1686,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -293,7 +295,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -1674,6 +1713,10 @@
+@@ -1674,6 +1713,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -304,7 +306,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -1758,7 +1801,7 @@
+@@ -1758,7 +1801,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -313,7 +315,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1767,7 +1810,7 @@
+@@ -1767,7 +1810,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -322,7 +324,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1848,7 +1891,7 @@
+@@ -1848,7 +1891,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -331,7 +333,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1857,7 +1900,7 @@
+@@ -1857,7 +1900,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -340,7 +342,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1950,7 +1993,7 @@
+@@ -1950,7 +1993,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -349,7 +351,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -1959,7 +2002,7 @@
+@@ -1959,7 +2002,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -358,7 +360,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2040,7 +2083,7 @@
+@@ -2040,7 +2083,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -367,7 +369,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2049,7 +2092,7 @@
+@@ -2049,7 +2092,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -376,7 +378,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2185,6 +2228,10 @@
+@@ -2185,6 +2228,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -387,7 +389,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2193,7 +2240,7 @@
+@@ -2193,7 +2240,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -396,7 +398,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2207,11 +2254,12 @@
+@@ -2207,11 +2254,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -410,7 +412,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2375,6 +2423,10 @@
+@@ -2375,6 +2423,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -421,7 +423,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2383,7 +2435,7 @@
+@@ -2383,7 +2435,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -430,7 +432,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2405,6 +2457,10 @@
+@@ -2405,6 +2457,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -441,7 +443,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2413,7 +2469,7 @@
+@@ -2413,7 +2469,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -450,7 +452,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2571,6 +2627,10 @@
+@@ -2571,6 +2627,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -461,7 +463,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2579,7 +2639,7 @@
+@@ -2579,7 +2639,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -470,7 +472,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2593,11 +2653,12 @@
+@@ -2593,11 +2653,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -484,7 +486,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2761,6 +2822,10 @@
+@@ -2761,6 +2822,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -495,7 +497,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2769,7 +2834,7 @@
+@@ -2769,7 +2834,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -504,7 +506,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2791,6 +2856,10 @@
+@@ -2791,6 +2856,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -515,7 +517,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -2799,7 +2868,7 @@
+@@ -2799,7 +2868,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -524,7 +526,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -2950,6 +3019,10 @@
+@@ -2950,6 +3019,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -535,7 +537,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -2965,6 +3038,7 @@
+@@ -2965,6 +3038,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -543,7 +545,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -3070,6 +3144,10 @@
+@@ -3070,6 +3144,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -554,7 +556,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -3093,6 +3171,10 @@
+@@ -3093,6 +3171,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -565,7 +567,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -3177,7 +3259,7 @@
+@@ -3177,7 +3259,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -574,7 +576,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3186,7 +3268,7 @@
+@@ -3186,7 +3268,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -583,7 +585,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3267,7 +3349,7 @@
+@@ -3267,7 +3349,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -592,7 +594,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3276,7 +3358,7 @@
+@@ -3276,7 +3358,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -601,7 +603,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3369,7 +3451,7 @@
+@@ -3369,7 +3451,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -610,7 +612,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3378,7 +3460,7 @@
+@@ -3378,7 +3460,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -619,7 +621,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3459,7 +3541,7 @@
+@@ -3459,7 +3541,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -628,7 +630,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3468,7 +3550,7 @@
+@@ -3468,7 +3550,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -637,7 +639,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3604,6 +3686,10 @@
+@@ -3604,6 +3686,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -648,7 +650,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -3612,7 +3698,7 @@
+@@ -3612,7 +3698,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -657,7 +659,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3626,11 +3712,12 @@
+@@ -3626,11 +3712,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -671,7 +673,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3794,6 +3881,10 @@
+@@ -3794,6 +3881,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -682,7 +684,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -3802,7 +3893,7 @@
+@@ -3802,7 +3893,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -691,7 +693,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3824,6 +3915,10 @@
+@@ -3824,6 +3915,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -702,7 +704,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -3832,7 +3927,7 @@
+@@ -3832,7 +3927,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -711,7 +713,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -3990,6 +4085,10 @@
+@@ -3990,6 +4085,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -722,7 +724,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -3998,7 +4097,7 @@
+@@ -3998,7 +4097,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -731,7 +733,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4012,11 +4111,12 @@
+@@ -4012,11 +4111,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -745,7 +747,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4180,6 +4280,10 @@
+@@ -4180,6 +4280,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -756,7 +758,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -4188,7 +4292,7 @@
+@@ -4188,7 +4292,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -765,7 +767,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4210,6 +4314,10 @@
+@@ -4210,6 +4314,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -776,7 +778,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -4218,7 +4326,7 @@
+@@ -4218,7 +4326,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -785,7 +787,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4369,6 +4477,10 @@
+@@ -4369,6 +4477,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -796,7 +798,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -4384,6 +4496,7 @@
+@@ -4384,6 +4496,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -804,7 +806,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -4489,6 +4602,10 @@
+@@ -4489,6 +4602,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -815,7 +817,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -4512,6 +4629,10 @@
+@@ -4512,6 +4629,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -826,7 +828,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -4596,7 +4717,7 @@
+@@ -4596,7 +4717,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -835,7 +837,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4605,7 +4726,7 @@
+@@ -4605,7 +4726,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -844,7 +846,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4686,7 +4807,7 @@
+@@ -4686,7 +4807,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -853,7 +855,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4695,7 +4816,7 @@
+@@ -4695,7 +4816,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -862,7 +864,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4788,7 +4909,7 @@
+@@ -4788,7 +4909,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -871,7 +873,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4797,7 +4918,7 @@
+@@ -4797,7 +4918,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -880,7 +882,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4878,7 +4999,7 @@
+@@ -4878,7 +4999,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -889,7 +891,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -4887,7 +5008,7 @@
+@@ -4887,7 +5008,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -898,7 +900,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5023,6 +5144,10 @@
+@@ -5023,6 +5144,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -909,7 +911,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5031,7 +5156,7 @@
+@@ -5031,7 +5156,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -918,7 +920,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5045,11 +5170,12 @@
+@@ -5045,11 +5170,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -932,7 +934,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5213,6 +5339,10 @@
+@@ -5213,6 +5339,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -943,7 +945,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5221,7 +5351,7 @@
+@@ -5221,7 +5351,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -952,7 +954,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5243,6 +5373,10 @@
+@@ -5243,6 +5373,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -963,7 +965,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5251,7 +5385,7 @@
+@@ -5251,7 +5385,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -972,7 +974,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5409,6 +5543,10 @@
+@@ -5409,6 +5543,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -983,7 +985,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5417,7 +5555,7 @@
+@@ -5417,7 +5555,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -992,7 +994,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5431,11 +5569,12 @@
+@@ -5431,11 +5569,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -1006,7 +1008,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5599,6 +5738,10 @@
+@@ -5599,6 +5738,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1017,7 +1019,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5607,7 +5750,7 @@
+@@ -5607,7 +5750,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1026,7 +1028,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5629,6 +5772,10 @@
+@@ -5629,6 +5772,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1037,7 +1039,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -5637,7 +5784,7 @@
+@@ -5637,7 +5784,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1046,7 +1048,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -5788,6 +5935,10 @@
+@@ -5788,6 +5935,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1057,7 +1059,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -5803,6 +5954,7 @@
+@@ -5803,6 +5954,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -1065,7 +1067,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -5908,6 +6060,10 @@
+@@ -5908,6 +6060,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1076,7 +1078,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -5931,6 +6087,10 @@
+@@ -5931,6 +6087,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1087,7 +1089,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -6015,7 +6175,7 @@
+@@ -6015,7 +6175,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1096,7 +1098,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6024,7 +6184,7 @@
+@@ -6024,7 +6184,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1105,7 +1107,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6105,7 +6265,7 @@
+@@ -6105,7 +6265,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1114,7 +1116,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6114,7 +6274,7 @@
+@@ -6114,7 +6274,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1123,7 +1125,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6207,7 +6367,7 @@
+@@ -6207,7 +6367,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1132,7 +1134,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6216,7 +6376,7 @@
+@@ -6216,7 +6376,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1141,7 +1143,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6297,7 +6457,7 @@
+@@ -6297,7 +6457,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1150,7 +1152,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6306,7 +6466,7 @@
+@@ -6306,7 +6466,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1159,7 +1161,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6442,6 +6602,10 @@
+@@ -6442,6 +6602,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1170,7 +1172,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -6450,7 +6614,7 @@
+@@ -6450,7 +6614,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1179,7 +1181,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6464,11 +6628,12 @@
+@@ -6464,11 +6628,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -1193,7 +1195,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6632,6 +6797,10 @@
+@@ -6632,6 +6797,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1204,7 +1206,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -6640,7 +6809,7 @@
+@@ -6640,7 +6809,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1213,7 +1215,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6662,6 +6831,10 @@
+@@ -6662,6 +6831,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1224,7 +1226,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -6670,7 +6843,7 @@
+@@ -6670,7 +6843,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1233,7 +1235,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6828,6 +7001,10 @@
+@@ -6828,6 +7001,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1244,7 +1246,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -6836,7 +7013,7 @@
+@@ -6836,7 +7013,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1253,7 +1255,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -6850,11 +7027,12 @@
+@@ -6850,11 +7027,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -1267,7 +1269,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7018,6 +7196,10 @@
+@@ -7018,6 +7196,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1278,7 +1280,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -7026,7 +7208,7 @@
+@@ -7026,7 +7208,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1287,7 +1289,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7048,6 +7230,10 @@
+@@ -7048,6 +7230,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1298,7 +1300,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -7056,7 +7242,7 @@
+@@ -7056,7 +7242,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1307,7 +1309,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7207,6 +7393,10 @@
+@@ -7207,6 +7393,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1318,7 +1320,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -7222,6 +7412,7 @@
+@@ -7222,6 +7412,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token: string;
                          updatedAt: number;
                          userAgent?: null | string;
@@ -1326,7 +1328,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          userId: string;
                      };
                      model: "session";
-@@ -7327,6 +7518,10 @@
+@@ -7327,6 +7518,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1337,7 +1339,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -7350,6 +7545,10 @@
+@@ -7350,6 +7545,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1348,7 +1350,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt: number;
-@@ -7434,7 +7633,7 @@
+@@ -7434,7 +7633,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1357,7 +1359,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7443,7 +7642,7 @@
+@@ -7443,7 +7642,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1366,7 +1368,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7524,7 +7723,7 @@
+@@ -7524,7 +7723,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1375,7 +1377,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7533,7 +7732,7 @@
+@@ -7533,7 +7732,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1384,7 +1386,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7626,7 +7825,7 @@
+@@ -7626,7 +7825,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1393,7 +1395,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7635,7 +7834,7 @@
+@@ -7635,7 +7834,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "session";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1402,7 +1404,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7716,7 +7915,7 @@
+@@ -7716,7 +7915,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_custom";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1411,7 +1413,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7725,7 +7924,7 @@
+@@ -7725,7 +7924,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      model: "user_table";
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1420,7 +1422,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7861,6 +8060,10 @@
+@@ -7861,6 +8060,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1431,7 +1433,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -7869,7 +8072,7 @@
+@@ -7869,7 +8072,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1440,7 +1442,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -7883,11 +8086,12 @@
+@@ -7883,11 +8086,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -1454,7 +1456,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8051,6 +8255,10 @@
+@@ -8051,6 +8255,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1465,7 +1467,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -8059,7 +8267,7 @@
+@@ -8059,7 +8267,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1474,7 +1476,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8081,6 +8289,10 @@
+@@ -8081,6 +8289,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1485,7 +1487,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -8089,7 +8301,7 @@
+@@ -8089,7 +8301,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1494,7 +1496,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8247,6 +8459,10 @@
+@@ -8247,6 +8459,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1505,7 +1507,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -8255,7 +8471,7 @@
+@@ -8255,7 +8471,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1514,7 +1516,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8269,11 +8485,12 @@
+@@ -8269,11 +8485,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          token?: string;
                          updatedAt?: number;
                          userAgent?: null | string;
@@ -1528,7 +1530,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8437,6 +8654,10 @@
+@@ -8437,6 +8654,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1539,7 +1541,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -8445,7 +8666,7 @@
+@@ -8445,7 +8666,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1548,7 +1550,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          mode?: "sensitive" | "insensitive";
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
-@@ -8467,6 +8688,10 @@
+@@ -8467,6 +8688,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                          numericField?: null | number;
                          phoneNumber?: null | string;
                          phoneNumberVerified?: null | boolean;
@@ -1559,7 +1561,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          testField?: null | string;
                          twoFactorEnabled?: null | boolean;
                          updatedAt?: number;
-@@ -8475,7 +8700,7 @@
+@@ -8475,7 +8700,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                      };
                      where?: Array<{
                          connector?: "AND" | "OR";
@@ -1569,9 +1571,10 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/_generated/comp
                          operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "in" | "not_in" | "ne" | "contains" | "starts_with" | "ends_with";
                          value: string | number | boolean | Array<string> | Array<number> | null;
 diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
+index 2666ea19..18813628 100644
 --- a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
 +++ b/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts
-@@ -18,6 +18,10 @@
+@@ -18,6 +18,10 @@ export declare const tables: {
          displayUsername?: string | null | undefined;
          phoneNumber?: string | null | undefined;
          phoneNumberVerified?: boolean | null | undefined;
@@ -1582,22 +1585,21 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/n
          createdAt: number;
          updatedAt: number;
          email: string;
-@@ -36,8 +40,12 @@
+@@ -36,8 +40,12 @@ export declare const tables: {
          displayUsername: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          phoneNumber: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          phoneNumberVerified: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
--        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
--    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
 +        role: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
 +        banned: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
 +        banReason: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
 +        banExpires: import("convex/values").VUnion<number | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VFloat64<number, "required">], "optional", never>;
-+        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
 +    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires">, {
          email_name: ["email", "name", "_creationTime"];
          name: ["name", "_creationTime"];
          userId: ["userId", "_creationTime"];
-@@ -47,6 +55,7 @@
+@@ -47,6 +55,7 @@ export declare const tables: {
      session: import("convex/server").TableDefinition<import("convex/values").VObject<{
          ipAddress?: string | null | undefined;
          userAgent?: string | null | undefined;
@@ -1605,19 +1607,18 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/n
          createdAt: number;
          updatedAt: number;
          userId: string;
-@@ -59,8 +68,9 @@
+@@ -59,8 +68,9 @@ export declare const tables: {
          updatedAt: import("convex/values").VFloat64<number, "required">;
          ipAddress: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          userAgent: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
--        userId: import("convex/values").VString<string, "required">;
--    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
 +        impersonatedBy: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
-+        userId: import("convex/values").VString<string, "required">;
+         userId: import("convex/values").VString<string, "required">;
+-    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
 +    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent" | "impersonatedBy">, {
          expiresAt: ["expiresAt", "_creationTime"];
          expiresAt_userId: ["expiresAt", "userId", "_creationTime"];
          token: ["token", "_creationTime"];
-@@ -232,6 +242,10 @@
+@@ -232,6 +242,10 @@ declare const schema: import("convex/server").SchemaDefinition<{
          displayUsername?: string | null | undefined;
          phoneNumber?: string | null | undefined;
          phoneNumberVerified?: boolean | null | undefined;
@@ -1628,22 +1629,21 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/n
          createdAt: number;
          updatedAt: number;
          email: string;
-@@ -250,8 +264,12 @@
+@@ -250,8 +264,12 @@ declare const schema: import("convex/server").SchemaDefinition<{
          displayUsername: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          phoneNumber: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          phoneNumberVerified: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
--        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
--    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
 +        role: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
 +        banned: import("convex/values").VUnion<boolean | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VBoolean<boolean, "required">], "optional", never>;
 +        banReason: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
 +        banExpires: import("convex/values").VUnion<number | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VFloat64<number, "required">], "optional", never>;
-+        userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+         userId: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
+-    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified">, {
 +    }, "required", "createdAt" | "updatedAt" | "email" | "emailVerified" | "name" | "image" | "userId" | "twoFactorEnabled" | "isAnonymous" | "username" | "displayUsername" | "phoneNumber" | "phoneNumberVerified" | "role" | "banned" | "banReason" | "banExpires">, {
          email_name: ["email", "name", "_creationTime"];
          name: ["name", "_creationTime"];
          userId: ["userId", "_creationTime"];
-@@ -261,6 +279,7 @@
+@@ -261,6 +279,7 @@ declare const schema: import("convex/server").SchemaDefinition<{
      session: import("convex/server").TableDefinition<import("convex/values").VObject<{
          ipAddress?: string | null | undefined;
          userAgent?: string | null | undefined;
@@ -1651,22 +1651,22 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.d.ts b/n
          createdAt: number;
          updatedAt: number;
          userId: string;
-@@ -273,8 +292,9 @@
+@@ -273,8 +292,9 @@ declare const schema: import("convex/server").SchemaDefinition<{
          updatedAt: import("convex/values").VFloat64<number, "required">;
          ipAddress: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
          userAgent: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
--        userId: import("convex/values").VString<string, "required">;
--    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
 +        impersonatedBy: import("convex/values").VUnion<string | null | undefined, [import("convex/values").VNull<null, "required">, import("convex/values").VString<string, "required">], "optional", never>;
-+        userId: import("convex/values").VString<string, "required">;
+         userId: import("convex/values").VString<string, "required">;
+-    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent">, {
 +    }, "required", "createdAt" | "updatedAt" | "userId" | "expiresAt" | "token" | "ipAddress" | "userAgent" | "impersonatedBy">, {
          expiresAt: ["expiresAt", "_creationTime"];
          expiresAt_userId: ["expiresAt", "userId", "_creationTime"];
          token: ["token", "_creationTime"];
 diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.js b/node_modules/@convex-dev/better-auth/dist/component/schema.js
+index 86516c9c..727d9375 100644
 --- a/node_modules/@convex-dev/better-auth/dist/component/schema.js
 +++ b/node_modules/@convex-dev/better-auth/dist/component/schema.js
-@@ -12,6 +12,11 @@
+@@ -12,6 +12,11 @@ import { defineSchema, defineTable } from "convex/server";
  import { v } from "convex/values";
  export const tables = {
      user: defineTable({
@@ -1678,7 +1678,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.js b/nod
          name: v.string(),
          email: v.string(),
          emailVerified: v.boolean(),
-@@ -32,6 +37,7 @@
+@@ -32,6 +37,7 @@ export const tables = {
          .index("username", ["username"])
          .index("phoneNumber", ["phoneNumber"]),
      session: defineTable({
@@ -1687,6 +1687,7 @@ diff --git a/node_modules/@convex-dev/better-auth/dist/component/schema.js b/nod
          token: v.string(),
          createdAt: v.number(),
 diff --git a/node_modules/@convex-dev/better-auth/src/auth-options.ts b/node_modules/@convex-dev/better-auth/src/auth-options.ts
+index 6281482f..09c41304 100644
 --- a/node_modules/@convex-dev/better-auth/src/auth-options.ts
 +++ b/node_modules/@convex-dev/better-auth/src/auth-options.ts
 @@ -1,3 +1,4 @@
@@ -1694,7 +1695,7 @@ diff --git a/node_modules/@convex-dev/better-auth/src/auth-options.ts b/node_mod
  import type { BetterAuthOptions } from "better-auth/minimal";
  import { anonymous } from "better-auth/plugins/anonymous";
  import { bearer } from "better-auth/plugins/bearer";
-@@ -20,6 +21,7 @@
+@@ -20,6 +21,7 @@ export const options = {
      storage: "database",
    },
    plugins: [
@@ -1703,9 +1704,10 @@ diff --git a/node_modules/@convex-dev/better-auth/src/auth-options.ts b/node_mod
      anonymous(),
      username(),
 diff --git a/node_modules/@convex-dev/better-auth/src/component/schema.ts b/node_modules/@convex-dev/better-auth/src/component/schema.ts
+index 8b5ecc1c..76a396b7 100644
 --- a/node_modules/@convex-dev/better-auth/src/component/schema.ts
 +++ b/node_modules/@convex-dev/better-auth/src/component/schema.ts
-@@ -14,6 +14,11 @@
+@@ -14,6 +14,11 @@ import { v } from "convex/values";
  
  export const tables = {
    user: defineTable({
@@ -1717,7 +1719,7 @@ diff --git a/node_modules/@convex-dev/better-auth/src/component/schema.ts b/node
      name: v.string(),
      email: v.string(),
      emailVerified: v.boolean(),
-@@ -34,6 +39,7 @@
+@@ -34,6 +39,7 @@ export const tables = {
      .index("username", ["username"])
      .index("phoneNumber", ["phoneNumber"]),
    session: defineTable({

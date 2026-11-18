@@ -9,6 +9,14 @@ beforeEach(() => {
     if (typeof window !== "undefined") {
         vi.spyOn(window, "scrollTo").mockImplementation(() => {})
     }
+    // jsdom computes animation-name (vaul injects exit keyframes) but never fires animationend,
+    // so Radix Presence would keep closed drawers mounted. Turn animations off instead.
+    if (typeof document !== "undefined" && !document.getElementById("test-no-animations")) {
+        const style = document.createElement("style")
+        style.id = "test-no-animations"
+        style.textContent = "*,*::before,*::after{animation:none!important}"
+        document.head.append(style)
+    }
 })
 
 afterEach(() => {

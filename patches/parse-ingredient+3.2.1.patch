@@ -1,8 +1,8 @@
 diff --git a/node_modules/parse-ingredient/dist/parse-ingredient.mjs b/node_modules/parse-ingredient/dist/parse-ingredient.mjs
-index ef6d684..7f77f8e 100644
+index 1d8007de..497011d0 100644
 --- a/node_modules/parse-ingredient/dist/parse-ingredient.mjs
 +++ b/node_modules/parse-ingredient/dist/parse-ingredient.mjs
-@@ -331,6 +331,13 @@ const unitsOfMeasure = deepFreeze({
+@@ -347,6 +347,13 @@ const unitsOfMeasure = deepFreeze({
  		type: "mass",
  		conversionFactor: 1
  	},
@@ -16,7 +16,7 @@ index ef6d684..7f77f8e 100644
  	kilogram: {
  		short: "kg",
  		plural: "kilograms",
-@@ -363,10 +370,17 @@ const unitsOfMeasure = deepFreeze({
+@@ -379,10 +386,17 @@ const unitsOfMeasure = deepFreeze({
  		type: "mass",
  		conversionFactor: 453.59237
  	},
@@ -35,7 +35,7 @@ index ef6d684..7f77f8e 100644
  		type: "volume",
  		conversionFactor: {
  			us: 236.58824,
-@@ -381,6 +395,13 @@ const unitsOfMeasure = deepFreeze({
+@@ -397,6 +411,13 @@ const unitsOfMeasure = deepFreeze({
  		type: "volume",
  		conversionFactor: 100
  	},
@@ -49,7 +49,7 @@ index ef6d684..7f77f8e 100644
  	"fluid ounce": {
  		short: "fl oz",
  		plural: "fluid ounces",
-@@ -396,7 +417,9 @@ const unitsOfMeasure = deepFreeze({
+@@ -412,7 +433,9 @@ const unitsOfMeasure = deepFreeze({
  			"fl-ounce",
  			"fl-ounces",
  			"fluid oz",
@@ -60,7 +60,7 @@ index ef6d684..7f77f8e 100644
  		],
  		type: "volume",
  		conversionFactor: {
-@@ -407,7 +430,7 @@ const unitsOfMeasure = deepFreeze({
+@@ -423,7 +446,7 @@ const unitsOfMeasure = deepFreeze({
  	gallon: {
  		short: "gal",
  		plural: "gallons",
@@ -69,7 +69,7 @@ index ef6d684..7f77f8e 100644
  		type: "volume",
  		conversionFactor: {
  			us: 3785.4118,
-@@ -435,7 +458,7 @@ const unitsOfMeasure = deepFreeze({
+@@ -451,7 +474,7 @@ const unitsOfMeasure = deepFreeze({
  	pint: {
  		short: "pt",
  		plural: "pints",
@@ -78,7 +78,7 @@ index ef6d684..7f77f8e 100644
  		type: "volume",
  		conversionFactor: {
  			us: 473.17647,
-@@ -448,7 +471,9 @@ const unitsOfMeasure = deepFreeze({
+@@ -464,7 +487,9 @@ const unitsOfMeasure = deepFreeze({
  		alternates: [
  			"qt.",
  			"qts",
@@ -89,7 +89,7 @@ index ef6d684..7f77f8e 100644
  		],
  		type: "volume",
  		conversionFactor: {
-@@ -473,6 +498,27 @@ const unitsOfMeasure = deepFreeze({
+@@ -489,6 +514,27 @@ const unitsOfMeasure = deepFreeze({
  			metric: 15
  		}
  	},
