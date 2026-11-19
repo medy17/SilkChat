@@ -1,0 +1,91 @@
+diff --git a/node_modules/@ai-sdk/openai/dist/index.js b/node_modules/@ai-sdk/openai/dist/index.js
+index 2dfd463..7b8c670 100644
+--- a/node_modules/@ai-sdk/openai/dist/index.js
++++ b/node_modules/@ai-sdk/openai/dist/index.js
+@@ -1771,6 +1771,8 @@ const openaiChatChunkSchema = lazySchema(() => zodSchema(z.union([z.object({
+ 		delta: z.object({
+ 			role: z.enum(["assistant"]).nullish(),
+ 			content: z.string().nullish(),
++			reasoning_content: z.string().nullish(),
++			reasoning: z.string().nullish(),
+ 			refusal: z.string().nullish(),
+ 			tool_calls: z.array(z.object({
+ 				index: z.number(),
+@@ -2330,6 +2332,8 @@ var OpenAIChatLanguageModel = class OpenAIChatLanguageModel {
+ 		let usage = void 0;
+ 		let metadataExtracted = false;
+ 		let isActiveText = false;
++		let isActiveReasoning = false;
++		let sawEmptyContent = false;
+ 		let hasRefusal = false;
+ 		let rawFinishReason = void 0;
+ 		let hasLogprobs = false;
+@@ -2404,13 +2408,35 @@ var OpenAIChatLanguageModel = class OpenAIChatLanguageModel {
+ 					}
+ 					if (choice?.delta == null) return;
+ 					const delta = choice.delta;
++					const reasoningDelta = delta.reasoning_content ?? delta.reasoning;
++					if (reasoningDelta != null && reasoningDelta.length > 0) {
++						if (!isActiveReasoning) {
++							controller.enqueue({
++								type: "reasoning-start",
++								id: "reasoning-0"
++							});
++							isActiveReasoning = true;
++						}
++						controller.enqueue({
++							type: "reasoning-delta",
++							id: "reasoning-0",
++							delta: reasoningDelta
++						});
++					}
++					if (isActiveReasoning && (delta.content != null && delta.content.length > 0 || delta.refusal != null && delta.refusal.length > 0 || delta.tool_calls != null)) {
++						controller.enqueue({
++							type: "reasoning-end",
++							id: "reasoning-0"
++						});
++						isActiveReasoning = false;
++					}
+ 					const textDeltas = [];
+ 					if (delta.content != null && delta.content.length > 0) textDeltas.push(delta.content);
+ 					if (delta.refusal != null && delta.refusal.length > 0) {
+ 						hasRefusal = true;
+ 						textDeltas.push(delta.refusal);
+ 					}
+-					if (textDeltas.length === 0 && delta.content === "") textDeltas.push(delta.content);
++					if (textDeltas.length === 0 && delta.content === "") sawEmptyContent = true;
+ 					for (const textDelta of textDeltas) {
+ 						if (!isActiveText) {
+ 							controller.enqueue({
+@@ -2435,6 +2461,22 @@ var OpenAIChatLanguageModel = class OpenAIChatLanguageModel {
+ 					});
+ 				},
+ 				flush(controller) {
++					if (isActiveReasoning) controller.enqueue({
++						type: "reasoning-end",
++						id: "reasoning-0"
++					});
++					if (!isActiveText && sawEmptyContent) {
++						controller.enqueue({
++							type: "text-start",
++							id: "0"
++						});
++						controller.enqueue({
++							type: "text-delta",
++							id: "0",
++							delta: ""
++						});
++						isActiveText = true;
++					}
+ 					if (isActiveText) controller.enqueue({
+ 						type: "text-end",
+ 						id: "0"
+@@ -2468,7 +2510,7 @@ function isOpenAIChatOutputChunk(chunk) {
+ 	if ("error" in chunk) return false;
+ 	return chunk.choices.some((choice) => {
+ 		const delta = choice.delta;
+-		return delta?.content != null && delta.content.length > 0 || delta?.refusal != null && delta.refusal.length > 0 || delta?.tool_calls != null && delta.tool_calls.length > 0 || delta?.annotations != null && delta.annotations.length > 0;
++		return delta?.content != null && delta.content.length > 0 || delta?.reasoning_content != null && delta.reasoning_content.length > 0 || delta?.reasoning != null && delta.reasoning.length > 0 || delta?.refusal != null && delta.refusal.length > 0 || delta?.tool_calls != null && delta.tool_calls.length > 0 || delta?.annotations != null && delta.annotations.length > 0;
+ 	});
+ }
+ //#endregion

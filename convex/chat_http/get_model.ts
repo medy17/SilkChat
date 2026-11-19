@@ -227,7 +227,22 @@ export const getModel = async (
         })
         finalModel =
             provider.apiMode === "responses"
-                ? sdkProvider.responses(providerSpecificModelId)
+                ? wrapLanguageModel({
+                      model: sdkProvider.responses(providerSpecificModelId),
+                      middleware: {
+                          specificationVersion: "v4",
+                          // The SDK assumes OpenAI's stored responses and replays earlier tool
+                          // calls and reasoning as item references, which other servers can't
+                          // resolve. Unstored, every step sends the full items.
+                          transformParams: async ({ params }) => ({
+                              ...params,
+                              providerOptions: {
+                                  ...params.providerOptions,
+                                  openai: { ...params.providerOptions?.openai, store: false }
+                              }
+                          })
+                      }
+                  })
                 : sdkProvider.chat(providerSpecificModelId)
         providerSource = "custom"
         providerName = provider.name
