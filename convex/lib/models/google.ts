@@ -33,6 +33,27 @@ const GOOGLE_MINIMAL_REASONING_EFFORTS = ["minimal", "low", "medium", "high"] as
 
 export const GOOGLE_MODELS: SharedModel[] = [
     {
+        id: "gemini-4-neon",
+        name: "Gemini 4 Neon",
+        addedOn: "2026-11-20",
+        shortName: "4 Neon",
+        shortDescription:
+            "Google's fast mid-tier Gemini 4 model for repository and terminal coding, analysis, and science work",
+        description:
+            "Google's mid-tier Gemini 4 model, tuned to trade a little reasoning depth for faster end-to-end task completion. It works through multi-step software tasks in fewer turns and keeps its footing across million-token contexts of text, images, audio, video, and files. Strongest on repository and terminal coding, analytical reasoning over dense sources, and science and enterprise knowledge work.",
+        developer: "Google",
+        releaseOrder: 20261118,
+        adapters: googleTextAdapters("gemini-4-neon"),
+        ...AI_STUDIO_ROUTING,
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 65_536,
+        inputUsdPer1MTokens: 3,
+        outputUsdPer1MTokens: 15,
+        reasoningEfforts: ["low", "medium", "high"],
+        defaultReasoningEffort: "medium"
+    },
+    {
         id: "gemini-4-hydrogen",
         name: "Gemini 4 Hydrogen",
         addedOn: "2026-11-13",

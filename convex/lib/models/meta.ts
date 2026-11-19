@@ -4,6 +4,27 @@ const openRouterTextAdapters = (modelId: string): RegistryKey[] => [`openrouter:
 
 export const META_MODELS: SharedModel[] = [
     {
+        id: "muse-ember",
+        name: "Muse Ember",
+        addedOn: "2026-11-20",
+        shortName: "Muse Ember",
+        shortDescription:
+            "Meta's smallest Muse model for high-volume tool calls, routing, extraction, and long-document parsing",
+        description:
+            "Muse Ember is Meta's smallest and most efficient Muse model, and the first trained with Muse Wonder Full. It reads text, images, audio, video, and PDFs within a million-token context and keeps costs low across the many repeated steps of a workflow. It suits the high-volume end of agent work: tool calls, coding subtasks, routing, extraction, and parsing long documents.",
+        releaseOrder: 20261109,
+        adapters: openRouterTextAdapters("meta/muse-ember"),
+        abilities: ["reasoning", "vision", "function_calling", "native_pdf", "effort_control"],
+        contextLength: 1_048_576,
+        maxTokens: 943_718,
+        inputUsdPer1MTokens: 0.1,
+        outputUsdPer1MTokens: 0.5,
+        reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "high",
+        developer: "Meta",
+        customIcon: "meta"
+    },
+    {
         id: "muse-spark-open",
         name: "Muse Spark Open",
         addedOn: "2026-10-15",
@@ -63,6 +84,28 @@ export const META_MODELS: SharedModel[] = [
         inputUsdPer1MTokens: 1.25,
         outputUsdPer1MTokens: 4.25,
         reasoningEfforts: ["minimal", "low", "medium", "high"],
+        defaultReasoningEffort: "medium",
+        developer: "Meta",
+        customIcon: "meta"
+    },
+    {
+        id: "muse-glimmer-30b",
+        name: "Muse Glimmer 30B",
+        addedOn: "2026-11-20",
+        shortName: "Muse Glimmer 30B",
+        shortDescription:
+            "Meta's dense 30B open-weight Muse model for local agents and inexpensive multimodal chat",
+        description:
+            "Muse Glimmer 30B is Meta's dense open-weight Muse model, distilled from Muse Spark and released under Apache 2.0. It reads text and images within a 131K-token context, reasons with adjustable effort, and handles tool calls dependably. Small enough for a single consumer GPU, it suits local agent workflows, math-heavy reasoning, and inexpensive multimodal chat.",
+        releaseOrder: 20260810,
+        adapters: openRouterTextAdapters("meta/muse-glimmer-30b"),
+        preferredOpenRouterProviders: ["modelrun", "together"],
+        abilities: ["reasoning", "vision", "function_calling", "effort_control"],
+        contextLength: 131_072,
+        maxTokens: 117_964,
+        inputUsdPer1MTokens: 0.3,
+        outputUsdPer1MTokens: 1.2,
+        reasoningEfforts: ["low", "medium", "high"],
         defaultReasoningEffort: "medium",
         developer: "Meta",
         customIcon: "meta"
