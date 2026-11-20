@@ -1484,8 +1484,10 @@ export function LibraryView({
     const [hiddenImageIds, setHiddenImageIds] = useState<Set<string>>(new Set())
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedImageIds, setSelectedImageIds] = useState<Set<Id<"generatedImages">>>(new Set())
-    const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
-    const bulkDeleteCancelRef = useRef<HTMLButtonElement>(null)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    // Kept after close so the dialog copy doesn't change during its exit animation.
+    const [pendingDeleteImageIds, setPendingDeleteImageIds] = useState<Id<"generatedImages">[]>([])
+    const deleteCancelRef = useRef<HTMLButtonElement>(null)
     const deleteImageAction = useAction(api.images_node.deleteGeneratedImage)
     const reprocessImageAsset = useAction(
         api.image_generation_jobs.reprocessImageGenerationJobAsset
@@ -1817,7 +1819,7 @@ export function LibraryView({
         galleryRef.current?.scrollTo({ top: 0, behavior: "smooth" })
         setSelectedImageIds(new Set())
         setIsSelectionMode(false)
-        setIsBulkDeleteDialogOpen(false)
+        setIsDeleteDialogOpen(false)
     }, [scrollResetKey])
 
     useEffect(() => {
@@ -1886,7 +1888,7 @@ export function LibraryView({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (isBulkDeleteDialogOpen || selectedImage) return
+            if (isDeleteDialogOpen || selectedImage) return
 
             if (event.key === "Escape" && isSelectionMode) {
                 handleClearSelection()
@@ -1910,7 +1912,7 @@ export function LibraryView({
 
         window.addEventListener("keydown", handleKeyDown)
         return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [handleClearSelection, images, isBulkDeleteDialogOpen, isSelectionMode, selectedImage])
+    }, [handleClearSelection, images, isDeleteDialogOpen, isSelectionMode, selectedImage])
 
     const hideImageLocally = useCallback((imageId: Id<"generatedImages">) => {
         setHiddenImageIds((prev) => new Set(prev).add(imageId))
@@ -1928,13 +1930,10 @@ export function LibraryView({
         })
     }, [])
 
-    const handleDeleteImage = useCallback(
-        (imageId: Id<"generatedImages">) => {
-            hideImageLocally(imageId)
-            deleteImageAction({ id: imageId }).catch(console.error)
-        },
-        [deleteImageAction, hideImageLocally]
-    )
+    const handleRequestDeleteImage = useCallback((imageId: Id<"generatedImages">) => {
+        setPendingDeleteImageIds([imageId])
+        setIsDeleteDialogOpen(true)
+    }, [])
 
     const handleArchiveImage = useCallback(
         (imageId: Id<"generatedImages">) => {
@@ -1971,29 +1970,34 @@ export function LibraryView({
 
     const handleRequestBulkDelete = useCallback(() => {
         if (selectedImageIds.size === 0) return
-        setIsBulkDeleteDialogOpen(true)
-    }, [selectedImageIds.size])
+        setPendingDeleteImageIds(Array.from(selectedImageIds))
+        setIsDeleteDialogOpen(true)
+    }, [selectedImageIds])
 
-    const handleConfirmBulkDelete = useCallback(() => {
-        if (selectedImageIds.size === 0) return
+    const handleConfirmDelete = useCallback(() => {
+        if (pendingDeleteImageIds.length === 0) return
 
-        const idsToDelete = Array.from(selectedImageIds)
-        setIsBulkDeleteDialogOpen(false)
+        const idsToDelete = pendingDeleteImageIds
+        setIsDeleteDialogOpen(false)
         setHiddenImageIds((prev) => {
             const next = new Set(prev)
             idsToDelete.forEach((id) => next.add(id))
             return next
         })
 
-        // Clear selection
-        setSelectedImageIds(new Set())
-        setIsSelectionMode(false)
+        // Drop deleted images from the selection
+        setSelectedImageIds((prev) => {
+            const next = new Set(prev)
+            idsToDelete.forEach((id) => next.delete(id))
+            if (next.size === 0) setIsSelectionMode(false)
+            return next
+        })
 
         // Fire and forget deletions
         idsToDelete.forEach((id) => {
             deleteImageAction({ id }).catch(console.error)
         })
-    }, [selectedImageIds, deleteImageAction])
+    }, [pendingDeleteImageIds, deleteImageAction])
 
     const handleBulkArchive = useCallback(() => {
         if (selectedImageIds.size === 0) return
@@ -2686,7 +2690,7 @@ export function LibraryView({
                                                             handleStartSelection(image._id)
                                                         }
                                                         onDelete={() =>
-                                                            handleDeleteImage(image._id)
+                                                            handleRequestDeleteImage(image._id)
                                                         }
                                                         isArchivedView={isArchivedView}
                                                         onArchive={() =>
@@ -2854,36 +2858,34 @@ export function LibraryView({
                     )}
                 </AnimatePresence>
 
-                <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                     <AlertDialogContent
                         className="rounded-[var(--radius-xl)]"
                         onOpenAutoFocus={() => {
-                            window.requestAnimationFrame(() => bulkDeleteCancelRef.current?.focus())
+                            window.requestAnimationFrame(() => deleteCancelRef.current?.focus())
                         }}
                     >
                         <AlertDialogHeader>
                             <AlertDialogTitle>
-                                Delete {selectedImageIds.size}{" "}
-                                {selectedImageIds.size === 1 ? "image" : "images"}?
+                                {pendingDeleteImageIds.length === 1
+                                    ? "Delete this image?"
+                                    : `Delete ${pendingDeleteImageIds.length} images?`}
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                                This permanently removes the selected
-                                {selectedImageIds.size === 1 ? " image" : " images"} and stored
-                                {selectedImageIds.size === 1 ? " file" : " files"}. This cannot be
-                                undone.
+                                {pendingDeleteImageIds.length === 1
+                                    ? "This permanently removes the image and its stored file."
+                                    : "This permanently removes the selected images and stored files."}{" "}
+                                This cannot be undone.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel
-                                ref={bulkDeleteCancelRef}
+                                ref={deleteCancelRef}
                                 className="rounded-[var(--radius-md)]"
                             >
                                 Cancel
                             </AlertDialogCancel>
-                            <AlertDialogAction
-                                variant="destructive"
-                                onClick={handleConfirmBulkDelete}
-                            >
+                            <AlertDialogAction variant="destructive" onClick={handleConfirmDelete}>
                                 Delete permanently
                             </AlertDialogAction>
                         </AlertDialogFooter>
