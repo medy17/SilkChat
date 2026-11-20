@@ -33,6 +33,7 @@ import {
 } from "@/lib/generated-image-recovery"
 import { getExpandedImageUrl, getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import { playExpandedImageDismissHaptic } from "@/lib/haptics"
+import { copyViewerImage } from "@/lib/image-viewer-clipboard"
 import {
     type TransparentBackdrop,
     getTransparentBackdropClassName
@@ -59,6 +60,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Clipboard,
+    Copy,
     Download,
     ExternalLink,
     RotateCcw,
@@ -491,6 +493,11 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
 
     const handleViewFullResolution = () => {
         window.open(fullResolutionUrl, "_blank")
+    }
+
+    const handleCopyImage = () => {
+        if (!localImage) return
+        void copyViewerImage(localImage.storageKey)
     }
 
     const handleToggleImageVisibility = () => {
@@ -1000,6 +1007,16 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                             <span className="sr-only">Download</span>
                                         </Button>
                                         <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-10 w-10 shrink-0"
+                                            onClick={handleCopyImage}
+                                            aria-label="Copy image"
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                            <span className="sr-only">Copy Image</span>
+                                        </Button>
+                                        <Button
                                             variant={isPromptCopied ? "secondary" : "outline"}
                                             size="icon"
                                             className="h-10 w-10 shrink-0"
@@ -1176,14 +1193,14 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                             minHeight: layout.isDesktop ? layout.infoHeight : undefined
                         }}
                         footer={
-                            <div className="flex flex-nowrap items-center gap-3">
+                            <div className="flex flex-nowrap items-center gap-2">
                                 <Button
                                     variant="outline"
                                     className="min-w-0 flex-1"
                                     onClick={handleViewFullResolution}
                                 >
-                                    <ExternalLink className="mr-2 h-4 w-4" />
-                                    Full Resolution
+                                    <ExternalLink className="mr-1.5 h-4 w-4" />
+                                    Full Res
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -1194,6 +1211,16 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
                                 >
                                     <Download className="h-4 w-4" />
                                     <span className="sr-only">Download</span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-10 w-10 shrink-0"
+                                    onClick={handleCopyImage}
+                                    aria-label="Copy image"
+                                >
+                                    <Copy className="h-4 w-4" />
+                                    <span className="sr-only">Copy Image</span>
                                 </Button>
                                 <Button
                                     variant={isPromptCopied ? "secondary" : "outline"}

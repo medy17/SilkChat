@@ -87,7 +87,7 @@ import {
 } from "@/lib/generated-image-urls"
 import { ImageMetadataProvider, useImageMetadata } from "@/lib/image-metadata-context"
 import { downloadViewerImage } from "@/lib/image-viewer-download"
-import { copyViewerPrompt } from "@/lib/image-viewer-clipboard"
+import { copyViewerImage, copyViewerPrompt } from "@/lib/image-viewer-clipboard"
 import {
     DEFAULT_LIBRARY_FILTERS,
     DEFAULT_LIBRARY_SEARCH,
@@ -103,7 +103,7 @@ import {
 } from "@/lib/library-search"
 import { getIsImageHidden } from "@/lib/private-viewing"
 import { useSharedModels } from "@/lib/shared-models"
-import { cn, copyImageUrlToClipboard } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { createFileRoute, stripSearchParams, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation, useQuery } from "convex/react"
 import {
@@ -837,20 +837,8 @@ const GeneratedImageItem = memo(
             void downloadViewerImage({ url: fullResolutionUrl, storageKey: image.storageKey })
         }
 
-        const handleCopyImage = async () => {
-            const copyPromise = copyImageUrlToClipboard(fullResolutionUrl)
-
-            toast.promise(copyPromise, {
-                loading: "Copying image...",
-                success: "Image copied to clipboard",
-                error: "Failed to copy image"
-            })
-
-            try {
-                await copyPromise
-            } catch (err) {
-                console.error("Failed to copy image:", err)
-            }
+        const handleCopyImage = () => {
+            void copyViewerImage(image.storageKey)
         }
 
         const handleCopyPrompt = () => {

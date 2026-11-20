@@ -1,4 +1,6 @@
 import { toast } from "sonner"
+import { getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
+import { copyImageUrlToClipboard } from "@/lib/utils"
 
 /** Tiles copy the original prompt; modal buttons trim it and report missing prompts. */
 export async function copyViewerPrompt({
@@ -28,4 +30,21 @@ export async function copyViewerPrompt({
     if (!isCurrent()) return
     onCopied()
     toast.success("Prompt copied to clipboard")
+}
+
+/** Copies the image file itself; shared by the library tile menu and the lightbox. */
+export async function copyViewerImage(storageKey: string) {
+    const copyPromise = copyImageUrlToClipboard(getGeneratedImageDirectUrl(storageKey))
+
+    toast.promise(copyPromise, {
+        loading: "Copying image...",
+        success: "Image copied to clipboard",
+        error: "Failed to copy image"
+    })
+
+    try {
+        await copyPromise
+    } catch (err) {
+        console.error("Failed to copy image:", err)
+    }
 }
