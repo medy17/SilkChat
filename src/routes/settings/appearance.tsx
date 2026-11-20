@@ -137,7 +137,7 @@ const ThemeCard = memo(({ theme, isSelected, onSelect, onDelete, currentMode }: 
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                                 onClick={() => onDelete(theme.url)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                variant="destructive"
                             >
                                 Remove
                             </AlertDialogAction>

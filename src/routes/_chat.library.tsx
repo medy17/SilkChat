@@ -2885,7 +2885,7 @@ export function LibraryView({
                                 Cancel
                             </AlertDialogCancel>
                             <AlertDialogAction
-                                className="rounded-[var(--radius-md)] bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                variant="destructive"
                                 onClick={handleConfirmBulkDelete}
                             >
                                 Delete permanently

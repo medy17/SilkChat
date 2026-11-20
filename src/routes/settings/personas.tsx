@@ -1156,10 +1156,7 @@ function PersonaEditor({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Keep editing</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={() => onOpenChange(false)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
+                    <AlertDialogAction onClick={() => onOpenChange(false)} variant="destructive">
                         Discard changes
                     </AlertDialogAction>
                 </AlertDialogFooter>

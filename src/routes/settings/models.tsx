@@ -1001,7 +1001,7 @@ export function ModelsSettingsContent() {
                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                                 <AlertDialogAction
                                                     onClick={() => void handleDeleteCustomModel(id)}
-                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                    variant="destructive"
                                                 >
                                                     Delete
                                                 </AlertDialogAction>

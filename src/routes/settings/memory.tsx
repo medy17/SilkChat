@@ -388,7 +388,7 @@ function MemorySettingsPage() {
                         <AlertDialogCancel disabled={forgetting}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={forgetting}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            variant="destructive"
                             onClick={(event) => {
                                 event.preventDefault()
                                 void handleForget()

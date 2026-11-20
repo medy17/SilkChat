@@ -139,7 +139,7 @@ export function BulkDeleteThreadsDialog({
                     <AlertDialogAction
                         onClick={onConfirm}
                         disabled={isApplyingSelectionAction}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        variant="destructive"
                     >
                         {isApplyingSelectionAction ? "Deleting..." : "Delete Selected"}
                     </AlertDialogAction>

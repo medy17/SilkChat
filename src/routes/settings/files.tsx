@@ -418,7 +418,7 @@ function FilesSettingsRoute() {
                                                                 onClick={() =>
                                                                     handleDelete(file.key)
                                                                 }
-                                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                variant="destructive"
                                                             >
                                                                 Delete file
                                                             </AlertDialogAction>

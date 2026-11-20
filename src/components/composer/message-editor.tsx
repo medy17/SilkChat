@@ -489,7 +489,7 @@ const MessageEditor = memo(
                             <AlertDialogAction
                                 disabled={saving}
                                 onClick={handleConfirmCancel}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                variant="destructive"
                             >
                                 Discard changes
                             </AlertDialogAction>

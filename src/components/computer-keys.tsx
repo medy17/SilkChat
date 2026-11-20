@@ -242,7 +242,7 @@ function KeyCard({
                                                 `${label} key deleted`
                                             )
                                         }
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        variant="destructive"
                                     >
                                         Delete
                                     </AlertDialogAction>
