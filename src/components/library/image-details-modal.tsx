@@ -31,11 +31,7 @@ import {
     getNextGeneratedImageRecoveryPhase,
     resolveGeneratedImageRenderSource
 } from "@/lib/generated-image-recovery"
-import {
-    getExpandedImageUrl,
-    getGeneratedImageDirectUrl,
-    getGeneratedImageProxyUrl
-} from "@/lib/generated-image-urls"
+import { getExpandedImageUrl, getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import { playExpandedImageDismissHaptic } from "@/lib/haptics"
 import {
     type TransparentBackdrop,
@@ -303,8 +299,7 @@ export const ImageDetailsModal = memo(function ImageDetailsModal({
         cache: loadedDetailImageUrls,
         revealMs: 240
     })
-    const fullResolutionUrl =
-        directImageUrl || (localImage ? getGeneratedImageProxyUrl(localImage.storageKey) : "")
+    const fullResolutionUrl = directImageUrl
     const { isPromptCopied, handleCopyPrompt, handleDownload } = useImageViewerActions({
         url: fullResolutionUrl,
         storageKey: localImage?.storageKey,

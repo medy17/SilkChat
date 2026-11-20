@@ -23,11 +23,6 @@ const parsePort = (value: string | undefined) => {
     return parsed
 }
 
-const convexApiUrl = process.env.VITE_CONVEX_API_URL?.trim()
-if (!convexApiUrl) {
-    throw new Error("Missing VITE_CONVEX_API_URL for local image optimizer")
-}
-
 const publicAssetBaseUrl = process.env.VITE_R2_PUBLIC_BASE_URL?.trim()
 if (!publicAssetBaseUrl) {
     throw new Error("Missing VITE_R2_PUBLIC_BASE_URL for local image optimizer")
@@ -37,7 +32,6 @@ const port = parsePort(process.env.LOCAL_IMAGE_OPTIMIZER_PORT)
 const cacheDir = path.resolve(process.cwd(), LOCAL_IMAGE_OPTIMIZER_CACHE_DIR)
 const handleRequest = createLocalImageOptimizerHandler({
     cacheDir,
-    convexApiUrl,
     publicAssetBaseUrl
 })
 

@@ -75,34 +75,10 @@ describe("local-image-optimizer", () => {
         )
     })
 
-    it("allows Convex /r2 source URLs with a key", () => {
-        expect(
-            isAllowedLocalImageOptimizerSource({
-                sourceUrl: "http://127.0.0.1:3210/http/r2?key=generated%2Fkey-1",
-                convexApiUrl: "http://127.0.0.1:3210/http"
-            })
-        ).toBe(true)
-
-        expect(
-            isAllowedLocalImageOptimizerSource({
-                sourceUrl: "http://127.0.0.1:3210/http/private-blur?key=generated%2Fkey-1",
-                convexApiUrl: "http://127.0.0.1:3210/http"
-            })
-        ).toBe(false)
-
-        expect(
-            isAllowedLocalImageOptimizerSource({
-                sourceUrl: "https://cdn.example.com/r2?key=generated%2Fkey-1",
-                convexApiUrl: "http://127.0.0.1:3210/http"
-            })
-        ).toBe(false)
-    })
-
     it("allows configured public R2 asset URLs", () => {
         expect(
             isAllowedLocalImageOptimizerSource({
                 sourceUrl: "https://r2.silkchat.dev/generated/key-1",
-                convexApiUrl: "http://127.0.0.1:3210/http",
                 publicAssetBaseUrl: "https://r2.silkchat.dev"
             })
         ).toBe(true)
@@ -110,7 +86,6 @@ describe("local-image-optimizer", () => {
         expect(
             isAllowedLocalImageOptimizerSource({
                 sourceUrl: "https://r2.silkchat.dev-private/generated/key-1",
-                convexApiUrl: "http://127.0.0.1:3210/http",
                 publicAssetBaseUrl: "https://r2.silkchat.dev"
             })
         ).toBe(false)

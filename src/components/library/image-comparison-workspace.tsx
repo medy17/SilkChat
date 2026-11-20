@@ -13,11 +13,7 @@ import {
     getNextGeneratedImageRecoveryPhase,
     resolveGeneratedImageRenderSource
 } from "@/lib/generated-image-recovery"
-import {
-    getExpandedImageUrl,
-    getGeneratedImageDirectUrl,
-    getGeneratedImageProxyUrl
-} from "@/lib/generated-image-urls"
+import { getExpandedImageUrl, getGeneratedImageDirectUrl } from "@/lib/generated-image-urls"
 import { fitImageAspectRatioBox, getImageAspectRatioValue } from "@/lib/image-aspect-ratios"
 import { getTransparentBackdropClassName } from "@/lib/transparent-backdrop"
 import { useSharedModels } from "@/lib/shared-models"
@@ -102,7 +98,7 @@ function getComparisonImageUrls(image: GeneratedImage) {
     return {
         optimizedUrl,
         directUrl,
-        fullResolutionUrl: directUrl || getGeneratedImageProxyUrl(image.storageKey) || optimizedUrl
+        fullResolutionUrl: directUrl || optimizedUrl
     }
 }
 

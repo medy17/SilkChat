@@ -58,7 +58,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -98,7 +97,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -130,7 +128,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
             const handleRequest = createLocalImageOptimizerHandler({
                 cacheDir,
-                convexApiUrl: "http://127.0.0.1:3210/http",
                 publicAssetBaseUrl: "https://r2.silkchat.dev"
             })
             const request = createRequest({
@@ -168,7 +165,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -201,7 +197,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
         const response = await handleRequest(
@@ -222,7 +217,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -252,7 +246,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -286,7 +279,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 
@@ -305,7 +297,6 @@ describeWithBun("local-image-optimizer-server", () => {
 
         const handleRequest = createLocalImageOptimizerHandler({
             cacheDir,
-            convexApiUrl: "http://127.0.0.1:3210/http",
             publicAssetBaseUrl: "https://r2.silkchat.dev"
         })
 

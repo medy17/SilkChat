@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
-import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
+import { browserEnv } from "@/lib/browser-env"
 import {
     type ExportableMessage,
     type ExportablePersonaSnapshot,
@@ -135,8 +135,7 @@ export const exportSingleThread = async ({
     const serialized = serializeThreadToMarkdown({
         thread,
         messages,
-        convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
-        publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
+        publicAssetBaseUrl: browserEnv("VITE_R2_PUBLIC_BASE_URL"),
         exportedAt
     })
 
@@ -171,8 +170,7 @@ export const exportMultipleThreads = async ({
         const serialized = serializeThreadToMarkdown({
             thread: bundles[0].thread,
             messages: bundles[0].messages,
-            convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
-            publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
+            publicAssetBaseUrl: browserEnv("VITE_R2_PUBLIC_BASE_URL"),
             exportedAt
         })
 
@@ -187,8 +185,7 @@ export const exportMultipleThreads = async ({
         serializeThreadToMarkdown({
             thread,
             messages,
-            convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
-            publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL"),
+            publicAssetBaseUrl: browserEnv("VITE_R2_PUBLIC_BASE_URL"),
             exportedAt
         })
     )

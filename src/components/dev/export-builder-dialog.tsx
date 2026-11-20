@@ -26,7 +26,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { MODELS_SHARED, isChatModel } from "@/convex/lib/models"
-import { browserEnv, optionalBrowserEnv } from "@/lib/browser-env"
+import { browserEnv } from "@/lib/browser-env"
 import {
     type DraftAttachment,
     type DraftMessage,
@@ -105,8 +105,7 @@ const buildResult = (draft: ExportDraft) => {
     try {
         const exported = buildDraftExport({
             draft,
-            convexApiUrl: browserEnv("VITE_CONVEX_API_URL"),
-            publicAssetBaseUrl: optionalBrowserEnv("VITE_R2_PUBLIC_BASE_URL")
+            publicAssetBaseUrl: browserEnv("VITE_R2_PUBLIC_BASE_URL")
         })
         const parsed = parseThreadImportContents({
             content: exported.markdown,

@@ -42,12 +42,6 @@ export default defineConfig(({ command, mode }) => {
                   }
               })
             : null
-    const convexApiUrl = env.VITE_CONVEX_API_URL?.trim()
-    const convexApiTarget = convexApiUrl ? new URL(convexApiUrl) : null
-    const convexApiOrigin = convexApiTarget
-        ? `${convexApiTarget.protocol}//${convexApiTarget.host}`
-        : null
-    const convexApiBasePath = convexApiTarget?.pathname.replace(/\/$/, "") || ""
     const localImageOptimizerEnabled =
         (
             process.env.VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED ?? env.VITE_LOCAL_IMAGE_OPTIMIZER_ENABLED
@@ -55,24 +49,6 @@ export default defineConfig(({ command, mode }) => {
     const localImageOptimizerPort =
         (process.env.LOCAL_IMAGE_OPTIMIZER_PORT || "").trim() ||
         String(LOCAL_IMAGE_OPTIMIZER_DEFAULT_PORT)
-    const proxy: Record<
-        string,
-        {
-            target: string
-            changeOrigin: boolean
-            rewrite?: (requestPath: string) => string
-        }
-    > = convexApiOrigin
-        ? {
-              "/convex-http": {
-                  target: convexApiOrigin,
-                  changeOrigin: true,
-                  rewrite: (requestPath: string) =>
-                      requestPath.replace(/^\/convex-http/, convexApiBasePath)
-              }
-          }
-        : {}
-
     // NOTE: the local image optimizer is intentionally NOT registered via
     // `server.proxy`. TanStack Start's dev SSR middleware runs ahead of Vite's
     // proxy middleware for document requests (`Accept: text/html`), so a browser
@@ -247,7 +223,6 @@ export default defineConfig(({ command, mode }) => {
             tsconfigPaths: true
         },
         server: {
-            proxy: Object.keys(proxy).length > 0 ? proxy : undefined,
             watch: { ignored: readWatchIgnore() }
         },
         plugins: [

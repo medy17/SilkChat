@@ -20,11 +20,6 @@ export const getRequiredPublicR2AssetUrl = (key: string) => {
     return `${publicBaseUrl}/${encodeKeyPath(key)}`
 }
 
-export const getR2ProxyUrl = (key: string) => {
-    const apiBase = trimTrailingSlash(browserEnv("VITE_CONVEX_API_URL"))
-    return `${apiBase}/r2?key=${encodeURIComponent(key)}`
-}
-
 export const getPublicR2AssetUrl = (key: string) => {
     return getRequiredPublicR2AssetUrl(key)
 }
@@ -84,5 +79,6 @@ export const resolvePublicFileUrl = (url: string) => {
         return url
     }
 
-    return `${trimTrailingSlash(browserEnv("VITE_CONVEX_API_URL"))}${url}`
+    // Media bytes always come straight from the public bucket, never through Convex.
+    return getPublicR2AssetUrl(url)
 }

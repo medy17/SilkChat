@@ -33,9 +33,7 @@ import {
     getCloudflareTransformedImageUrl,
     getExpandedImageUrl,
     getFileThumbnailSources,
-    getGeneratedImageCopyUrl,
     getGeneratedImageDirectUrl,
-    getGeneratedImageProxyUrl,
     getLibraryImageSources,
     getOptimizedGeneratedImageUrl,
     resetPrivateBlurFormatCacheForTests
@@ -69,18 +67,6 @@ describe("generated-image-urls", () => {
     afterEach(() => {
         vi.unstubAllGlobals()
         resetPrivateBlurFormatCacheForTests()
-    })
-
-    it("builds the base Convex proxy URL with an encoded storage key", () => {
-        expect(getGeneratedImageProxyUrl("folder/image key.png")).toBe(
-            "https://api.example.com/r2?key=folder%2Fimage%20key.png"
-        )
-    })
-
-    it("builds a same-origin dev proxy URL for clipboard copies", () => {
-        expect(getGeneratedImageCopyUrl("folder/image key.png")).toBe(
-            "/convex-http/r2?key=folder%2Fimage%20key.png"
-        )
     })
 
     it("builds a public R2 URL for direct image attachment downloads", () => {

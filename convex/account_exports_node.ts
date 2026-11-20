@@ -50,15 +50,6 @@ const generateExportPassword = () => {
     }
 }
 
-const getConvexSiteUrl = () => {
-    const value =
-        process.env.CONVEX_SITE_URL?.trim() ||
-        process.env.VITE_CONVEX_SITE_URL?.trim() ||
-        process.env.VITE_CONVEX_API_URL?.trim()
-    if (!value) throw new Error("CONVEX_SITE_URL is not configured")
-    return value.replace(/\/$/, "")
-}
-
 const getPublicAssetBaseUrl = () => {
     const value = process.env.R2_PUBLIC_BASE_URL?.trim()
     if (!value) throw new Error("R2_PUBLIC_BASE_URL is not configured")
@@ -260,7 +251,6 @@ export const buildAccountExport = internalAction({
             if (!claim) return
 
             const exportedAt = Date.now()
-            const convexSiteUrl = getConvexSiteUrl()
             const publicAssetBaseUrl = getPublicAssetBaseUrl()
             const [profile, settings, collections, storedFiles, threads, memories] =
                 await Promise.all([
@@ -297,7 +287,6 @@ export const buildAccountExport = internalAction({
                             personaSnapshot: data.personaSnapshot ?? undefined
                         } as never,
                         messages: data.messages as never,
-                        convexApiUrl: convexSiteUrl,
                         publicAssetBaseUrl,
                         exportedAt
                     })

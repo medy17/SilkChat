@@ -87,13 +87,6 @@ export const r2 =
         ? new R2(components.r2)
         : r2Unavailable
 
-const LONG_LIVED_TRANSFORM_SOURCE_PREFIXES = ["generations/"]
-const LONG_LIVED_TRANSFORM_SOURCE_CACHE_CONTROL =
-    "public, max-age=604800, s-maxage=2592000, stale-while-revalidate=604800"
-
-const shouldUseLongLivedTransformSourceCache = (key: string) =>
-    LONG_LIVED_TRANSFORM_SOURCE_PREFIXES.some((prefix) => key.startsWith(prefix))
-
 const uploadPolicyHeaders = (headers?: HeadersInit) => ({
     ...headers,
     [UPLOAD_POLICY_HEADER]: DEFAULT_UPLOAD_POLICY_VERSION
@@ -544,46 +537,4 @@ export const listGeneratedFiles = query({
     }
 })
 
-export const getFile = httpAction(async (ctx, req) => {
-    const { searchParams } = new URL(req.url)
-    const key = searchParams.get("key")
-    if (!key) return new Response(null, { status: 400 })
-    try {
-        const fileUrl = await r2.getUrl(key)
-        const upstream = await fetch(fileUrl)
-
-        if (!upstream.ok) {
-            return new Response(null, { status: upstream.status })
-        }
-
-        const headers = new Headers()
-        const passthroughHeaders = [
-            "content-type",
-            "content-length",
-            "content-disposition",
-            "cache-control",
-            "etag",
-            "last-modified"
-        ]
-
-        for (const headerName of passthroughHeaders) {
-            const headerValue = upstream.headers.get(headerName)
-            if (headerValue) {
-                headers.set(headerName, headerValue)
-            }
-        }
-
-        if (shouldUseLongLivedTransformSourceCache(key)) {
-            headers.set("cache-control", LONG_LIVED_TRANSFORM_SOURCE_CACHE_CONTROL)
-        }
-
-        return new Response(upstream.body, {
-            status: upstream.status,
-            headers
-        })
-    } catch (error) {
-        console.error("Error fetching file:", error)
-        return new Response(null, { status: 500 })
-    }
-})
 import { iterateMetadataPages } from "./lib/r2_pagination"

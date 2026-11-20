@@ -5,13 +5,8 @@ import {
 } from "@/lib/local-image-optimizer"
 import { DEFAULT_LIBRARY_GRID_SIZES } from "@/lib/library-grid-sizes"
 import { type PrivateBlurFormat, getConstrainedWidth } from "@/lib/private-blur-variants"
-import {
-    getPublicR2AssetUrl,
-    getR2ProxyUrl,
-    getRequiredPublicR2AssetUrl
-} from "@/lib/r2-public-url"
+import { getPublicR2AssetUrl, getRequiredPublicR2AssetUrl } from "@/lib/r2-public-url"
 
-const DEV_CONVEX_HTTP_PROXY_PREFIX = "/convex-http"
 const LOCAL_IMAGE_HOSTS = new Set(["localhost", "127.0.0.1"])
 
 let preferredPrivateBlurFormat: PrivateBlurFormat | null | undefined
@@ -80,18 +75,6 @@ export const getPreferredPrivateBlurFormat = (): PrivateBlurFormat | null => {
 
     preferredPrivateBlurFormat = null
     return preferredPrivateBlurFormat
-}
-
-export const getGeneratedImageProxyUrl = (storageKey: string) => {
-    return getR2ProxyUrl(storageKey)
-}
-
-export const getGeneratedImageCopyUrl = (storageKey: string) => {
-    if (import.meta.env.DEV) {
-        return `${DEV_CONVEX_HTTP_PROXY_PREFIX}/r2?key=${encodeURIComponent(storageKey)}`
-    }
-
-    return getPublicR2AssetUrl(storageKey)
 }
 
 export const getGeneratedImageDirectUrl = (storageKey: string) => getPublicR2AssetUrl(storageKey)

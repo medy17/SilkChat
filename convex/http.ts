@@ -1,6 +1,5 @@
 import { corsRouter } from "convex-helpers/server/cors"
 import { httpRouter } from "convex/server"
-import { getFile } from "./attachments"
 import { authComponent, createAuth } from "./auth"
 import { chatGET } from "./chat_http/get.route"
 import { chatPOST } from "./chat_http/post.route"
@@ -83,12 +82,6 @@ cors.route({
     path: "/transcribe",
     method: "POST",
     handler: transcribeAudio
-})
-
-cors.route({
-    path: "/r2",
-    method: "GET",
-    handler: getFile
 })
 
 if (isPrivateBlurEnabled) {

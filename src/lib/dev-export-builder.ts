@@ -99,13 +99,11 @@ const buildPersonaSnapshot = (personaId: string) => {
 
 export const buildDraftExport = ({
     draft,
-    convexApiUrl,
     publicAssetBaseUrl,
     exportedAt = Date.now()
 }: {
     draft: ExportDraft
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
     exportedAt?: number
 }) => {
     const createdAt = fromDateTimeLocal(draft.createdAt, exportedAt)
@@ -143,7 +141,6 @@ export const buildDraftExport = ({
     return serializeThreadToMarkdown({
         thread,
         messages,
-        convexApiUrl,
         publicAssetBaseUrl,
         exportedAt
     })

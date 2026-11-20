@@ -42,7 +42,7 @@ describe("thread-export", () => {
                     }
                 }
             ],
-            convexApiUrl: "https://convex.test"
+            publicAssetBaseUrl: "https://r2.example.com"
         })
         expect(exported.markdown).toContain(
             "![Snow leopard](<https://assets.test/image-search/owner/run/2.webp>) — [example.org](<https://example.org/leopard>)"
@@ -75,7 +75,7 @@ describe("thread-export", () => {
                     ]
                 }
             ],
-            convexApiUrl: "https://convex.example.com"
+            publicAssetBaseUrl: "https://r2.example.com"
         })
         expect(
             parseBackendThreadImportContents({
@@ -129,20 +129,16 @@ describe("thread-export", () => {
                     parts: [{ type: "reasoning" }]
                 }
             ],
-            convexApiUrl: "https://convex.example.com/",
+            publicAssetBaseUrl: "https://r2.example.com/",
             exportedAt: Date.UTC(2026, 2, 31, 0, 0, 0)
         })
 
         expect(exported.fileName).toBe("2026-03-31--resume-review--thread-123.md")
         expect(exported.markdown).toContain("# Résumé Review")
         expect(exported.markdown).toContain("### User")
-        expect(exported.markdown).toContain(
-            "[review.md](https://convex.example.com/r2?key=attachment-key)"
-        )
+        expect(exported.markdown).toContain("[review.md](https://r2.example.com/attachment-key)")
         expect(exported.markdown).toContain("### Assistant (gpt-5.4)")
-        expect(exported.markdown).toContain(
-            "![r2](https://convex.example.com/r2?key=generated%2Fkey-1)"
-        )
+        expect(exported.markdown).toContain("![key-1](https://r2.example.com/generated/key-1)")
         expect(exported.markdown.indexOf("### User")).toBeLessThan(
             exported.markdown.indexOf("### Assistant (gpt-5.4)")
         )
@@ -181,7 +177,6 @@ describe("thread-export", () => {
                     ]
                 }
             ],
-            convexApiUrl: "https://convex.example.com",
             publicAssetBaseUrl: "https://r2-dev.silkchat-staging.xyz/"
         })
 
@@ -231,7 +226,6 @@ describe("thread-export", () => {
                     parts: [{ type: "text", text: "Hello Ada" }]
                 }
             ],
-            convexApiUrl: "https://convex.example.com",
             publicAssetBaseUrl: "https://r2-dev.silkchat.example"
         })
 
@@ -257,39 +251,6 @@ describe("thread-export", () => {
         })
     })
 
-    it("falls back to the Convex proxy for generated assets when no public base url is set", () => {
-        const exported = serializeThreadToMarkdown({
-            thread: { _id: "thread-img2", title: "Image Chat", createdAt: 1, updatedAt: 1 },
-            messages: [
-                {
-                    messageId: "a",
-                    role: "assistant",
-                    createdAt: 10,
-                    updatedAt: 10,
-                    parts: [
-                        {
-                            type: "tool-invocation",
-                            toolInvocation: {
-                                toolName: "prepareImageGeneration",
-                                result: {
-                                    kind: "prepared_image_generation",
-                                    status: "completed",
-                                    title: "Donkey Eating Sand",
-                                    assets: [{ storageKey: "generations/u1/123-abc-fal.png" }]
-                                }
-                            }
-                        }
-                    ]
-                }
-            ],
-            convexApiUrl: "https://convex.example.com"
-        })
-
-        expect(exported.markdown).toContain(
-            "https://convex.example.com/r2?key=generations%2Fu1%2F123-abc-fal.png"
-        )
-    })
-
     it("throws when a thread has no exportable content", () => {
         expect(() =>
             serializeThreadToMarkdown({
@@ -308,7 +269,7 @@ describe("thread-export", () => {
                         parts: [{ type: "error" }]
                     }
                 ],
-                convexApiUrl: "https://convex.example.com"
+                publicAssetBaseUrl: "https://r2.example.com"
             })
         ).toThrow("Thread has no exportable content")
     })

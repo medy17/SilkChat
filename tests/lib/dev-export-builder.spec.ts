@@ -30,7 +30,10 @@ describe("dev export builder", () => {
             ]
         }
 
-        const { markdown } = buildDraftExport({ draft, convexApiUrl: "https://convex.test" })
+        const { markdown } = buildDraftExport({
+            draft,
+            publicAssetBaseUrl: "https://r2.example.com"
+        })
         const parsed = parseThreadImportContent({ content: markdown, fileName: "fog.md" })
         const { messages, ...metadata } = draftFromParsedDocument(parsed)
 

@@ -177,8 +177,7 @@ export const parseLocalImageTransformOptions = (
 // latter being the form that survives the browser address bar without having
 // its `https://` collapsed to `https:/`. Mirror that decoding locally so both
 // forms resolve to the same source. Only the path is decoded; the outer query
-// string is preserved verbatim because the Convex `/r2?key=…%2F…` flow relies
-// on its encoding.
+// string is preserved verbatim so an encoded query survives untouched.
 const decodeEmbeddedSourcePath = (sourcePath: string) => {
     try {
         return decodeURIComponent(sourcePath)
@@ -211,29 +210,13 @@ export const extractLocalImageOptimizerRequestParts = (requestUrl: URL) => {
 
 export const isAllowedLocalImageOptimizerSource = ({
     sourceUrl,
-    convexApiUrl,
     publicAssetBaseUrl
 }: {
     sourceUrl: string
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
 }) => {
     try {
         const parsedSourceUrl = new URL(sourceUrl)
-        const convexUrl = new URL(convexApiUrl)
-        const expectedPath = `${trimTrailingSlash(convexUrl.pathname)}/r2`
-
-        if (
-            parsedSourceUrl.origin === convexUrl.origin &&
-            parsedSourceUrl.pathname === expectedPath
-        ) {
-            return Boolean(parsedSourceUrl.searchParams.get("key"))
-        }
-
-        if (!publicAssetBaseUrl) {
-            return false
-        }
-
         const publicBaseUrl = new URL(publicAssetBaseUrl)
         const publicBasePath = trimTrailingSlash(publicBaseUrl.pathname)
 

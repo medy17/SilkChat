@@ -24,7 +24,6 @@ vi.mock("@/lib/browser-env", () => ({
 import {
     extractR2KeyFromUrl,
     getPublicR2AssetUrl,
-    getR2ProxyUrl,
     getRequiredPublicR2AssetUrl,
     resolvePublicFileUrl,
     resolvePublicR2AssetReference
@@ -44,12 +43,6 @@ describe("r2-public-url", () => {
         })
         optionalBrowserEnvMock.mockImplementation((key: string) =>
             key === "VITE_R2_PUBLIC_BASE_URL" ? "https://r2.silkchat.dev" : undefined
-        )
-    })
-
-    it("builds proxy URLs when needed for worker-backed paths", () => {
-        expect(getR2ProxyUrl("folder/image key.png")).toBe(
-            "https://api.example.com/r2?key=folder%2Fimage%20key.png"
         )
     })
 

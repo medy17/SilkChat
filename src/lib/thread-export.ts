@@ -141,31 +141,17 @@ const buildDirectPublicAssetUrl = (publicAssetBaseUrl: string, key: string) => {
     return `${normalizedBase}/${encodedKey}`
 }
 
-const buildProxyAssetUrl = (convexApiUrl: string, value: string) => {
-    const normalizedApiUrl = convexApiUrl.replace(/\/$/, "")
-    if (value.startsWith("/r2?key=")) {
-        return `${normalizedApiUrl}${value}`
-    }
-    return `${normalizedApiUrl}/r2?key=${encodeURIComponent(value)}`
-}
-
 // Resolves any internal R2 reference (a bare key or a legacy `/r2?key=` proxy path) to
-// a link. R2 assets are served directly off the bucket's public base url, and the
-// Convex `/r2` endpoint is an auth-less passthrough, so we always prefer the public url
-// and only fall back to the proxy when no public base url is configured.
+// its public bucket url. Media is never linked through Convex.
 const resolveExportAssetUrl = ({
     value,
-    convexApiUrl,
     publicAssetBaseUrl
 }: {
     value: string
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
 }) => {
     if (isExternalFileReference(value)) return value
-    return publicAssetBaseUrl
-        ? buildDirectPublicAssetUrl(publicAssetBaseUrl, extractR2Key(value))
-        : buildProxyAssetUrl(convexApiUrl, value)
+    return buildDirectPublicAssetUrl(publicAssetBaseUrl, extractR2Key(value))
 }
 
 const inferAttachmentFilename = ({ url, fallback }: { url: string; fallback: string }) => {
@@ -204,12 +190,10 @@ const buildAttachmentLine = ({
 
 const buildPreparedImageGenerationBlock = ({
     result,
-    convexApiUrl,
     publicAssetBaseUrl
 }: {
     result: unknown
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
 }) => {
     if (!result || typeof result !== "object") return []
     const card = result as {
@@ -250,7 +234,6 @@ const buildPreparedImageGenerationBlock = ({
             if (!reference.key) return
             const url = resolveExportAssetUrl({
                 value: reference.key,
-                convexApiUrl,
                 publicAssetBaseUrl
             })
             const label =
@@ -265,7 +248,7 @@ const buildPreparedImageGenerationBlock = ({
         card.assets?.forEach((asset) => {
             const key = asset.storageKey ?? asset.imageUrl
             if (!key) return
-            const url = resolveExportAssetUrl({ value: key, convexApiUrl, publicAssetBaseUrl })
+            const url = resolveExportAssetUrl({ value: key, publicAssetBaseUrl })
             lines.push(
                 buildAttachmentLine({ url, filename: "generated image", mimeType: "image/*" })
             )
@@ -299,12 +282,10 @@ const buildMarkdownHeader = ({
 
 const buildMessageBlock = ({
     message,
-    convexApiUrl,
     publicAssetBaseUrl
 }: {
     message: ExportableMessage
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
 }) => {
     const textContent = normalizeSpacing(
         message.parts
@@ -321,7 +302,6 @@ const buildMessageBlock = ({
             if (part.type === "image") {
                 const url = resolveExportAssetUrl({
                     value: part.image,
-                    convexApiUrl,
                     publicAssetBaseUrl
                 })
 
@@ -340,7 +320,6 @@ const buildMessageBlock = ({
             if (part.type === "file") {
                 const url = resolveExportAssetUrl({
                     value: part.data,
-                    convexApiUrl,
                     publicAssetBaseUrl
                 })
 
@@ -364,7 +343,6 @@ const buildMessageBlock = ({
             ) {
                 return buildPreparedImageGenerationBlock({
                     result: part.toolInvocation.result,
-                    convexApiUrl,
                     publicAssetBaseUrl
                 })
             }
@@ -399,13 +377,11 @@ const buildMessageBlock = ({
 const buildThreadFrontmatter = ({
     thread,
     exportedAt,
-    convexApiUrl,
     publicAssetBaseUrl
 }: {
     thread: ExportableThread
     exportedAt: number
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
 }) => {
     const lines = [
         "---",
@@ -428,7 +404,6 @@ const buildThreadFrontmatter = ({
                       ...thread.personaSnapshot,
                       avatarValue: resolveExportAssetUrl({
                           value: thread.personaSnapshot.avatarValue,
-                          convexApiUrl,
                           publicAssetBaseUrl
                       })
                   }
@@ -468,14 +443,12 @@ export const buildThreadsExportArchiveName = ({
 export const serializeThreadToMarkdown = ({
     thread,
     messages,
-    convexApiUrl,
     publicAssetBaseUrl,
     exportedAt = Date.now()
 }: {
     thread: ExportableThread
     messages: ExportableMessage[]
-    convexApiUrl: string
-    publicAssetBaseUrl?: string
+    publicAssetBaseUrl: string
     exportedAt?: number
 }): ThreadMarkdownExport => {
     const sortedMessages = [...messages].sort((left, right) => {
@@ -491,7 +464,7 @@ export const serializeThreadToMarkdown = ({
     })
 
     const messageBlocks = sortedMessages
-        .map((message) => buildMessageBlock({ message, convexApiUrl, publicAssetBaseUrl }))
+        .map((message) => buildMessageBlock({ message, publicAssetBaseUrl }))
         .filter((block): block is string => Boolean(block))
 
     if (messageBlocks.length === 0) {
@@ -500,7 +473,7 @@ export const serializeThreadToMarkdown = ({
 
     const title = normalizeTitle(thread.title) || "Exported Chat"
     const markdown = [
-        buildThreadFrontmatter({ thread, exportedAt, convexApiUrl, publicAssetBaseUrl }),
+        buildThreadFrontmatter({ thread, exportedAt, publicAssetBaseUrl }),
         "",
         `# ${title}`,
         "",

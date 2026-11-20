@@ -82,9 +82,7 @@ import {
 } from "@/lib/generated-image-recovery"
 import {
     getExpandedImageUrl,
-    getGeneratedImageCopyUrl,
     getGeneratedImageDirectUrl,
-    getGeneratedImageProxyUrl,
     getLibraryImageSources
 } from "@/lib/generated-image-urls"
 import { ImageMetadataProvider, useImageMetadata } from "@/lib/image-metadata-context"
@@ -822,9 +820,7 @@ const GeneratedImageItem = memo(
             return "1/1"
         }, [aspectRatio])
 
-        const sourceImageUrl = getGeneratedImageProxyUrl(image.storageKey)
-        const copyImageUrl = getGeneratedImageCopyUrl(image.storageKey)
-        const fullResolutionUrl = getGeneratedImageDirectUrl(image.storageKey) || sourceImageUrl
+        const fullResolutionUrl = getGeneratedImageDirectUrl(image.storageKey)
         const renderedImageSource = resolveGeneratedImageRenderSource({
             phase: imageRecoveryPhase,
             primary: {
@@ -842,7 +838,7 @@ const GeneratedImageItem = memo(
         }
 
         const handleCopyImage = async () => {
-            const copyPromise = copyImageUrlToClipboard(copyImageUrl)
+            const copyPromise = copyImageUrlToClipboard(fullResolutionUrl)
 
             toast.promise(copyPromise, {
                 loading: "Copying image...",

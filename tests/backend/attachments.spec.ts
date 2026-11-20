@@ -40,7 +40,6 @@ vi.mock("../../convex/lib/identity", () => ({
 
 import {
     deleteFile,
-    getFile,
     getUploadPolicy,
     listGeneratedFiles,
     r2,
@@ -64,10 +63,6 @@ const listGeneratedFilesHandler = listGeneratedFiles as unknown as (
     ctx: Record<string, unknown>,
     args: { limit?: number; sortBy?: "size" | "newest" | "oldest" }
 ) => Promise<Array<{ key: string }>>
-const getFileHandler = getFile as unknown as (
-    ctx: Record<string, unknown>,
-    request: Request
-) => Promise<Response>
 
 type UploadCtx = {
     auth: Record<string, never>
@@ -357,58 +352,5 @@ describe("attachments", () => {
             "[attachments.listGeneratedFiles] Repeated pagination cursor detected"
         )
         expect(result.map((file: { key: string }) => file.key)).toEqual(["b", "c", "a"])
-    })
-
-    it("proxies file fetches through the resolved storage URL", async () => {
-        ;(r2.getUrl as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-            "https://files.example.com/file-1"
-        )
-        const upstreamResponse = new Response(new Uint8Array([1, 2, 3]), {
-            status: 200,
-            headers: {
-                "content-type": "image/png",
-                "content-length": "3",
-                "cache-control": "public, max-age=60"
-            }
-        })
-        const fetchMock = vi.fn().mockResolvedValueOnce(upstreamResponse)
-        vi.stubGlobal("fetch", fetchMock)
-
-        const response = await getFileHandler(
-            createHttpCtx(),
-            new Request("https://example.com/file?key=file-1")
-        )
-
-        expect(fetchMock).toHaveBeenCalledWith("https://files.example.com/file-1")
-        expect(response.status).toBe(200)
-        expect(response.headers.get("content-type")).toBe("image/png")
-        expect(response.headers.get("content-length")).toBe("3")
-        expect(response.headers.get("cache-control")).toBe("public, max-age=60")
-        await expect(response.arrayBuffer()).resolves.toEqual(new Uint8Array([1, 2, 3]).buffer)
-    })
-
-    it("applies a longer shared cache policy for generated image sources", async () => {
-        ;(r2.getUrl as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-            "https://files.example.com/generated-image"
-        )
-        const upstreamResponse = new Response(new Uint8Array([1, 2, 3]), {
-            status: 200,
-            headers: {
-                "content-type": "image/png",
-                "cache-control": "public, max-age=60"
-            }
-        })
-        const fetchMock = vi.fn().mockResolvedValueOnce(upstreamResponse)
-        vi.stubGlobal("fetch", fetchMock)
-
-        const response = await getFileHandler(
-            createHttpCtx(),
-            new Request("https://example.com/file?key=generations%2Fuser-1%2Ffile-1.png")
-        )
-
-        expect(response.status).toBe(200)
-        expect(response.headers.get("cache-control")).toBe(
-            "public, max-age=604800, s-maxage=2592000, stale-while-revalidate=604800"
-        )
     })
 })
