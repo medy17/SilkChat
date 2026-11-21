@@ -7,7 +7,7 @@ export const Route = createLazyFileRoute("/terms-of-service")({
     component: TermsOfServicePage
 })
 
-const EFFECTIVE_DATE = "November 17, 2026"
+const EFFECTIVE_DATE = "November 21, 2026"
 const APP_NAME = "SilkChat"
 const COMPANY_NAME = "DropSilk"
 const OPERATOR_LEGAL_NAME = "Ahmed Arat"
@@ -343,6 +343,18 @@ function TermsOfServicePage() {
                                 materially false or misleading identities or statements.
                             </TermsItem>
                             <TermsItem>
+                                You may not use the Services to create sexually explicit content.
+                            </TermsItem>
+                            <TermsItem>
+                                You may not use the Services to create deepfakes or other realistic
+                                images or videos of a real person without their consent, including
+                                face swaps and sexual or intimate imagery.
+                            </TermsItem>
+                            <TermsItem>
+                                You may not use the Services to clone or imitate a real person's
+                                voice without their consent.
+                            </TermsItem>
+                            <TermsItem>
                                 You may not use the Services if you are prohibited from receiving
                                 them under applicable trade, sanctions, export control, or similar
                                 laws.
@@ -365,14 +377,12 @@ function TermsOfServicePage() {
                         </TermsItem>
                         <TermsItem>
                             Our order process is conducted by our online reseller{" "}
-                            <ExternalLink href="https://dodopayments.com">
-                                Dodo Payments
-                            </ExternalLink>
-                            , which is the Merchant of Record for all our orders and handles
-                            payment, billing, and applicable sales taxes. Subscriptions started
-                            through Lemon Squeezy, our previous Merchant of Record, continue to be
-                            billed by Lemon Squeezy until they are canceled or moved to Dodo
-                            Payments, and no later than March 31, 2027.
+                            <ExternalLink href="https://freemius.com">Freemius</ExternalLink>, which
+                            is the Merchant of Record for all our orders and handles payment,
+                            billing, and applicable sales taxes. Subscriptions started through Lemon
+                            Squeezy, our previous Merchant of Record, continue to be billed by Lemon
+                            Squeezy until they are canceled or moved to Freemius, and no later than
+                            March 31, 2027.
                         </TermsItem>
                         <TermsItem>
                             Listed prices do not include applicable taxes and do not include any
@@ -393,14 +403,10 @@ function TermsOfServicePage() {
 
                 <TermsSection number="7" title="Refund Policy">
                     <p className="text-muted-foreground">
-                        In line with the{" "}
-                        <ExternalLink href="https://dodopayments.com/buyer-terms">
-                            Dodo Payments Buyer Terms
-                        </ExternalLink>{" "}
-                        and these Terms, all purchases, subscription payments, and credit purchases
-                        made through the Services are <strong>non-refundable by default</strong>,
-                        except as set out in this Section and Section 8, or where non-waivable
-                        consumer rights apply under applicable law.
+                        All purchases, subscription payments, and credit purchases made through the
+                        Services are <strong>non-refundable by default</strong>, except as set out
+                        in this Section and Section 8, or where non-waivable consumer rights apply
+                        under applicable law.
                     </p>
                     <TermsList>
                         <TermsItem>
@@ -426,10 +432,6 @@ function TermsOfServicePage() {
                         <TermsItem>
                             If you file a chargeback with your bank or card provider, we may suspend
                             or terminate your account.
-                        </TermsItem>
-                        <TermsItem>
-                            As Merchant of Record, Dodo Payments may also review refund requests for
-                            purchases it processes under its Buyer Terms.
                         </TermsItem>
                     </TermsList>
                 </TermsSection>

@@ -140,18 +140,9 @@ function PricingPage() {
                                 Refund policy
                             </h2>
                             <p className="leading-relaxed [color:var(--landing-muted)]">
-                                In line with{" "}
-                                <a
-                                    href="https://dodopayments.com/buyer-terms"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={inlineLinkClass}
-                                >
-                                    the Dodo Payments Buyer Terms
-                                </a>{" "}
-                                and our Terms, subscription payments are non-refundable by default,
-                                including partial billing periods, unused usage, downgrades, and
-                                cancellation.
+                                Under our Terms, subscription payments are non-refundable by
+                                default, including partial billing periods, unused usage,
+                                downgrades, and cancellation.
                             </p>
                             <p className="mt-5 text-sm [color:var(--landing-muted-soft)]">
                                 The full policy is in Sections 7 and 8 of our{" "}
