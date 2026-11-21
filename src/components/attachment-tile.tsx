@@ -14,7 +14,7 @@ export const AttachmentTile = ({
     onClick,
     className,
     status = "ready",
-    progress = 0,
+    progress,
     error,
     previewUrl,
     secondaryAction,
@@ -28,6 +28,7 @@ export const AttachmentTile = ({
     onClick?: () => void
     className?: string
     status?: AttachmentTileStatus
+    /** Left out while uploading when there is nothing to measure: the bar sweeps instead. */
     progress?: number
     error?: string
     previewUrl?: string
@@ -36,7 +37,6 @@ export const AttachmentTile = ({
     // Off when the caller supplies its own tooltip for the full file name.
     nativeTitle?: boolean
 }) => {
-    const normalizedProgress = Number.isFinite(progress) ? Math.min(100, Math.max(0, progress)) : 0
     const statusDetail = status === "error" ? error || "Upload failed" : detail
 
     const textContent = (
@@ -108,36 +108,91 @@ export const AttachmentTile = ({
     return (
         <div className={classes} style={{ borderRadius: "var(--radius)" }}>
             {mainContent}
-            <AnimatePresence mode="wait">
-                {status === "uploading" || status === "success" ? (
-                    <motion.div
-                        key="upload"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/80 text-foreground backdrop-blur-sm"
-                        style={{ borderRadius: "calc(var(--radius) - 2px)", overflow: "hidden" }}
-                    >
-                        <div className="relative flex h-8 w-full items-center justify-center">
-                            <div
-                                className={cn(
-                                    "absolute inset-x-0 flex flex-col items-center justify-center gap-1 transition-all duration-200 ease-out",
-                                    status === "success"
-                                        ? "scale-95 opacity-0"
-                                        : "scale-100 opacity-100"
-                                )}
-                            >
+            <AttachmentStatusOverlay
+                status={status}
+                progress={progress}
+                compact={Boolean(previewUrl)}
+            />
+            {secondaryAction && !previewUrl && (
+                <div className="-mt-1 pb-1 pl-9">{secondaryAction}</div>
+            )}
+        </div>
+    )
+}
+
+/**
+ * The upload veil: progress, then a check, or the failure badge. Tiles wear it, and so can
+ * anything else that should upload the way attachments do.
+ */
+export function AttachmentStatusOverlay({
+    status,
+    progress,
+    compact = false,
+    flush = false
+}: {
+    status: AttachmentTileStatus
+    /** Left out when there is nothing to measure: the bar sweeps instead. */
+    progress?: number
+    /** A thumbnail-sized tile: a short bar and no failure text. */
+    compact?: boolean
+    /** Square corners, for a host that clips its own. */
+    flush?: boolean
+}) {
+    const isIndeterminate = progress === undefined
+    const normalizedProgress =
+        progress !== undefined && Number.isFinite(progress)
+            ? Math.min(100, Math.max(0, progress))
+            : 0
+
+    return (
+        <AnimatePresence mode="wait">
+            {status === "uploading" || status === "success" ? (
+                <motion.div
+                    key="upload"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/80 text-foreground backdrop-blur-sm"
+                    style={{
+                        borderRadius: flush ? undefined : "calc(var(--radius) - 2px)",
+                        overflow: "hidden"
+                    }}
+                >
+                    <div className="relative flex h-8 w-full items-center justify-center">
+                        <div
+                            className={cn(
+                                "absolute inset-x-0 flex flex-col items-center justify-center gap-1 transition-all duration-200 ease-out",
+                                status === "success"
+                                    ? "scale-95 opacity-0"
+                                    : "scale-100 opacity-100"
+                            )}
+                        >
+                            {!isIndeterminate && (
                                 <span className="font-semibold text-[0.625rem] leading-none">
                                     {Math.round(normalizedProgress)}%
                                 </span>
-                                <span
-                                    className={cn(
-                                        "h-1 overflow-hidden bg-foreground/30",
-                                        previewUrl ? "w-8" : "w-[calc(100%-1.5rem)]"
-                                    )}
-                                    style={{ borderRadius: "var(--radius)" }}
-                                >
+                            )}
+                            <span
+                                className={cn(
+                                    "h-1 overflow-hidden bg-foreground/30",
+                                    compact ? "w-8" : "w-[calc(100%-1.5rem)]"
+                                )}
+                                style={{ borderRadius: "var(--radius)" }}
+                            >
+                                {isIndeterminate ? (
+                                    <motion.span
+                                        className="block h-full w-2/5 bg-foreground"
+                                        initial={{ x: "-100%" }}
+                                        animate={{ x: "250%" }}
+                                        transition={{
+                                            duration: 1.1,
+                                            ease: "easeInOut",
+                                            repeat: Number.POSITIVE_INFINITY
+                                        }}
+                                        style={{ borderRadius: "var(--radius)" }}
+                                    />
+                                ) : (
                                     <motion.span
                                         className="block h-full bg-foreground"
                                         initial={{ width: 0 }}
@@ -145,41 +200,39 @@ export const AttachmentTile = ({
                                         transition={{ duration: 0.3, ease: "easeOut" }}
                                         style={{ borderRadius: "var(--radius)" }}
                                     />
-                                </span>
-                            </div>
-                            <Check
-                                className={cn(
-                                    "absolute size-5 transition-all duration-200 ease-out",
-                                    status === "success"
-                                        ? "scale-100 opacity-100"
-                                        : "scale-95 opacity-0"
                                 )}
-                                aria-hidden="true"
-                            />
-                        </div>
-                    </motion.div>
-                ) : status === "error" ? (
-                    <motion.div
-                        key="error"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm"
-                        style={{ borderRadius: "calc(var(--radius) - 2px)", overflow: "hidden" }}
-                    >
-                        <span className="flex max-w-[90%] items-center gap-1 bg-destructive/10 px-2 py-1 font-medium text-destructive text-xs">
-                            <CircleAlert className="size-3 shrink-0" />
-                            <span className={cn("truncate", previewUrl && "sr-only")}>
-                                Upload failed
                             </span>
-                        </span>
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
-            {secondaryAction && !previewUrl && (
-                <div className="-mt-1 pb-1 pl-9">{secondaryAction}</div>
-            )}
-        </div>
+                        </div>
+                        <Check
+                            className={cn(
+                                "absolute size-5 transition-all duration-200 ease-out",
+                                status === "success"
+                                    ? "scale-100 opacity-100"
+                                    : "scale-95 opacity-0"
+                            )}
+                            aria-hidden="true"
+                        />
+                    </div>
+                </motion.div>
+            ) : status === "error" ? (
+                <motion.div
+                    key="error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm"
+                    style={{
+                        borderRadius: flush ? undefined : "calc(var(--radius) - 2px)",
+                        overflow: "hidden"
+                    }}
+                >
+                    <span className="flex max-w-[90%] items-center gap-1 bg-destructive/10 px-2 py-1 font-medium text-destructive text-xs">
+                        <CircleAlert className="size-3 shrink-0" />
+                        <span className={cn("truncate", compact && "sr-only")}>Upload failed</span>
+                    </span>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>
     )
 }

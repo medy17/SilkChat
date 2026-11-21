@@ -9,13 +9,19 @@ interface FullPageDropOverlayProps {
     className?: string
     enabled?: boolean
     scopeKey?: string
+    title?: string
+    description?: string
+    hint?: string
 }
 
 export function FullPageDropOverlay({
     onDrop,
     className,
     enabled = true,
-    scopeKey
+    scopeKey,
+    title = "Add Attachment",
+    description = "Drop a file here to attach it to your message",
+    hint = "Accepted file types: Text, SQL, PDF, PNG, JPEG, GIF, WebP, SVG, Code"
 }: FullPageDropOverlayProps) {
     const [isDragOver, setIsDragOver] = useState(false)
     const [isSuspended, setIsSuspended] = useState(false)
@@ -44,9 +50,11 @@ export function FullPageDropOverlay({
             e.preventDefault()
             e.stopPropagation()
 
-            if (isSuspended) return
+            // Enter only counts file drags, so leave mustn't count text drags either: a text
+            // drag across the page would otherwise sink the counter and hide the next drop.
+            if (isSuspended || !e.dataTransfer?.types.includes("Files")) return
 
-            dragCounterRef.current--
+            dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
             if (dragCounterRef.current === 0) {
                 setIsDragOver(false)
             }
@@ -141,13 +149,9 @@ export function FullPageDropOverlay({
                     <Upload className="size-10 text-primary" strokeWidth={2} />
                 </div>
                 <div className="text-center">
-                    <h2 className="font-semibold text-2xl text-foreground">Add Attachment</h2>
-                    <p className="mt-1 text-muted-foreground text-sm">
-                        Drop a file here to attach it to your message
-                    </p>
-                    <p className="mt-2 text-muted-foreground/70 text-xs">
-                        Accepted file types: Text, SQL, PDF, PNG, JPEG, GIF, WebP, SVG, Code
-                    </p>
+                    <h2 className="font-semibold text-2xl text-foreground">{title}</h2>
+                    <p className="mt-1 text-muted-foreground text-sm">{description}</p>
+                    <p className="mt-2 text-muted-foreground/70 text-xs">{hint}</p>
                 </div>
             </div>
         </div>

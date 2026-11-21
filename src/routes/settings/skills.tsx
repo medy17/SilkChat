@@ -11,7 +11,7 @@ import { SkillsSettings, type SkillsSettingsTab } from "@/components/skills/skil
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { SKILL_CATALOG } from "@/lib/skill-catalog"
-import { readSkillZip } from "@/lib/skill-zip"
+import { readSkillZip, summarizeSkillZipBatch } from "@/lib/skill-zip"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useAction, useMutation, useQuery } from "convex/react"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -148,12 +148,24 @@ function SkillsSettingsRoute() {
                     return null
                 },
                 onImportZip: async (file) =>
-                    reportAdded(
-                        await installFromUpload({
-                            files: await readSkillZip(file),
-                            fileName: file.name
-                        })
-                    )
+                    await installFromUpload({
+                        files: await readSkillZip(file),
+                        fileName: file.name
+                    }),
+                // Failures are toasted per file as they happen; this reports what landed.
+                onImportZipsDone: (items) => {
+                    const summary = summarizeSkillZipBatch(items)
+                    if (summary.failed === summary.total) return
+                    // Only a landed .zip has a slug.
+                    const [item] = items
+                    if (items.length === 1 && item.slug) {
+                        reportAdded({ slug: item.slug, status: item.status })
+                    } else if (summary.unchanged === summary.total || summary.failed > 0) {
+                        toast(summary.label)
+                    } else {
+                        toast.success(summary.label)
+                    }
+                }
             }}
             browse={{
                 categories: SKILL_CATALOG,
