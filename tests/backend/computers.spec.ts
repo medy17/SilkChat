@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { api, internal } from "../../convex/_generated/api"
 import type { Doc } from "../../convex/_generated/dataModel"
 import { getHostedUsageState, recordStorageUsage } from "../../convex/credits"
@@ -352,6 +352,15 @@ describe("computers over their plan's storage limit", () => {
 })
 
 describe("computer keys", () => {
+    // Key changes schedule the sandbox policy action. Left on real timers it would start after
+    // each test, and importing @vercel/sandbox stalls whichever test runs next by over a second.
+    beforeEach(() => {
+        vi.useFakeTimers()
+    })
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
     const insertKey = (t: Test, overrides: Partial<Doc<"computerKeys">> = {}) =>
         t.run((ctx) =>
             ctx.db.insert("computerKeys", {
