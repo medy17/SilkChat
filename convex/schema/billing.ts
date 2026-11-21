@@ -19,6 +19,30 @@ export const LemonSqueezySubscription = v.object({
     lastEventId: v.string()
 })
 
+// Binds a Freemius user to a SilkChat user. Created the first time a synced
+// Freemius user's email matches a SilkChat account; kept even if emails change later.
+export const FreemiusCustomer = v.object({
+    fsUserId: v.string(),
+    userId: v.string(),
+    email: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number()
+})
+
+// The last state read from the Freemius API for one license. userId is unset while
+// the Freemius user isn't bound to a SilkChat account.
+export const FreemiusLicense = v.object({
+    fsLicenseId: v.string(),
+    fsUserId: v.string(),
+    userId: v.optional(v.string()),
+    fsPlanId: v.string(),
+    fsPricingId: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    isCancelled: v.boolean(),
+    isSandbox: v.boolean(),
+    syncedAt: v.number()
+})
+
 export const LemonSqueezyWebhookEvent = v.object({
     eventId: v.string(),
     eventName: v.string(),

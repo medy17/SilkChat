@@ -6,6 +6,7 @@ import { chatPOST } from "./chat_http/post.route"
 import { chatDELETE } from "./chat_http/stop.route"
 import { completeDirectUpload, createDirectUpload } from "./direct_uploads"
 import { falImageWebhook } from "./fal_webhooks"
+import { freemiusWebhook } from "./freemius_http"
 import { lemonSqueezyWebhook } from "./lemon_squeezy_http"
 import { UPLOAD_POLICY_HEADER } from "./lib/file_constants"
 import { getPrivateBlur } from "./private_blur"
@@ -39,6 +40,12 @@ http.route({
     path: "/webhooks/lemon-squeezy",
     method: "POST",
     handler: lemonSqueezyWebhook
+})
+
+http.route({
+    path: "/webhooks/freemius",
+    method: "POST",
+    handler: freemiusWebhook
 })
 
 http.route({

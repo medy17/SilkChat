@@ -8,7 +8,12 @@ import {
     IdentitySuppression
 } from "./schema/account_deletion"
 import { AccountExportJob } from "./schema/account_export"
-import { LemonSqueezySubscription, LemonSqueezyWebhookEvent } from "./schema/billing"
+import {
+    FreemiusCustomer,
+    FreemiusLicense,
+    LemonSqueezySubscription,
+    LemonSqueezyWebhookEvent
+} from "./schema/billing"
 import { PrototypeCreditReservation } from "./schema/credit_reservations"
 import {
     PrototypeCreditAccount,
@@ -68,6 +73,8 @@ export {
     UserAccess,
     LemonSqueezySubscription,
     LemonSqueezyWebhookEvent,
+    FreemiusCustomer,
+    FreemiusLicense,
     AccountActivity
 }
 
@@ -278,6 +285,13 @@ export default defineSchema({
     lemonSqueezyWebhookEvents: defineTable(LemonSqueezyWebhookEvent).index("byEventId", [
         "eventId"
     ]),
+    freemiusCustomers: defineTable(FreemiusCustomer)
+        .index("byFsUserId", ["fsUserId"])
+        .index("byUser", ["userId"]),
+    freemiusLicenses: defineTable(FreemiusLicense)
+        .index("byLicenseId", ["fsLicenseId"])
+        .index("byFsUserId", ["fsUserId"])
+        .index("byUser", ["userId"]),
 
     projects: defineTable(Project)
         .index("byAuthor", ["authorId"])

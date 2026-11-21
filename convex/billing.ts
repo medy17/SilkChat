@@ -1,7 +1,9 @@
 import { v } from "convex/values"
 import { type MutationCtx, internalMutation, query } from "./_generated/server"
+import { getFreemiusPlanForUser } from "./lib/freemius"
 import { getUserIdentity } from "./lib/identity"
 import {
+    type BillingPlan,
     getEffectiveBillingPlan,
     isLemonSqueezySubscriptionEvent,
     parseLemonSqueezyWebhookPayload,
@@ -194,12 +196,18 @@ export const recordLemonSqueezyWebhook = internalMutation({
             .query("lemonSqueezySubscriptions")
             .withIndex("byUser", (q) => q.eq("userId", resolvedUserId))
             .collect()
-        const effectivePlan = getEffectiveBillingPlan([
+        const lemonSqueezyPlan = getEffectiveBillingPlan([
             ...otherSubscriptions.filter(
                 (subscription) => subscription.lemonSqueezySubscriptionId !== summary.subscriptionId
             ),
             nextSubscription
         ])
+        // A user who has moved to Freemius keeps Pro through Lemon Squeezy events.
+        const effectivePlan: BillingPlan =
+            lemonSqueezyPlan === "pro" ||
+            (await getFreemiusPlanForUser(ctx, resolvedUserId, now)) === "pro"
+                ? "pro"
+                : "free"
 
         const existingAccount = await getCreditAccount(ctx, resolvedUserId)
         const nextAccount = {
