@@ -367,6 +367,21 @@ convex/lib/models/fal
 
 The chat model selector rejects image models; chat can invoke image generation through its tool. If a fal endpoint needs special input mapping, update its fal descriptor and shared image-generation path.
 
+### Image sizes
+
+Every fal descriptor declares `sizing`, and `convex/lib/models/fal/sizing.ts` is the only code that reads it. The rest of the app goes through `resolveImageSizeForModel`.
+
+What the app offers and what the backend accepts come from different places:
+
+- `supportedImageSizes` on the model is what the library picker and the chat tool offer.
+- What the backend accepts depends on the endpoint:
+  - **`input: "aspectRatio"`** endpoints (Nano Banana, Grok) accept only the ratios in `supportedImageSizes`, because fal rejects anything else.
+  - **`input: "pixels"`** endpoints accept any ratio in `sizing.presets`, even ratios `supportedImageSizes` doesn't list. For example, legacy GPT Image takes 4:3 and 3:4 as aliases for its three sizes without offering them in the picker.
+
+When adding a pixel-sized model, list in `supportedImageSizes` only the ratios worth offering, and keep every size fal makes for it in `presets`. A ratio missing from `presets` fails before credits are reserved. The chat tool falls back to the first ratio the model offers.
+
+Set `sizing.custom` (fal's pixel limits) only on endpoints priced by output dimensions. It lets the model take any ratio within the limits and any legal `WxH` size. On a model priced per resolution, a custom size would get the wrong price.
+
 ## Model Examples
 
 Built-in models following this pattern include:

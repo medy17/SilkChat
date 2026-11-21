@@ -1,4 +1,5 @@
 import type { RegistryKey, SharedModel } from "../types"
+import { SEEDREAM_IMAGE_SIZE_PRESETS, STANDARD_IMAGE_SIZE_PRESETS } from "./sizing"
 import type { FalImageDescriptor } from "./types"
 
 const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
@@ -174,7 +175,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "bytedance/seedream/v5.5/text-to-image",
         editEndpoint: "bytedance/seedream/v5.5/edit",
         supportsReferences: true,
-        imageSizeMode: "seedreamPro",
+        sizing: { input: "pixels", presets: STANDARD_IMAGE_SIZE_PRESETS, edit: "explicit" },
         usesBackground: true,
         omitOutputFormat: true,
         safety: {
@@ -186,7 +187,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "bytedance/seedream/v5/pro/text-to-image",
         editEndpoint: "bytedance/seedream/v5/pro/edit",
         supportsReferences: true,
-        imageSizeMode: "seedreamPro",
+        sizing: { input: "pixels", presets: STANDARD_IMAGE_SIZE_PRESETS, edit: "explicit" },
         omitOutputFormat: true,
         safety: {
             enableSafetyChecker: false
@@ -197,7 +198,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "bytedance/seedream/v5/flash/text-to-image",
         editEndpoint: "bytedance/seedream/v5/flash/edit",
         supportsReferences: true,
-        imageSizeMode: "seedreamPro",
+        sizing: { input: "pixels", presets: STANDARD_IMAGE_SIZE_PRESETS, edit: "explicit" },
         omitOutputFormat: true,
         safety: {
             enableSafetyChecker: false
@@ -208,7 +209,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/bytedance/seedream/v5/lite/text-to-image",
         editEndpoint: "fal-ai/bytedance/seedream/v5/lite/edit",
         supportsReferences: true,
-        imageSizeMode: "seedream",
+        sizing: { input: "pixels", presets: SEEDREAM_IMAGE_SIZE_PRESETS, edit: "explicit" },
         usesMaxImages: true,
         omitOutputFormat: true,
         safety: {
@@ -220,7 +221,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/bytedance/seedream/v4.5/text-to-image",
         editEndpoint: "fal-ai/bytedance/seedream/v4.5/edit",
         supportsReferences: true,
-        imageSizeMode: "seedream",
+        sizing: { input: "pixels", presets: SEEDREAM_IMAGE_SIZE_PRESETS, edit: "explicit" },
         usesMaxImages: true,
         omitOutputFormat: true,
         safety: {
@@ -232,7 +233,7 @@ export const FAL_BYTEDANCE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/bytedance/seedream/v4/text-to-image",
         editEndpoint: "fal-ai/bytedance/seedream/v4/edit",
         supportsReferences: true,
-        imageSizeMode: "seedream",
+        sizing: { input: "pixels", presets: SEEDREAM_IMAGE_SIZE_PRESETS, edit: "explicit" },
         usesMaxImages: true,
         omitOutputFormat: true,
         safety: {

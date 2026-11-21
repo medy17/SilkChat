@@ -1,4 +1,5 @@
-import type { ImageQuality, ImageReasoningEffort, ImageResolution, ImageSize } from "../types"
+import type { ImageQuality, ImageReasoningEffort } from "../types"
+import type { FalImageSizing, ResolvedImageSize } from "./sizing"
 
 export type FalSafetyMode = {
     enableSafetyChecker?: boolean
@@ -15,10 +16,8 @@ export type FalImageDescriptor = {
     endpoint: string
     editEndpoint?: string
     supportsReferences?: boolean
-    imageSizeMode?: "standard" | "legacyOpenAi" | "seedream" | "seedreamPro"
-    editImageSizeMode?: "auto" | "explicit"
-    usesAspectRatio?: boolean
-    resolutionMode?: "uppercase" | "lowercase"
+    /** How the endpoint takes its output size. Read only by `resolveImageSize`. */
+    sizing: FalImageSizing
     usesQuality?: boolean
     /** Endpoint takes `background`; we always send it so the model never picks for itself. */
     usesBackground?: boolean
@@ -38,8 +37,8 @@ export type FalReferenceImage = {
 
 export type FalImageRequest = {
     prompt: string
-    imageSize: ImageSize
-    imageResolution?: ImageResolution
+    /** From `resolveImageSize`, so it is already legal for the endpoint. */
+    size: ResolvedImageSize
     referenceImages: FalReferenceImage[]
     maxAssets?: number
     quality?: Exclude<ImageQuality, "auto">

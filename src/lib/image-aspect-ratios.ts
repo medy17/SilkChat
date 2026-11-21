@@ -1,19 +1,32 @@
 const RATIO_PATTERN = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)(?:-hd)?$/
 const PIXEL_SIZE_PATTERN = /^(\d+)x(\d+)$/
 
-// The only accepted shapes: `W:H` (optionally `-hd`) with positive numbers,
-// or a `WxH` pixel size with positive integers.
-export const parseImageAspectRatio = (value?: string) => {
+/** A requested image size: a shape (`ratio`) or exact output pixels (`pixels`). */
+export type ImageSizeSpec = { kind: "ratio" | "pixels"; width: number; height: number }
+
+// `W:H` with positive numbers (a legacy `-hd` suffix is dropped), or `WxH` with positive
+// integers. Spaces, case and the usual multiplication signs are forgiven.
+export const parseImageSizeInput = (value?: string | null): ImageSizeSpec | null => {
     if (!value) return null
-    const match = RATIO_PATTERN.exec(value) ?? PIXEL_SIZE_PATTERN.exec(value)
+    const text = value
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[×✕✖*]/g, "x")
+    const ratio = RATIO_PATTERN.exec(text)
+    const pixels = ratio ? null : PIXEL_SIZE_PATTERN.exec(text)
+    const match = ratio ?? pixels
     if (!match) return null
 
     const width = Number(match[1])
     const height = Number(match[2])
-    return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
-        ? { width, height }
-        : null
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        return null
+    }
+    return { kind: ratio ? "ratio" : "pixels", width, height }
 }
+
+export const formatImageSize = (spec: ImageSizeSpec) =>
+    spec.kind === "ratio" ? `${spec.width}:${spec.height}` : `${spec.width}x${spec.height}`
 
 // Library filters store each image's nearest bucket. Changing this list needs
 // migrations:runGeneratedImageFilterFieldsBackfill on every deployment.

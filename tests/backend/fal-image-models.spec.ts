@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { MODELS_SHARED } from "../../convex/lib/models"
-import type { ImageSize } from "../../convex/lib/models"
+import type { ImageResolution } from "../../convex/lib/models"
 import {
+    type FalImageRequest,
+    type FalReferenceImage,
     buildFalImageInput,
-    getFalImageDescriptor,
     getFalEndpointForRequest,
-    isFalImageSizeSupported
+    getFalImageDescriptor,
+    resolveImageSizeForModel
 } from "../../convex/lib/models/fal"
 
 const descriptor = (modelId: string) => {
@@ -20,38 +22,55 @@ const sharedModel = (modelId: string) => {
     return value
 }
 
+// Builds the fal input the way a real request does: resolve the size, then build.
+const buildInput = (
+    modelId: string,
+    {
+        size,
+        resolution,
+        referenceImages = [],
+        ...rest
+    }: {
+        size: string
+        resolution?: ImageResolution
+        referenceImages?: FalReferenceImage[]
+    } & Partial<Omit<FalImageRequest, "size" | "referenceImages">>
+) => {
+    const resolved = resolveImageSizeForModel({
+        model: sharedModel(modelId),
+        size,
+        resolution,
+        referenceCount: referenceImages.length
+    })
+    if (!resolved?.ok) throw new Error(`Unresolvable size ${size} for ${modelId}`)
+    return buildFalImageInput(descriptor(modelId), {
+        prompt: "A test image",
+        size: resolved.size,
+        referenceImages,
+        maxAssets: 1,
+        ...rest
+    })
+}
+
+const reference = { key: "references/user/ref.png", url: "https://example.com/ref.png" }
+
 describe("fal image model payloads", () => {
     it("always sends an explicit background so GPT Image never picks one itself", () => {
-        const request = {
-            prompt: "A fox sticker",
-            imageSize: "1:1" as const,
-            imageResolution: "1K" as const,
-            referenceImages: []
-        }
-        const model = descriptor("gpt-image-2.5-flare")
+        const request = { size: "1:1", resolution: "1K" as const }
 
         expect(
-            buildFalImageInput(model, { ...request, transparentBackground: true })
+            buildInput("gpt-image-2.5-flare", { ...request, transparentBackground: true })
         ).toMatchObject({ background: "transparent", output_format: "png" })
-        expect(buildFalImageInput(model, request)).toMatchObject({ background: "opaque" })
+        expect(buildInput("gpt-image-2.5-flare", request)).toMatchObject({
+            background: "opaque"
+        })
         expect(
-            buildFalImageInput(descriptor("seedream-5-lite"), {
-                ...request,
-                transparentBackground: true
-            })
+            buildInput("seedream-5-lite", { ...request, transparentBackground: true })
         ).not.toHaveProperty("background")
     })
 
     it("uses GPT Image 2 image_size objects instead of size strings", () => {
-        expect(
-            buildFalImageInput(descriptor("gpt-5.4-image-2"), {
-                prompt: "A test image",
-                imageSize: "9:16",
-                imageResolution: "1K",
-                referenceImages: [],
-                maxAssets: 1
-            })
-        ).toMatchObject({
+        expect(buildInput("gpt-5.4-image-2", { size: "9:16", resolution: "1K" })).toMatchObject({
             image_size: { width: 720, height: 1280 },
             quality: "medium",
             output_format: "png",
@@ -60,18 +79,12 @@ describe("fal image model payloads", () => {
     })
 
     it("preserves GPT Image 2 resolution and aspect ratio for reference-based edits", () => {
-        const model = descriptor("gpt-5.4-image-2")
-        const input = buildFalImageInput(model, {
-            prompt: "Edit this",
-            imageSize: "3:4",
-            imageResolution: "4K",
-            referenceImages: [
-                { key: "references/user/ref.png", url: "https://example.com/ref.png" }
-            ],
-            maxAssets: 1
+        const input = buildInput("gpt-5.4-image-2", {
+            size: "3:4",
+            resolution: "4K",
+            referenceImages: [reference]
         })
 
-        expect(model.editImageSizeMode).toBe("explicit")
         expect(input).toMatchObject({
             image_size: { width: 2448, height: 3264 },
             image_urls: ["https://example.com/ref.png"]
@@ -81,12 +94,7 @@ describe("fal image model payloads", () => {
 
     it("maps legacy GPT Image Mini to the fal GPT Image 1 Mini endpoint", () => {
         const model = descriptor("gpt-5-image-mini")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "1024x1536",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("gpt-5-image-mini", { size: "1024x1536" })
 
         expect(model.endpoint).toBe("fal-ai/gpt-image-1-mini")
         expect(model.editEndpoint).toBe("fal-ai/gpt-image-1-mini/edit")
@@ -98,69 +106,45 @@ describe("fal image model payloads", () => {
         expect(input).not.toHaveProperty("safety_tolerance")
     })
 
-    it("maps legacy GPT Image to fal GPT Image 1.5 with enum image sizes", () => {
+    it("maps legacy GPT Image to fal GPT Image 1.5 with enum sizes and auto-sized edits", () => {
         const model = descriptor("gpt-5-image")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "16:9",
-            referenceImages: [],
-            maxAssets: 1
-        })
 
         expect(model.endpoint).toBe("fal-ai/gpt-image-1.5")
         expect(model.editEndpoint).toBe("fal-ai/gpt-image-1.5/edit")
-        expect(sharedModel("gpt-5-image").supportedImageSizes).toEqual(
-            expect.arrayContaining(["16:9", "9:16"])
-        )
-        expect(input).toMatchObject({
+        expect(buildInput("gpt-5-image", { size: "16:9" })).toMatchObject({
             image_size: "1536x1024",
             quality: "high"
         })
-
-        expect(
-            buildFalImageInput(model, {
-                prompt: "A test image",
-                imageSize: "9:16",
-                referenceImages: [],
-                maxAssets: 1
-            })
-        ).toMatchObject({
+        expect(buildInput("gpt-5-image", { size: "9:16" })).toMatchObject({
             image_size: "1024x1536"
         })
+        expect(
+            buildInput("gpt-5-image", { size: "9:16", referenceImages: [reference] })
+        ).toMatchObject({ image_size: "auto" })
     })
 
     it("maps Gemini 2.5 Flash Image to Nano Banana", () => {
         const model = descriptor("gemini-2.5-flash-image")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "21:9",
-            imageResolution: "4K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("gemini-2.5-flash-image", { size: "21:9", resolution: "4K" })
 
         expect(model.endpoint).toBe("fal-ai/nano-banana")
         expect(model.editEndpoint).toBe("fal-ai/nano-banana/edit")
-        expect(sharedModel("gemini-2.5-flash-image").supportedImageSizes).toContain("21:9")
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
             safety_tolerance: "6"
         })
         expect(input).not.toHaveProperty("resolution")
+        expect(input).not.toHaveProperty("image_size")
     })
 
     it("maps Gemini Flash Preview to Nano Banana 2 with uppercase resolution", () => {
         const model = descriptor("gemini-3.1-flash-image-preview")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "21:9",
-            imageResolution: "4K",
-            referenceImages: [],
-            maxAssets: 1
+        const input = buildInput("gemini-3.1-flash-image-preview", {
+            size: "21:9",
+            resolution: "4K"
         })
 
         expect(model.endpoint).toBe("fal-ai/nano-banana-2")
-        expect(sharedModel("gemini-3.1-flash-image-preview").supportedImageSizes).toContain("21:9")
         expect(input).toMatchObject({
             aspect_ratio: "21:9",
             resolution: "4K",
@@ -171,13 +155,7 @@ describe("fal image model payloads", () => {
 
     it("maps Gemini 3.1 Flash Lite to Nano Banana 2 Lite without a resolution", () => {
         const model = descriptor("gemini-3.1-flash-lite-image")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "21:9",
-            imageResolution: "4K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("gemini-3.1-flash-lite-image", { size: "21:9", resolution: "4K" })
 
         expect(model.endpoint).toBe("google/nano-banana-2-lite")
         expect(model.editEndpoint).toBe("google/nano-banana-2-lite/edit")
@@ -191,13 +169,7 @@ describe("fal image model payloads", () => {
 
     it("maps Gemini Pro to its fal endpoint and safety tolerance", () => {
         const model = descriptor("gemini-3-pro-image-preview")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "21:9",
-            imageResolution: "2K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("gemini-3-pro-image-preview", { size: "21:9", resolution: "2K" })
 
         expect(model.endpoint).toBe("fal-ai/gemini-3-pro-image-preview")
         expect(input).toMatchObject({
@@ -209,13 +181,7 @@ describe("fal image model payloads", () => {
 
     it("uses Grok quality endpoints for the in-app Pro model", () => {
         const model = descriptor("grok-imagine-image-pro")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "20:9",
-            imageResolution: "2K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("grok-imagine-image-pro", { size: "20:9", resolution: "2K" })
 
         expect(model.endpoint).toBe("xai/grok-imagine-image/quality/text-to-image")
         expect(model.editEndpoint).toBe("xai/grok-imagine-image/quality/edit")
@@ -240,13 +206,7 @@ describe("fal image model payloads", () => {
 
     it("uses FLUX 2 Flex image_size and does not advertise a fal edit endpoint", () => {
         const model = descriptor("flux-2-flex")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "3:2",
-            imageResolution: "1K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("flux-2-flex", { size: "3:2", resolution: "1K" })
 
         expect(model.editEndpoint).toBeUndefined()
         expect(model.supportsReferences).toBe(false)
@@ -274,17 +234,10 @@ describe("fal image model payloads", () => {
 
     it("uses Seedream 4.5 text/edit endpoints and valid large image sizes", () => {
         const model = descriptor("seedream-4-5")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "21:9",
-            imageResolution: "4K",
-            referenceImages: [],
-            maxAssets: 1
-        })
+        const input = buildInput("seedream-4-5", { size: "21:9", resolution: "4K" })
 
         expect(model.endpoint).toBe("fal-ai/bytedance/seedream/v4.5/text-to-image")
         expect(model.editEndpoint).toBe("fal-ai/bytedance/seedream/v4.5/edit")
-        expect(sharedModel("seedream-4-5").supportedImageSizes).toContain("21:9")
         expect(input).toMatchObject({
             image_size: { width: 4032, height: 1728 },
             max_images: 1,
@@ -303,101 +256,69 @@ describe("fal image model payloads", () => {
     })
 
     it("uses Seedream 5 Pro endpoints and caps output sizing at 2K", () => {
-        const model = descriptor("seedream-5-pro")
-        const input = buildFalImageInput(model, {
-            prompt: "A test image",
-            imageSize: "16:9",
-            imageResolution: "2K",
-            referenceImages: [{ key: "reference", url: "https://example.com/reference.png" }],
-            maxAssets: 1
+        const input = buildInput("seedream-5-pro", {
+            size: "16:9",
+            resolution: "2K",
+            referenceImages: [reference]
         })
 
         expect(sharedModel("seedream-5-pro")).toMatchObject({
             supportedImageResolutions: ["1K", "2K"],
             maxReferenceImages: 10
         })
-        expect(model).toMatchObject({
+        expect(descriptor("seedream-5-pro")).toMatchObject({
             endpoint: "bytedance/seedream/v5/pro/text-to-image",
             editEndpoint: "bytedance/seedream/v5/pro/edit"
         })
         expect(input).toMatchObject({
             image_size: { width: 2048, height: 1152 },
-            image_urls: ["https://example.com/reference.png"],
+            image_urls: ["https://example.com/ref.png"],
             enable_safety_checker: false
         })
         expect(input).not.toHaveProperty("output_format")
         expect(input).not.toHaveProperty("max_images")
-    })
-
-    it("rejects malformed custom image sizes instead of silently falling back", () => {
-        const model = descriptor("gpt-5.4-image-2")
-        const malformedSize = "wide-x-tall" as ImageSize
-
-        expect(isFalImageSizeSupported(model, malformedSize)).toBe(false)
-        expect(() =>
-            buildFalImageInput(model, {
-                prompt: "A test image",
-                imageSize: malformedSize,
-                imageResolution: "1K",
-                referenceImages: [],
-                maxAssets: 1
-            })
-        ).toThrow("Invalid fal image size")
     })
 })
 
 it.each(["flare", "sunburst"])(
     "sends GPT Image 2.6 %s reasoning effort separately from quality",
     (variant) => {
-        const model = descriptor(`gpt-image-2.6-${variant}`)
+        const modelId = `gpt-image-2.6-${variant}`
+        const model = descriptor(modelId)
         expect(getFalEndpointForRequest(model, 0)).toBe(
             `openai/gpt-image-2.6/${variant}/text-to-image`
         )
         expect(getFalEndpointForRequest(model, 1)).toBe(`openai/gpt-image-2.6/${variant}/edit`)
-        const request = {
-            prompt: "A portrait",
-            imageSize: "3:4" as const,
-            imageResolution: "1K" as const,
-            referenceImages: []
-        }
-        expect(buildFalImageInput(model, request)).toMatchObject({
+        const request = { size: "3:4", resolution: "1K" as const }
+        expect(buildInput(modelId, request)).toMatchObject({
             quality: "high",
             reasoning_effort: "high",
             enable_safety_checker: false
         })
         expect(
-            buildFalImageInput(model, { ...request, quality: "low", reasoningEffort: "medium" })
+            buildInput(modelId, { ...request, quality: "low", reasoningEffort: "medium" })
         ).toMatchObject({ quality: "low", reasoning_effort: "medium" })
-        expect(
-            buildFalImageInput(descriptor(`gpt-image-2.5-${variant}`), request)
-        ).not.toHaveProperty("reasoning_effort")
+        expect(buildInput(`gpt-image-2.5-${variant}`, request)).not.toHaveProperty(
+            "reasoning_effort"
+        )
     }
 )
 
 it.each(["flare", "sunburst"])(
     "routes GPT Image 2.5 %s generation and edits with high as default",
     (variant) => {
-        const model = descriptor(`gpt-image-2.5-${variant}`)
+        const modelId = `gpt-image-2.5-${variant}`
+        const model = descriptor(modelId)
         expect(getFalEndpointForRequest(model, 0)).toBe(
             `openai/gpt-image-2.5/${variant}/text-to-image`
         )
         expect(getFalEndpointForRequest(model, 1)).toBe(`openai/gpt-image-2.5/${variant}/edit`)
-        expect(model.editImageSizeMode).toBe("explicit")
-        const request = {
-            prompt: "A portrait",
-            imageSize: "3:4" as const,
-            imageResolution: "4K" as const,
-            referenceImages: []
-        }
-        expect(buildFalImageInput(model, request).quality).toBe("high")
-        expect(buildFalImageInput(model, { ...request, quality: "max" }).quality).toBe("max")
-        const edit = buildFalImageInput(model, {
-            ...request,
-            referenceImages: [{ key: "reference", url: "https://example.com/reference.png" }]
-        })
-        expect(edit).toMatchObject({
+        const request = { size: "3:4", resolution: "4K" as const }
+        expect(buildInput(modelId, request).quality).toBe("high")
+        expect(buildInput(modelId, { ...request, quality: "max" }).quality).toBe("max")
+        expect(buildInput(modelId, { ...request, referenceImages: [reference] })).toMatchObject({
             image_size: { width: 2448, height: 3264 },
-            image_urls: ["https://example.com/reference.png"],
+            image_urls: ["https://example.com/ref.png"],
             quality: "high",
             enable_safety_checker: false
         })

@@ -112,17 +112,26 @@ describe("validatePreparedImageRequest coercion", () => {
         expect(supported).toContain(validated.resolution)
     })
 
-    it("snaps an unsupported aspect ratio to a supported one", () => {
+    it("snaps an unsupported aspect ratio to a supported one when asked to fall back", () => {
         const model = getSelectableImageModels().find(
             (candidate) => getSupportedAspectRatiosForImageModel(candidate).length > 0
         )
         if (!model) throw new Error("Expected at least one model that declares aspect ratios")
         const supported = getSupportedAspectRatiosForImageModel(model)
 
+        // 9:1 is past every model's limits, so no model can make it.
+        expect(() =>
+            validatePreparedImageRequest({
+                modelId: model.id,
+                aspectRatio: "9:1",
+                referenceCount: 0
+            })
+        ).toThrow()
         const validated = validatePreparedImageRequest({
             modelId: model.id,
-            aspectRatio: "7:3",
-            referenceCount: 0
+            aspectRatio: "9:1",
+            referenceCount: 0,
+            onUnsupportedSize: "fallback"
         })
 
         expect(supported).toContain(validated.aspectRatio)

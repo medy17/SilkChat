@@ -1,4 +1,5 @@
 import type { RegistryKey, SharedModel } from "../types"
+import { STANDARD_IMAGE_SIZE_PRESETS } from "./sizing"
 import type { FalImageDescriptor } from "./types"
 
 const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
@@ -48,7 +49,7 @@ export const FAL_BLACK_FOREST_LABS_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         appModelId: "flux-2-flex",
         endpoint: "fal-ai/flux-2-flex",
         supportsReferences: false,
-        imageSizeMode: "standard",
+        sizing: { input: "pixels", presets: STANDARD_IMAGE_SIZE_PRESETS, edit: "auto" },
         safety: {
             enableSafetyChecker: false,
             safetyTolerance: "1"

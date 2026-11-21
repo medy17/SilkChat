@@ -134,7 +134,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/nano-banana",
         editEndpoint: "fal-ai/nano-banana/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
+        sizing: { input: "aspectRatio" },
         safety: {
             safetyTolerance: "6"
         }
@@ -144,8 +144,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/nano-banana-2",
         editEndpoint: "fal-ai/nano-banana-2/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "uppercase",
+        sizing: { input: "aspectRatio", resolutionParam: "uppercase" },
         safety: {
             safetyTolerance: "6"
         }
@@ -155,8 +154,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "google/nano-banana-2.1",
         editEndpoint: "google/nano-banana-2.1/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "uppercase",
+        sizing: { input: "aspectRatio", resolutionParam: "uppercase" },
         safety: {
             safetyTolerance: "6"
         }
@@ -166,7 +164,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "google/nano-banana-2-lite",
         editEndpoint: "google/nano-banana-2-lite/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
+        sizing: { input: "aspectRatio" },
         safety: {
             safetyTolerance: "6"
         }
@@ -176,8 +174,7 @@ export const FAL_GOOGLE_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/gemini-3-pro-image-preview",
         editEndpoint: "fal-ai/gemini-3-pro-image-preview/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "uppercase",
+        sizing: { input: "aspectRatio", resolutionParam: "uppercase" },
         safety: {
             safetyTolerance: "6"
         }

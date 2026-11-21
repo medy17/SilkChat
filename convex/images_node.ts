@@ -1,8 +1,8 @@
 "use node"
 
 import { buildGeneratedImageSearchText } from "@/lib/generated-image-search"
+import { parseImageSizeInput } from "@/lib/image-aspect-ratios"
 import { getLibraryPrivateBlurWidths, getPrivateBlurStorageKey } from "@/lib/private-blur-variants"
-import { parseImageAspectRatio } from "@/lib/image-aspect-ratios"
 import { fal } from "@fal-ai/client"
 import type { GenericActionCtx } from "convex/server"
 import { ConvexError, v } from "convex/values"
@@ -120,31 +120,14 @@ const DEV_FAKE_PALETTES = [
     }
 ] as const
 
-const clampAspectValue = (value: number) => {
-    if (!Number.isFinite(value) || value <= 0) return 1
-    return Math.min(24, Math.max(1, Math.round(value)))
-}
-
-const parseAspectRatio = (aspectRatio?: string) => {
-    const normalized = aspectRatio?.replace("-hd", "") || "1:1"
-
-    if (normalized.includes("x")) {
-        const [width, height] = normalized.split("x").map((value) => Number.parseFloat(value))
-        return {
-            width: clampAspectValue(width),
-            height: clampAspectValue(height)
-        }
+// The fake keeps the requested shape at a fixed long side, so 2400x3392 stays portrait.
+const getDevFakeCanvasSize = (aspectRatio: string) => {
+    const { width, height } = parseImageSizeInput(aspectRatio) ?? { width: 1, height: 1 }
+    const scale = 1920 / Math.max(width, height)
+    return {
+        canvasWidth: Math.round(width * scale),
+        canvasHeight: Math.round(height * scale)
     }
-
-    if (normalized.includes(":")) {
-        const [width, height] = normalized.split(":").map((value) => Number.parseFloat(value))
-        return {
-            width: clampAspectValue(width),
-            height: clampAspectValue(height)
-        }
-    }
-
-    return { width: 1, height: 1 }
 }
 
 const escapeSvgText = (value: string) =>
@@ -213,9 +196,7 @@ const buildDevFakeSvg = ({
     referenceCount: number
     responseTimeSeconds: number
 }) => {
-    const { width, height } = parseAspectRatio(aspectRatio)
-    const canvasWidth = width * 160
-    const canvasHeight = height * 160
+    const { canvasWidth, canvasHeight } = getDevFakeCanvasSize(aspectRatio)
     const palette =
         DEV_FAKE_PALETTES[Math.floor(Math.random() * DEV_FAKE_PALETTES.length)] ||
         DEV_FAKE_PALETTES[0]
@@ -438,8 +419,7 @@ const submitImageGenerationJob = async (
         if (personaStyleReference) referenceImages.push(personaStyleReference)
         const input = buildFalImageInput(validated.descriptor, {
             prompt,
-            imageSize: validated.aspectRatio,
-            imageResolution: validated.resolution,
+            size: validated.size,
             referenceImages,
             maxAssets: 1,
             quality,
@@ -852,20 +832,23 @@ export const generateFakeStandaloneImage = action({
             }),
             availableToPickFor: sharedModel?.availableToPickFor
         })
-        if (args.aspectRatio && !parseImageAspectRatio(args.aspectRatio)) {
-            throw new Error("Invalid aspect ratio.")
-        }
-        const aspectRatio = args.aspectRatio || "1:1"
+        const referenceCount = args.referenceImageIds?.length ?? 0
+        // Same size rules as a real run, so a fake can't succeed where fal would fail.
+        const { aspectRatio, resolution } = validatePreparedImageRequest({
+            modelId: args.modelId,
+            aspectRatio: args.aspectRatio,
+            resolution: args.resolution,
+            referenceCount
+        })
         const responseTimeSeconds = clampFakeResponseTimeSeconds(args.responseTimeSeconds)
         const prompt = args.prompt.trim()
-        const referenceCount = args.referenceImageIds?.length ?? 0
 
         await wait(responseTimeSeconds * 1000)
 
         const svg = buildDevFakeSvg({
             modelName,
             aspectRatio,
-            resolution: args.resolution,
+            resolution,
             prompt,
             variantIndex: args.variantIndex,
             referenceCount,
@@ -885,7 +868,7 @@ export const generateFakeStandaloneImage = action({
                 prompt,
                 modelId: args.modelId,
                 aspectRatio,
-                resolution: args.resolution,
+                resolution,
                 referenceImageKeys: args.referenceImageIds
             }
         )

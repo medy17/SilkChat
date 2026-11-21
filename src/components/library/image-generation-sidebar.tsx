@@ -21,7 +21,13 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
-import type { ImageQuality, ImageReasoningEffort, SharedModel } from "@/convex/lib/models"
+import type {
+    ImageQuality,
+    ImageReasoningEffort,
+    ImageResolution,
+    SharedModel
+} from "@/convex/lib/models"
+import { describeImageSizeFailure, resolveImageSizeForModel } from "@/convex/lib/models/fal"
 import { isModelSunset } from "@/convex/lib/models/lifecycle"
 import { useSession, useToken } from "@/hooks/auth-hooks"
 import {
@@ -44,8 +50,10 @@ import { DEFAULT_UPLOAD_POLICY, formatFileSizeLimit } from "@/lib/file_constants
 import {
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio,
+    formatImageSize,
     getCommonSelectableImageAspectRatios,
-    parseImageAspectRatio
+    getSelectableImageAspectRatios,
+    parseImageSizeInput
 } from "@/lib/image-aspect-ratios"
 import { getReferenceImageSources } from "@/lib/generated-image-urls"
 import { getRequiredPlanToPickModel } from "@/lib/models-providers-shared"
@@ -294,10 +302,23 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
             imageReferenceMaxOverride,
             model?.maxReferenceImages
         )
+    // The store keeps the raw text for the input; only a parsed size goes any further.
+    const aspectRatioOverrideSpec = parseImageSizeInput(aspectRatioOverride)
+    const isAspectRatioOverrideInvalid = Boolean(aspectRatioOverride) && !aspectRatioOverrideSpec
     const effectiveAspectRatio =
-        overridesActive && aspectRatioOverride ? aspectRatioOverride : aspectRatio
-    const isAspectRatioOverrideInvalid =
-        Boolean(aspectRatioOverride) && !parseImageAspectRatio(aspectRatioOverride ?? undefined)
+        overridesActive && aspectRatioOverrideSpec
+            ? formatImageSize(aspectRatioOverrideSpec)
+            : aspectRatio
+    // Selecting a model that can't make the current ratio moves the ratio to one it can, so its
+    // row prices that ratio. A typed override stays put, so a model that can't make it shows no
+    // price.
+    const getRowAspectRatio = (model: SharedModel) => {
+        if (overridesActive && aspectRatioOverrideSpec) return effectiveAspectRatio
+        const ratios = getSelectableImageAspectRatios(model.supportedImageSizes)
+        return ratios.includes(aspectRatio as SelectableImageAspectRatio)
+            ? aspectRatio
+            : (ratios[0] ?? aspectRatio)
+    }
 
     const { data: session } = useSession()
     const userId = session?.user?.id
@@ -996,6 +1017,23 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         [referenceCount, selectedModels]
     )
 
+    // Each selected model resolves the size for itself; one that can't make it blocks the run.
+    const sizeFailure = useMemo(() => {
+        for (const model of selectedModels) {
+            const resolved = resolveImageSizeForModel({
+                model,
+                size: effectiveAspectRatio,
+                resolution: model.supportedImageResolutions?.length
+                    ? (resolution as ImageResolution)
+                    : undefined
+            })
+            if (resolved && !resolved.ok) {
+                return describeImageSizeFailure(model.name, effectiveAspectRatio, resolved)
+            }
+        }
+        return null
+    }, [selectedModels, effectiveAspectRatio, resolution])
+
     const canGenerateBase =
         selectedModelIds.length > 0 && !isGenerating && commonImageSizes.length > 0
     const normalizedPrompt = prompt.trim()
@@ -1005,7 +1043,8 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
         !generationPanelDisabled &&
         !selectedRequiresPlanUpgrade &&
         pendingReferences.length === 0 &&
-        !(overridesActive && isAspectRatioOverrideInvalid)
+        !(overridesActive && isAspectRatioOverrideInvalid) &&
+        !sizeFailure
 
     // Reads the store directly: the stale-reference dialog may have just cleared it.
     const getSubmittableReferenceKeys = () => {
@@ -1230,7 +1269,7 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                         </span>
                         <ImageCostIndicator
                             model={model}
-                            aspectRatio={effectiveAspectRatio}
+                            aspectRatio={getRowAspectRatio(model)}
                             resolution={resolution}
                             quality={showsQuality ? getImageQualityOverride(model) : undefined}
                             variants={modelCount}
@@ -1638,17 +1677,26 @@ export function ImageGenerationSidebar({ disabled = false }: { disabled?: boolea
                                         </span>
                                         <Input
                                             value={aspectRatioOverride ?? ""}
-                                            placeholder="e.g. 21:9"
-                                            aria-invalid={isAspectRatioOverrideInvalid}
+                                            placeholder="e.g. 21:9 or 2400x3392"
+                                            aria-invalid={
+                                                isAspectRatioOverrideInvalid ||
+                                                (Boolean(aspectRatioOverrideSpec) &&
+                                                    Boolean(sizeFailure))
+                                            }
                                             className="h-8 rounded-[var(--radius-sm)] text-xs"
                                             onChange={(event) =>
                                                 setAspectRatioOverride(
                                                     event.target.value.trim() === ""
                                                         ? null
-                                                        : event.target.value.trim()
+                                                        : event.target.value
                                                 )
                                             }
                                         />
+                                        {aspectRatioOverrideSpec && sizeFailure && (
+                                            <p className="text-destructive text-xs">
+                                                {sizeFailure}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="flex items-center justify-between gap-3">
                                         <span className="text-muted-foreground text-xs">

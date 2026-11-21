@@ -105,8 +105,7 @@ export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "xai/grok-imagine-image/v2.0/text-to-image",
         editEndpoint: "xai/grok-imagine-image/v2.0/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "lowercase",
+        sizing: { input: "aspectRatio", resolutionParam: "lowercase" },
         usesQuality: true,
         defaultQuality: "medium",
         ...SETTLES_AFTER_SAFETY_REJECTION,
@@ -117,8 +116,7 @@ export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "xai/grok-imagine-image",
         editEndpoint: "xai/grok-imagine-image/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "lowercase",
+        sizing: { input: "aspectRatio", resolutionParam: "lowercase" },
         ...SETTLES_AFTER_SAFETY_REJECTION,
         safety: {}
     },
@@ -127,8 +125,7 @@ export const FAL_XAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "xai/grok-imagine-image/quality/text-to-image",
         editEndpoint: "xai/grok-imagine-image/quality/edit",
         supportsReferences: true,
-        usesAspectRatio: true,
-        resolutionMode: "lowercase",
+        sizing: { input: "aspectRatio", resolutionParam: "lowercase" },
         ...SETTLES_AFTER_SAFETY_REJECTION,
         safety: {}
     }

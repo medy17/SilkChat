@@ -1,4 +1,4 @@
-import { parseImageAspectRatio } from "@/lib/image-aspect-ratios"
+import { formatImageSize, parseImageSizeInput } from "@/lib/image-aspect-ratios"
 import type { GenericActionCtx } from "convex/server"
 import { nanoid } from "nanoid"
 import { internal } from "../../_generated/api"
@@ -7,17 +7,13 @@ import type { DataModel } from "../../_generated/dataModel"
 import { r2 } from "../../attachments"
 import { resolveRequiredPlanForModelAccess } from "../credits"
 import { MODELS_SHARED } from "../models"
-import type {
-    ImageQuality,
-    ImageResolution,
-    ImageSize,
-    PrototypeAccessPlan,
-    SharedModel
-} from "../models"
+import type { ImageQuality, ImageResolution, PrototypeAccessPlan, SharedModel } from "../models"
 import {
     type FalReferenceImage,
+    type ImageSizeResolution,
+    describeImageSizeFailure,
     getFalImageDescriptor,
-    isFalImageSizeSupported
+    resolveImageSizeForModel
 } from "../models/fal"
 import { estimateImageCost } from "./cost"
 
@@ -63,11 +59,10 @@ export const getSelectableImageModels = (userPlan: PrototypeAccessPlan = "pro") 
     )
 
 export const getSupportedAspectRatiosForImageModel = (model: SharedModel) => {
-    const descriptor = getFalImageDescriptor(model.id)
     const supported = model.supportedImageSizes ?? []
-    if (!descriptor) return supported
-
-    return supported.filter((size) => isFalImageSizeSupported(descriptor, size))
+    return supported.filter(
+        (size) => resolveImageSizeForModel({ model, size, resolution: undefined })?.ok !== false
+    )
 }
 
 export const getSupportedResolutionsForImageModel = (model: SharedModel) =>
@@ -145,7 +140,8 @@ export const validatePreparedImageRequest = ({
     referenceCount,
     quality,
     transparentBackground,
-    defaults
+    defaults,
+    onUnsupportedSize = "reject"
 }: {
     modelId: string
     aspectRatio?: string
@@ -160,6 +156,9 @@ export const validatePreparedImageRequest = ({
         resolution?: ImageResolution
         variants?: number
     }
+    // "fallback" only where the user sees the result before paying (the chat-tool card).
+    // Everywhere else a size the model can't make fails before any credit is reserved.
+    onUnsupportedSize?: "reject" | "fallback"
 }) => {
     const model = getImageModelById(modelId)
     if (!model) {
@@ -171,32 +170,26 @@ export const validatePreparedImageRequest = ({
         throw new Error("Image model is not available on fal.")
     }
 
-    // Aspect ratio, resolution, and variant count are coerced to legal values rather
-    // than rejected: the model selects from a union of every model's enums, so a value
-    // that's valid in general can still be illegal for the specific model picked. Since
-    // this only builds a pending card the user confirms before spending credits,
-    // snapping to the nearest legal value is safer than failing the card. References are
-    // the exception (handled below) — silently dropping a reference would change intent.
-    // Snapping covers legal-but-unsupported values; a malformed one is a bad request.
-    if (aspectRatio && !parseImageAspectRatio(aspectRatio)) {
+    // Resolution and variant count are coerced to legal values rather than rejected: the
+    // chat model selects from a union of every model's enums, so a value that's valid in
+    // general can still be illegal for the specific model picked. Sizes follow
+    // `onUnsupportedSize`. References are the exception (handled below) — silently
+    // dropping a reference would change intent. A malformed size is a bad request.
+    const requestedSize = aspectRatio ? parseImageSizeInput(aspectRatio) : null
+    if (aspectRatio && !requestedSize) {
         throw new Error("Invalid aspect ratio.")
     }
-    const supportedAspectRatios = getSupportedAspectRatiosForImageModel(model)
-    const requestedAspectRatio = (aspectRatio || supportedAspectRatios[0] || "1:1") as ImageSize
-    const aspectRatioSupported =
-        supportedAspectRatios.length === 0 ||
-        supportedAspectRatios.includes(requestedAspectRatio) ||
-        isFalImageSizeSupported(descriptor, requestedAspectRatio)
-    const selectedAspectRatio = aspectRatioSupported
-        ? requestedAspectRatio
-        : ((supportedAspectRatios[0] ?? "1:1") as ImageSize)
 
     const supportedResolutions = getSupportedResolutionsForImageModel(model)
     const requestedResolution = resolution as ImageResolution | undefined
     let selectedResolution: ImageResolution | undefined
     if (supportedResolutions.length === 0) {
-        // Model takes no explicit resolution; leave whatever was passed (usually nothing).
-        selectedResolution = requestedResolution
+        // Model takes no explicit resolution; keep a real tier if one was passed, since sizes
+        // are looked up by tier, and drop anything else.
+        selectedResolution =
+            requestedResolution && RESOLUTION_ORDER.includes(requestedResolution)
+                ? requestedResolution
+                : undefined
     } else {
         // Precedence: explicit model choice > user default > system default ("1K"). The
         // winner is then clamped to a supported rung, so every layer stays within limits.
@@ -224,11 +217,30 @@ export const validatePreparedImageRequest = ({
         throw new Error("Reference images are not supported by this fal model.")
     }
 
+    const resolveSize = (size: string): ImageSizeResolution =>
+        resolveImageSizeForModel({
+            model,
+            size,
+            resolution: selectedResolution,
+            referenceCount
+        }) ?? { ok: false, reason: "This model has no fal endpoint." }
+    const defaultSize = getSupportedAspectRatiosForImageModel(model)[0] ?? "1:1"
+    const requested = requestedSize ? formatImageSize(requestedSize) : defaultSize
+    let resolvedSize = resolveSize(requested)
+    if (!resolvedSize.ok && onUnsupportedSize === "fallback") {
+        resolvedSize = resolveSize(defaultSize)
+    }
+    if (!resolvedSize.ok) {
+        throw new Error(describeImageSizeFailure(model.name, requested, resolvedSize))
+    }
+    const { size } = resolvedSize
+
     return {
         model,
         descriptor,
-        aspectRatio: selectedAspectRatio,
-        resolution: selectedResolution,
+        aspectRatio: size.canonical,
+        resolution: size.resolution,
+        size,
         variants: selectedVariants,
         // Dropped rather than rejected on models without alpha output, like the other
         // coerced fields: the request still makes sense with an opaque background.
@@ -239,8 +251,8 @@ export const validatePreparedImageRequest = ({
             ...getImageModelCreditEstimate(model),
             estimatedUsd: estimateImageCost({
                 model,
-                aspectRatio: selectedAspectRatio,
-                resolution: selectedResolution,
+                aspectRatio: size.canonical,
+                resolution: size.resolution,
                 quality,
                 variants: selectedVariants,
                 referenceCount

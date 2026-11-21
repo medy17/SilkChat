@@ -196,7 +196,9 @@ export const getPrepareImageGenerationTool = ({
                         referenceCount:
                             selectedReferences.length + Number(usePersonaStyleReference),
                         transparentBackground,
-                        defaults
+                        defaults,
+                        // The card shows the size it settled on before anything is spent.
+                        onUnsupportedSize: "fallback"
                     })
                     if (portrait && validated.aspectRatio !== "1:1") {
                         throw new Error("Choose an image model that supports square portraits.")

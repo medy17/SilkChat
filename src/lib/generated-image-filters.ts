@@ -1,5 +1,5 @@
 import {
-    parseImageAspectRatio,
+    parseImageSizeInput,
     SELECTABLE_IMAGE_ASPECT_RATIOS,
     type SelectableImageAspectRatio
 } from "@/lib/image-aspect-ratios"
@@ -61,7 +61,7 @@ const normalizeOrientations = (values?: GeneratedImageOrientation[] | null) => {
 }
 
 const getAspectRatioValue = (aspectRatio?: string) => {
-    const dimensions = parseImageAspectRatio(aspectRatio)
+    const dimensions = parseImageSizeInput(aspectRatio)
     return dimensions ? dimensions.width / dimensions.height : null
 }
 

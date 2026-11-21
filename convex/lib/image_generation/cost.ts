@@ -1,5 +1,5 @@
 import type { ImageQuality, ImageResolution, ImageSize, SharedModel } from "../models"
-import { getFalImageDescriptor, getFalOutputImageDimensions } from "../models/fal"
+import { resolveImageSizeForModel } from "../models/fal"
 
 export const IMAGE_COST_ANCHORS_USD = [0.01, 0.03, 0.1, 0.3, 1] as const
 export type ImageCostLevel = 0 | 1 | 2 | 3 | 4
@@ -11,9 +11,11 @@ export type ImageCostEstimate = {
     referenceCount: number
 }
 
+type OutputDimensions = { width: number; height: number } | undefined
+
 const getFixedUsdPerImage = (
     model: SharedModel,
-    aspectRatio: ImageSize,
+    dimensions: OutputDimensions,
     resolution: ImageResolution,
     quality: ImageQuality
 ) => {
@@ -21,10 +23,6 @@ const getFixedUsdPerImage = (
     if (!pricing) return undefined
 
     const qualityPrices = pricing.usdPerImageByQualityAndResolution?.[quality]
-    const descriptor = getFalImageDescriptor(model.id)
-    const dimensions = descriptor
-        ? getFalOutputImageDimensions(descriptor, aspectRatio, resolution)
-        : undefined
     const sizePrice = dimensions
         ? pricing.usdPerImageByQualityAndSize?.[quality]?.[
               `${dimensions.width}x${dimensions.height}` as ImageSize
@@ -39,19 +37,6 @@ const getFixedUsdPerImage = (
     return pricing.usdPerImageByResolution?.[resolution] ?? pricing.usdPerImage
 }
 
-const getOutputMegapixels = (
-    model: SharedModel,
-    aspectRatio: ImageSize,
-    resolution: ImageResolution
-) => {
-    const descriptor = getFalImageDescriptor(model.id)
-    const dimensions = descriptor
-        ? getFalOutputImageDimensions(descriptor, aspectRatio, resolution)
-        : undefined
-    if (!dimensions) return 1
-    return (dimensions.width * dimensions.height) / 1_000_000
-}
-
 export const estimateImageCost = ({
     model,
     aspectRatio = "1:1",
@@ -61,7 +46,7 @@ export const estimateImageCost = ({
     referenceCount = 0
 }: {
     model: SharedModel
-    aspectRatio?: ImageSize
+    aspectRatio?: ImageSize | string
     resolution?: ImageResolution
     quality?: ImageQuality
     variants?: number
@@ -70,18 +55,21 @@ export const estimateImageCost = ({
     const pricing = model.imagePricing
     if (!pricing) return null
 
+    // Priced as text-to-image: auto-sized edits reconcile through fal billing.
+    const resolved = resolveImageSizeForModel({ model, size: aspectRatio, resolution })
+    if (resolved && !resolved.ok) return null
+    const size = resolved?.size
+    const dimensions = size?.kind === "pixels" ? size : undefined
+    const outputResolution = size?.resolution ?? resolution
+
     const normalizedVariants = Math.max(1, Math.trunc(variants))
     const normalizedReferenceCount = Math.max(0, Math.trunc(referenceCount))
     const normalizedQuality = quality ?? model.defaultImageQuality ?? "auto"
 
     let usdPerImage: number | undefined
     if (pricing.kind === "fixed") {
-        usdPerImage = getFixedUsdPerImage(model, aspectRatio, resolution, normalizedQuality)
+        usdPerImage = getFixedUsdPerImage(model, dimensions, outputResolution, normalizedQuality)
     } else if (pricing.kind === "gpt_image_2_5") {
-        const descriptor = getFalImageDescriptor(model.id)
-        const dimensions = descriptor
-            ? getFalOutputImageDimensions(descriptor, aspectRatio, resolution)
-            : undefined
         if (!dimensions) return null
         // OpenAI's September 2026 output calculator. Auto uses the model's high default
         // as a reservation estimate. Inputs and auto-sized edits reconcile through fal.
@@ -103,7 +91,7 @@ export const estimateImageCost = ({
         const outputTokens = Math.round(baseOutputTokens * multiplier)
         usdPerImage = (outputTokens * 30) / 1_000_000
     } else if (pricing.usdPerOutputMegapixel !== undefined) {
-        let megapixels = getOutputMegapixels(model, aspectRatio, resolution)
+        let megapixels = dimensions ? (dimensions.width * dimensions.height) / 1_000_000 : 1
         megapixels = Math.max(megapixels, pricing.minimumBillableOutputMegapixels ?? 0)
         if (pricing.roundOutputMegapixelsUp) megapixels = Math.ceil(megapixels)
         usdPerImage = megapixels * pricing.usdPerOutputMegapixel

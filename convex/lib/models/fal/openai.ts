@@ -1,7 +1,29 @@
 import type { RegistryKey, SharedModel } from "../types"
+import {
+    type CustomImageSizeLimits,
+    type FalImageSizing,
+    LEGACY_OPENAI_IMAGE_SIZE_PRESETS,
+    STANDARD_IMAGE_SIZE_PRESETS
+} from "./sizing"
 import type { FalImageDescriptor } from "./types"
 
 const falImageAdapters = (endpoint: string) => [`fal:${endpoint}`] satisfies RegistryKey[]
+
+// fal's documented limits for concrete GPT Image 2 / 2.5 / 2.6 sizes.
+const GPT_IMAGE_SIZE_LIMITS: CustomImageSizeLimits = {
+    multiple: 16,
+    maxEdge: 3840,
+    minPixels: 655_360,
+    maxPixels: 8_294_400,
+    maxRatio: 3
+}
+
+const LEGACY_OPENAI_SIZING: FalImageSizing = {
+    input: "pixels",
+    presets: LEGACY_OPENAI_IMAGE_SIZE_PRESETS,
+    edit: "auto",
+    format: "string"
+}
 
 const GPT_IMAGE_2_SIZES = [
     "1:1",
@@ -191,8 +213,12 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
                 endpoint: `openai/gpt-image-${version}/${variant}/text-to-image`,
                 editEndpoint: `openai/gpt-image-${version}/${variant}/edit`,
                 supportsReferences: true,
-                imageSizeMode: "standard",
-                editImageSizeMode: "explicit",
+                sizing: {
+                    input: "pixels",
+                    presets: STANDARD_IMAGE_SIZE_PRESETS,
+                    custom: GPT_IMAGE_SIZE_LIMITS,
+                    edit: "explicit"
+                },
                 usesQuality: true,
                 usesBackground: true,
                 defaultQuality: "high",
@@ -208,8 +234,8 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "openai/gpt-image-2",
         editEndpoint: "openai/gpt-image-2/edit",
         supportsReferences: true,
-        imageSizeMode: "standard",
-        editImageSizeMode: "explicit",
+        // Priced per resolution, so custom sizes would be mispriced.
+        sizing: { input: "pixels", presets: STANDARD_IMAGE_SIZE_PRESETS, edit: "explicit" },
         usesQuality: true,
         usesBackground: true,
         defaultQuality: "medium",
@@ -222,7 +248,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/gpt-image-1-mini",
         editEndpoint: "fal-ai/gpt-image-1-mini/edit",
         supportsReferences: true,
-        imageSizeMode: "legacyOpenAi",
+        sizing: LEGACY_OPENAI_SIZING,
         usesQuality: true,
         usesBackground: true,
         defaultQuality: "auto",
@@ -233,7 +259,7 @@ export const FAL_OPENAI_IMAGE_DESCRIPTORS: FalImageDescriptor[] = [
         endpoint: "fal-ai/gpt-image-1.5",
         editEndpoint: "fal-ai/gpt-image-1.5/edit",
         supportsReferences: true,
-        imageSizeMode: "legacyOpenAi",
+        sizing: LEGACY_OPENAI_SIZING,
         usesQuality: true,
         usesBackground: true,
         defaultQuality: "high",
