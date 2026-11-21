@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { api, components } from "../../convex/_generated/api"
 import { mergeSuppressedUsageMicrousd } from "../../convex/lib/account_deletion"
 import {
@@ -150,6 +150,12 @@ describe("usage reset breakpoints", () => {
 })
 
 describe("usage resets", () => {
+    // Loading the auth module and better-auth takes over a second cold, and several times that
+    // under a deploy's parallel typechecks. Do it once here instead of inside the first test's limit.
+    beforeAll(async () => {
+        await import("../../convex/usage_resets")
+    })
+
     beforeEach(() => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date("2026-11-03T12:00:00Z"))
