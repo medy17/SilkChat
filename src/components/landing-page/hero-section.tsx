@@ -154,8 +154,9 @@ export function HeroSection() {
                     className="mx-auto mb-12 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl"
                     style={{ willChange: "transform, opacity" }}
                 >
-                    One platform. Every model. Switch between GPT, Claude, Gemini, and dozens more —
-                    with web search, image generation, and live code previews built right in.
+                    Your AI workspace for chat, images, and code. Personas, memory, web search, and
+                    live previews built in, with GPT, Claude, Gemini, and dozens more to choose
+                    from.
                 </p>
 
                 <div
