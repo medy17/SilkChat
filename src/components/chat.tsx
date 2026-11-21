@@ -19,6 +19,7 @@ import {
     resolveAvailableModelReplacement,
     useSelectedModelLifecycleMigration
 } from "@/hooks/use-model-lifecycle-migration"
+import { useGreetingName } from "@/hooks/use-greeting-name"
 import { useThreadComposerHydration } from "@/hooks/use-thread-composer-hydration"
 import { useThreadSync } from "@/hooks/use-thread-sync"
 import { hasPdfAttachmentInMessages } from "@/lib/attachment-support"
@@ -38,6 +39,7 @@ import {
 } from "@/lib/persona-onboarding"
 import { useSharedModels } from "@/lib/shared-models"
 import { useThemeStore } from "@/lib/theme-store"
+import { cn } from "@/lib/utils"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
 import { AnimatePresence, LayoutGroup, motion } from "motion/react"
 import {
@@ -286,13 +288,7 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         session?.user?.id ? {} : "skip"
     )
 
-    const userName =
-        session?.user?.name ?? (isPending ? localStorage.getItem("DISK_CACHE:user-name") : null)
-
-    useEffect(() => {
-        if (!session?.user?.name || isPending) return
-        localStorage.setItem("DISK_CACHE:user-name", session.user.name)
-    }, [session?.user?.name, isPending])
+    const greetingName = useGreetingName(session?.user?.id, session?.user?.name, isPending)
 
     // Handoff from /personas/start. Re-applied (not one-shot) because resetChat
     // wipes selectedPersona on any ChatContent remount; it stays active until a
@@ -590,12 +586,23 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
                                 >
                                     {!selectedPersonaOption && (
                                         <div className="space-y-2 px-4">
-                                            <h1 className="font-medium text-3xl text-foreground">
+                                            {/* Until the name's source is known the line
+                                                keeps its height but stays blank. */}
+                                            <h1
+                                                className={cn(
+                                                    "font-medium text-3xl text-foreground",
+                                                    !isTemporaryDraft &&
+                                                        greetingName === undefined &&
+                                                        "invisible"
+                                                )}
+                                            >
                                                 {isTemporaryDraft
                                                     ? "Temporary chat"
-                                                    : userName
-                                                      ? `What's up, ${userName?.split(" ")[0]}?`
-                                                      : "What do you want to explore?"}
+                                                    : greetingName === undefined
+                                                      ? " "
+                                                      : greetingName
+                                                        ? `What's up, ${greetingName}?`
+                                                        : "What do you want to explore?"}
                                             </h1>
                                             {/* Held either way, so switching never moves the
                                                 hero or the starter row that was just clicked. */}
