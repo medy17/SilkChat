@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { z } from "zod"
 import {
     getSelectableImageModels,
     getSupportedAspectRatiosForImageModel,
@@ -89,6 +90,21 @@ describe("prepareImageGeneration tool", () => {
 
         expect(modelIdSchema.parse("seedream-5-lite")).toBe("seedream-5-lite")
         expect(() => modelIdSchema.parse("seedream-5-pro")).toThrow()
+    })
+
+    it("builds a JSON Schema when no model supports resolution or transparency", () => {
+        const plainModels = getSelectableImageModels("free").map((model) => ({
+            ...model,
+            supportedImageResolutions: undefined,
+            supportsTransparentBackground: false
+        }))
+        const imageTool = buildTool([], undefined, plainModels)
+        const jsonSchema = z.toJSONSchema(imageTool?.inputSchema as z.ZodType) as {
+            properties: Record<string, unknown>
+        }
+
+        expect(jsonSchema.properties).not.toHaveProperty("resolution")
+        expect(jsonSchema.properties).not.toHaveProperty("transparentBackground")
     })
 
     it("honors the reference ids the model selects (edit path)", async () => {

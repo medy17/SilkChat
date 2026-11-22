@@ -18,6 +18,19 @@ export type ImageGenerationDefaults = {
 const nonEmptyEnum = (values: string[], fallback: string) =>
     z.enum((values.length > 0 ? values : [fallback]) as [string, ...string[]])
 
+// Drops optional fields no available model supports. They used to be typed z.undefined(),
+// which has no JSON Schema form, so loading the tool failed the turn for free-plan users.
+// The schema keeps its full type: a dropped field simply arrives as undefined.
+const withoutUnsupportedFields = <S extends z.ZodObject>(
+    schema: S,
+    unsupported: Partial<Record<keyof S["shape"], boolean>>
+): S => {
+    const mask = Object.fromEntries(
+        Object.entries(unsupported).filter(([, isUnsupported]) => isUnsupported)
+    )
+    return schema.omit(mask as never) as unknown as S
+}
+
 export const PREPARE_IMAGE_GENERATION_TOOL_NAME = "prepareImageGeneration"
 
 export const getPrepareImageGenerationTool = ({
@@ -71,83 +84,86 @@ export const getPrepareImageGenerationTool = ({
                     : "No Persona avatar is available as a style reference. For portraits, use a supplied reference, ask the user for one when needed, or generate without a reference from the scene's description.",
                 `Leave resolution and variants unset to apply the user's defaults (${defaultsSummary}); an explicit user request for higher fidelity or multiple images overrides them.`
             ].join("\n"),
-            inputSchema: z.object({
-                title: z
-                    .string()
-                    .min(1)
-                    .max(80)
-                    .describe(
-                        'A short, human-friendly title for the image (3-6 words), shown as the card heading. E.g. "Greek goddess on the beach".'
+            inputSchema: withoutUnsupportedFields(
+                z.object({
+                    title: z
+                        .string()
+                        .min(1)
+                        .max(80)
+                        .describe(
+                            'A short, human-friendly title for the image (3-6 words), shown as the card heading. E.g. "Greek goddess on the beach".'
+                        ),
+                    prompt: z
+                        .string()
+                        .min(1)
+                        .describe(
+                            "The prompt for a SINGLE image, written in the singular. For multiple options use the variants field instead — never request several images, a grid, or a count inside this text (each variant re-runs this same prompt independently)."
+                        ),
+                    modelId: nonEmptyEnum(modelIds, imageModels[0].id).describe(
+                        "The SilkScreen image model to use."
                     ),
-                prompt: z
-                    .string()
-                    .min(1)
-                    .describe(
-                        "The prompt for a SINGLE image, written in the singular. For multiple options use the variants field instead — never request several images, a grid, or a count inside this text (each variant re-runs this same prompt independently)."
+                    aspectRatio: nonEmptyEnum(aspectRatios, "1:1").describe(
+                        "The requested image aspect ratio."
                     ),
-                modelId: nonEmptyEnum(modelIds, imageModels[0].id).describe(
-                    "The SilkScreen image model to use."
-                ),
-                aspectRatio: nonEmptyEnum(aspectRatios, "1:1").describe(
-                    "The requested image aspect ratio."
-                ),
-                resolution:
-                    resolutions.length > 0
-                        ? nonEmptyEnum(resolutions, "1K")
-                              .optional()
-                              .describe(
-                                  "The requested image resolution. Leave unset to use the user's default (standard quality). Only set a higher resolution when the user explicitly asks for high fidelity, large prints, or names a resolution."
-                              )
-                        : z.undefined().optional(),
-                variants: z
-                    .number()
-                    .int()
-                    .min(1)
-                    .max(10)
-                    .optional()
-                    .describe(
-                        "How many image variants to prepare. Leave unset to use the user's default. Only request multiple when the user explicitly asks for options or variations."
-                    ),
-                transparentBackground: supportsTransparentBackground
-                    ? z
-                          .boolean()
-                          .optional()
-                          .describe(
-                              "Render on a transparent background (PNG with alpha). Only for models listed with transparent background support. Set when the user asks for a transparent/cut-out/no background, or for assets meant to be placed on other designs such as logos, icons, and stickers."
-                          )
-                    : z.undefined().optional(),
-                portrait: z
-                    .object({
-                        characterId: z
-                            .string()
-                            .describe("The character's ID exactly as written in the scene markup."),
-                        name: z
-                            .string()
-                            .trim()
-                            .min(1)
-                            .max(80)
-                            .describe("The character's display name."),
-                        usePersonaStyle: z
-                            .boolean()
-                            .optional()
-                            .describe(
-                                "Use the Persona avatar's style when available and no explicit references are selected (default true). Set false when the user wants a different style or no reference."
-                            )
-                    })
-                    .optional()
-                    .describe(
-                        "Roleplay only. Set this only when the user explicitly asks for a portrait of a character from the current roleplay scene; omit it for all other image generation and edits. The card then offers to set the image as that character's portrait. Portraits are square."
-                    ),
-                referenceIds:
-                    referenceIds.length > 0
-                        ? z
-                              .array(nonEmptyEnum(referenceIds, referenceIds[0]))
-                              .default([])
-                              .describe(
-                                  "Opaque ids for available images to use as edit references. Required when editing, transforming, or using an attached/provided image."
-                              )
-                        : z.array(z.never()).default([])
-            }),
+                    resolution: nonEmptyEnum(resolutions, "1K")
+                        .optional()
+                        .describe(
+                            "The requested image resolution. Leave unset to use the user's default (standard quality). Only set a higher resolution when the user explicitly asks for high fidelity, large prints, or names a resolution."
+                        ),
+                    variants: z
+                        .number()
+                        .int()
+                        .min(1)
+                        .max(10)
+                        .optional()
+                        .describe(
+                            "How many image variants to prepare. Leave unset to use the user's default. Only request multiple when the user explicitly asks for options or variations."
+                        ),
+                    transparentBackground: z
+                        .boolean()
+                        .optional()
+                        .describe(
+                            "Render on a transparent background (PNG with alpha). Only for models listed with transparent background support. Set when the user asks for a transparent/cut-out/no background, or for assets meant to be placed on other designs such as logos, icons, and stickers."
+                        ),
+                    portrait: z
+                        .object({
+                            characterId: z
+                                .string()
+                                .describe(
+                                    "The character's ID exactly as written in the scene markup."
+                                ),
+                            name: z
+                                .string()
+                                .trim()
+                                .min(1)
+                                .max(80)
+                                .describe("The character's display name."),
+                            usePersonaStyle: z
+                                .boolean()
+                                .optional()
+                                .describe(
+                                    "Use the Persona avatar's style when available and no explicit references are selected (default true). Set false when the user wants a different style or no reference."
+                                )
+                        })
+                        .optional()
+                        .describe(
+                            "Roleplay only. Set this only when the user explicitly asks for a portrait of a character from the current roleplay scene; omit it for all other image generation and edits. The card then offers to set the image as that character's portrait. Portraits are square."
+                        ),
+                    referenceIds:
+                        referenceIds.length > 0
+                            ? z
+                                  .array(nonEmptyEnum(referenceIds, referenceIds[0]))
+                                  .default([])
+                                  .describe(
+                                      "Opaque ids for available images to use as edit references. Required when editing, transforming, or using an attached/provided image."
+                                  )
+                            : z.array(z.never()).default([])
+                }),
+                {
+                    resolution: resolutions.length === 0,
+                    transparentBackground: !supportsTransparentBackground
+                }
+            ),
             execute: async ({
                 title,
                 prompt,
