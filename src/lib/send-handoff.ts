@@ -28,7 +28,9 @@ export const SEND_HANDOFF_CONFIG = {
     // The bubble's surface is fully formed by this point of the flight.
     surfaceFormedAt: 0.45,
     // By here the words have cleared the composer, so its placeholder can fade back in.
-    composerReleaseAt: 0.25
+    composerReleaseAt: 0.25,
+    // The message's actions settle in after the bubble lands rather than popping in with it.
+    actionsFadeMs: 200
 } as const
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value))
@@ -208,6 +210,8 @@ export const playSendHandoff = ({
     // A clone of the finished bubble, laid out at its final width so the words never reflow
     // mid-flight; the shape deforms around them instead.
     const text = bubble.cloneNode(true) as HTMLElement
+    // The actions belong to the landed message, not the flight.
+    text.querySelector("[data-message-actions]")?.remove()
     Object.assign(text.style, {
         position: "absolute",
         left: "0px",
@@ -225,7 +229,24 @@ export const playSendHandoff = ({
     })
 
     ghost.append(surface, text)
-    document.body.append(ghost)
+
+    // Measured rects and fixed positioning can disagree while a mobile keyboard pans the
+    // viewport (iOS keeps the layout viewport and scrolls the visual one). A fixed marker at
+    // 0,0 reports where fixed space starts in measured space, so the ghost corrects for any
+    // pan in the frame it happens; where the two agree it reads 0,0.
+    const origin = document.createElement("div")
+    origin.setAttribute("aria-hidden", "true")
+    Object.assign(origin.style, {
+        position: "fixed",
+        left: "0px",
+        top: "0px",
+        width: "0px",
+        height: "0px",
+        visibility: "hidden",
+        pointerEvents: "none"
+    })
+
+    document.body.append(origin, ghost)
 
     // Hold the real bubble hidden past the ghost's run; landing cancels the hold in the same
     // frame the ghost leaves, so there is never a frame with neither.
@@ -240,8 +261,22 @@ export const playSendHandoff = ({
         if (frameId !== null) cancelAnimationFrame(frameId)
         frameId = null
         ghost.remove()
+        origin.remove()
         hold.cancel()
         source.releaseComposer()
+    }
+
+    // Fades to whatever the actions would show at rest: always-on on phones, hover-only on
+    // desktop (where this is usually 0 and nothing runs).
+    const revealActions = () => {
+        const actions = bubble.querySelector<HTMLElement>("[data-message-actions]")
+        if (!actions) return
+        const restingOpacity = Number.parseFloat(getComputedStyle(actions).opacity)
+        if (!(restingOpacity > 0)) return
+        actions.animate([{ opacity: 0 }, { opacity: restingOpacity }], {
+            duration: SEND_HANDOFF_CONFIG.actionsFadeMs,
+            easing: "ease-out"
+        })
     }
 
     const apply = (progress: number) => {
@@ -251,9 +286,10 @@ export const playSendHandoff = ({
             progress,
             startTextScale
         })
+        const fixedOrigin = origin.getBoundingClientRect()
         ghost.style.width = `${frame.width}px`
         ghost.style.height = `${frame.height}px`
-        ghost.style.transform = `translate(${frame.left}px, ${frame.top}px) scale(${frame.scaleX}, ${frame.scaleY})`
+        ghost.style.transform = `translate(${frame.left - fixedOrigin.left}px, ${frame.top - fixedOrigin.top}px) scale(${frame.scaleX}, ${frame.scaleY})`
         surface.style.opacity = `${frame.surfaceOpacity}`
         text.style.transform = `scale(${frame.textScale})`
     }
@@ -269,6 +305,7 @@ export const playSendHandoff = ({
         if (progress >= SEND_HANDOFF_CONFIG.composerReleaseAt) source.releaseComposer()
         if (progress >= 1) {
             finish()
+            revealActions()
             return
         }
         frameId = requestAnimationFrame(tick)
