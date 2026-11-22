@@ -14,10 +14,10 @@ const { session, impersonate, stop, lookup } = vi.hoisted(() => ({
 }))
 vi.mock("@/lib/auth-client", () => ({
     authClient: {
-        useSession: () => session,
         admin: { impersonateUser: impersonate, stopImpersonating: stop }
     }
 }))
+vi.mock("@/hooks/auth-hooks", () => ({ useSession: () => session }))
 
 vi.mock("convex/react", () => ({ useConvex: () => ({ query: lookup }) }))
 

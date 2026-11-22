@@ -1,5 +1,5 @@
 import { ImageComparisonWorkspace } from "@/components/library/image-comparison-workspace"
-import { LibraryLogo } from "@/components/logo"
+import { LibraryLogo, SILKSCREEN_DOTS_MASK_URL } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
@@ -13,7 +13,10 @@ import { useMemo } from "react"
 export const Route = createFileRoute("/compare")({
     validateSearch: validateImageComparisonSearch,
     head: () => ({
-        meta: [{ title: "Compare images · SilkChat" }, { name: "robots", content: "noindex" }]
+        meta: [{ title: "Compare images · SilkChat" }, { name: "robots", content: "noindex" }],
+        // The wordmark's halftone is an image mask; fetch it with the page so it never
+        // lands after the rest of the logo.
+        links: [{ rel: "preload", href: SILKSCREEN_DOTS_MASK_URL, as: "image" }]
     }),
     component: ComparisonPage,
     errorComponent: ({ reset }) => (

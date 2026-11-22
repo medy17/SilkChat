@@ -1,5 +1,6 @@
-import { authClient } from "@/lib/auth-client"
-import { type AuthClient, ConvexBetterAuthProvider } from "@convex-dev/better-auth/react"
+import { ConvexBootAuthProvider } from "@/components/auth/convex-boot-auth-provider"
+import { seedBootSession } from "@/lib/boot-auth"
+import { preloadBootChunks } from "@/lib/boot-chunks"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routerWithQueryClient } from "@tanstack/react-router-with-query"
 import { getConvexQueryClient, queryClient } from "./providers"
@@ -32,12 +33,12 @@ const createAppRouter = () =>
                 typeof window === "undefined" ? (
                     children
                 ) : (
-                    <ConvexBetterAuthProvider
+                    <ConvexBootAuthProvider
                         client={getConvexQueryClient()!.convexClient}
-                        authClient={authClient as unknown as AuthClient}
+                        queryClient={queryClient}
                     >
                         {children}
-                    </ConvexBetterAuthProvider>
+                    </ConvexBootAuthProvider>
                 )
         }),
         queryClient
@@ -50,7 +51,13 @@ export function getRouter() {
         return createAppRouter()
     }
 
-    routerInstance ??= createAppRouter()
+    if (!routerInstance) {
+        // Before the first render, so no session observer ever starts its own request.
+        getConvexQueryClient()
+        seedBootSession(queryClient)
+        preloadBootChunks(window.location.pathname)
+        routerInstance = createAppRouter()
+    }
     return routerInstance
 }
 

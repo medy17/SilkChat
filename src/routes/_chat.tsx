@@ -5,27 +5,28 @@ import {
     useParams
 } from "@tanstack/react-router"
 import { AnimatePresence, MotionConfig, motion } from "motion/react"
-import { startTransition, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react"
 
-import { Chat } from "@/components/chat"
-import { FolderChat } from "@/components/folder-chat"
 import { Header } from "@/components/header"
-import { LandingPage } from "@/components/landing-page"
-import { LogoSymbol } from "@/components/logo"
+import { LogoSymbol, SILKSCREEN_DOTS_MASK_URL } from "@/components/logo"
 import { MobileBranchGenerationOverlay } from "@/components/mobile-branch-generation-overlay"
 import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
 import { PROMPT_EDITOR_MIN_HEIGHT_CLASS } from "@/lib/prompt-editor-layout"
-import { SharedChat } from "@/components/shared-chat"
-import {
-    SPLASH_EXIT_DURATION_MS,
-    SPLASH_FILL_DURATION_MS,
-    SplashScreen
-} from "@/components/splash-screen"
 import { ThreadsSidebar } from "@/components/threads-sidebar"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { Id } from "@/convex/_generated/dataModel"
 import { useSession } from "@/hooks/auth-hooks"
+import { isBootSessionPending } from "@/lib/boot-auth"
+import {
+    ChatView,
+    FolderChatView,
+    LandingPageView,
+    SharedChatView,
+    warmDeferredChunks
+} from "@/lib/boot-chunks"
+import { markBootSettled } from "@/lib/boot-timing"
+import { useIsPreloadableLoaded } from "@/lib/preloadable-component"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { useIsTouchDevice } from "@/hooks/use-touch-device"
 import { useMessageFooterStore } from "@/lib/message-footer-store"
@@ -54,13 +55,18 @@ import { cn } from "@/lib/utils"
 import { LibraryView } from "./_chat.library"
 
 export const Route = createFileRoute("/_chat")({
+    // The SilkScreen wordmark (sidebar header, landing page) draws its halftone through an
+    // image mask; fetch it with the page so it never lands after the rest of the logo.
+    head: () => ({
+        links: [{ rel: "preload", href: SILKSCREEN_DOTS_MASK_URL, as: "image" }]
+    }),
     component: ChatLayout
 })
 
-const ROOT_SESSION_LOADING_DELAY_MS = SPLASH_FILL_DURATION_MS
-const ROOT_SESSION_EXIT_DELAY_MS = SPLASH_EXIT_DURATION_MS
-const INITIAL_CHAT_SKELETON_HOLD_MS = 450
 const INITIAL_CHAT_SKELETON_EXIT_MS = 250
+// A backstop only: the cover lifts on readiness, which normally lands well inside a second.
+// Past this, a stalled request must not hold the whole app behind a skeleton.
+const INITIAL_CHAT_SKELETON_MAX_MS = 3000
 const CHAT_TRANSITION_MIN_SPINNER_MS = 500
 const CHAT_TRANSITION_SWAP_DELAY_MS = 180
 // On mobile the sidebar sheet is still animating out (300ms) when a thread is picked.
@@ -201,26 +207,39 @@ function PersistentChatView({
 }) {
     switch (target.kind) {
         case "root":
-            return <Chat threadId={undefined} isActiveRoute={isActiveRoute} />
+            return <ChatView.Component threadId={undefined} isActiveRoute={isActiveRoute} />
         case "thread":
-            return <Chat threadId={target.threadId} isActiveRoute={isActiveRoute} />
+            return <ChatView.Component threadId={target.threadId} isActiveRoute={isActiveRoute} />
         case "folder":
             return (
-                <FolderChat
+                <FolderChatView.Component
                     folderId={target.folderId as Id<"projects">}
                     isActiveRoute={isActiveRoute}
                 />
             )
         case "folderThread":
             return (
-                <Chat
+                <ChatView.Component
                     threadId={target.threadId}
                     folderId={target.folderId as Id<"projects">}
                     isActiveRoute={isActiveRoute}
                 />
             )
         case "shared":
-            return <SharedChat sharedThreadId={target.sharedThreadId} />
+            return <SharedChatView.Component sharedThreadId={target.sharedThreadId} />
+    }
+}
+
+const getChatTargetView = (target: CachedChatTarget | null) => {
+    switch (target?.kind) {
+        case "folder":
+            return FolderChatView
+        case "shared":
+            return SharedChatView
+        case undefined:
+            return null
+        default:
+            return ChatView
     }
 }
 
@@ -237,11 +256,16 @@ function ChatSkeletonBlock({ className }: { className: string }) {
 
 function ChatInitialSkeleton({
     isExiting,
-    areHeaderActionsVisible
+    areHeaderActionsVisible,
+    target
 }: {
     isExiting: boolean
     areHeaderActionsVisible: boolean
+    target: CachedChatTarget | null
 }) {
+    const isThreadLike =
+        target?.kind === "thread" || target?.kind === "folderThread" || target?.kind === "shared"
+
     return (
         <motion.div
             initial={false}
@@ -274,7 +298,9 @@ function ChatInitialSkeleton({
                 <ChatSkeletonBlock className="size-8 rounded-[var(--radius-xl)]" />
             </div>
 
-            <NewChatSkeletonBody />
+            {/* The header floats over the content, so both bodies start at the top, as
+                the content they stand in for does. */}
+            {isThreadLike ? <ThreadSkeletonBody /> : <NewChatSkeletonBody />}
         </motion.div>
     )
 }
@@ -521,22 +547,17 @@ function ChatLayout() {
     )
 
     const isRoot = location.pathname === "/"
-    const [shouldRunInitialRootAuthGate] = useState(isRoot)
-    const [hasRootLoadingDelayElapsed, setHasRootLoadingDelayElapsed] = useState(!isRoot)
-    const [hasCompletedInitialRootAuthGate, setHasCompletedInitialRootAuthGate] = useState(!isRoot)
-    const [isRootLoaderExiting, setIsRootLoaderExiting] = useState(false)
-    const [isInitialChatSkeletonExiting, setIsInitialChatSkeletonExiting] = useState(false)
-    const [hasCompletedInitialChatSkeleton, setHasCompletedInitialChatSkeleton] = useState(!isRoot)
-    const shouldShowInitialRootAuthGate =
-        shouldRunInitialRootAuthGate && !hasCompletedInitialRootAuthGate
-    const showRootSessionPendingState =
-        isRoot && (shouldShowInitialRootAuthGate || (!shouldRunInitialRootAuthGate && isPending))
-    const showLandingPage = isRoot && !showRootSessionPendingState && !session?.user
-    const showInitialChatSkeleton =
-        isRoot &&
-        hasCompletedInitialRootAuthGate &&
-        Boolean(session?.user) &&
-        !hasCompletedInitialChatSkeleton
+    const [isInitialRootMount] = useState(isRoot)
+
+    // The server already decided from the cookies: no session cookie means the session was
+    // seeded as signed out, and a session cookie means a returning user whose session is
+    // in flight. Latched, so the query settling a moment early can't unmount the chat.
+    const [isAwaitingBootSession, setIsAwaitingBootSession] = useState(isBootSessionPending)
+    if (isAwaitingBootSession && !isPending) setIsAwaitingBootSession(false)
+    const isSignedIn = Boolean(session?.user) || (isAwaitingBootSession && isPending)
+    const isSessionUnknown = isPending && !isAwaitingBootSession
+    const showSessionPendingState = isRoot && isSessionUnknown
+    const showLandingPage = isRoot && !isSessionUnknown && !isSignedIn
 
     const threadId = params.threadId
     const isLibraryRoute = location.pathname.startsWith("/library")
@@ -577,6 +598,31 @@ function ChatLayout() {
     const chatTransitionSwapTimeoutRef = useRef<number | null>(null)
     const hasLoadedLibraryGridRef = useRef(false)
 
+    // The first chat view stays under its skeleton until it has actually settled: the
+    // session is known and the view has published its hydration key. No fixed hold, so a
+    // fast boot reveals as soon as it is ready and a slow one never reveals half-loaded.
+    const [initialChatTarget] = useState(currentChatTarget)
+    const [initialCoverPhase, setInitialCoverPhase] = useState<"visible" | "exiting" | "done">(
+        () => (initialChatTarget ? "visible" : "done")
+    )
+    const [hasInitialCoverTimedOut, setHasInitialCoverTimedOut] = useState(false)
+    // Views without a hydration key (folder overview, shared thread) are ready once their
+    // chunk has loaded; Chat's key already implies it.
+    const [initialView] = useState(() => getChatTargetView(initialChatTarget))
+    const isInitialViewLoaded = useIsPreloadableLoaded(initialView)
+    const initialHydrationKey = getChatTargetHydrationKey(initialChatTarget)
+    // The sidebar isn't under the cover, so the user can leave the first view before it
+    // settles. Its key will then never arrive; the route transition takes over instead.
+    const hasLeftInitialChatTarget =
+        isLibraryRoute || !areCachedChatTargetsEqual(currentChatTarget, initialChatTarget)
+    const isInitialChatReady =
+        !isPending &&
+        Boolean(session?.user) &&
+        isInitialViewLoaded &&
+        (initialHydrationKey === null || hydratedChatKey === initialHydrationKey)
+    const isInitialChatCovered = isSignedIn && !isLibraryRoute && initialCoverPhase !== "done"
+    const showInitialChatSkeleton = isInitialChatCovered
+
     // Reset the settle flag synchronously when a toggle starts (render-phase, not an effect) so
     // the entering frame already defers the heavy pane instead of rendering it once and then
     // hiding it. Guarded by the ref so it runs only on an actual route change, never on mount.
@@ -586,52 +632,70 @@ function ChatLayout() {
     }
 
     useEffect(() => {
-        if (!shouldRunInitialRootAuthGate) return
-
-        const timeoutId = window.setTimeout(() => {
-            setHasRootLoadingDelayElapsed(true)
-        }, ROOT_SESSION_LOADING_DELAY_MS)
-
-        return () => window.clearTimeout(timeoutId)
-    }, [shouldRunInitialRootAuthGate])
+        if (!initialView || isInitialViewLoaded) return
+        initialView.preload().catch(() => {
+            // The view's Suspense boundary retries; the cover's backstop still lifts.
+        })
+    }, [initialView, isInitialViewLoaded])
 
     useEffect(() => {
-        if (!showInitialChatSkeleton) return
-
-        const exitTimeoutId = window.setTimeout(() => {
-            setIsInitialChatSkeletonExiting(true)
-        }, INITIAL_CHAT_SKELETON_HOLD_MS)
-        const completeTimeoutId = window.setTimeout(() => {
-            setHasCompletedInitialChatSkeleton(true)
-        }, INITIAL_CHAT_SKELETON_HOLD_MS + INITIAL_CHAT_SKELETON_EXIT_MS)
-
-        return () => {
-            window.clearTimeout(exitTimeoutId)
-            window.clearTimeout(completeTimeoutId)
+        if (initialCoverPhase === "visible" && hasLeftInitialChatTarget) {
+            setInitialCoverPhase("done")
         }
-    }, [showInitialChatSkeleton])
+    }, [hasLeftInitialChatTarget, initialCoverPhase])
 
     useEffect(() => {
-        if (!shouldRunInitialRootAuthGate) return
-        if (isPending || !hasRootLoadingDelayElapsed) return
-        if (hasCompletedInitialRootAuthGate) return
-
-        setIsRootLoaderExiting(true)
+        if (!isInitialChatCovered || initialCoverPhase !== "visible") return
 
         const timeoutId = window.setTimeout(() => {
-            setHasCompletedInitialRootAuthGate(true)
-        }, ROOT_SESSION_EXIT_DELAY_MS)
+            setHasInitialCoverTimedOut(true)
+        }, INITIAL_CHAT_SKELETON_MAX_MS)
 
         return () => window.clearTimeout(timeoutId)
+    }, [initialCoverPhase, isInitialChatCovered])
+
+    useEffect(() => {
+        if (initialCoverPhase !== "visible" || !isSignedIn || hasLeftInitialChatTarget) return
+        if (!isInitialChatReady && !hasInitialCoverTimedOut) return
+
+        markBootSettled(isInitialChatReady ? "chat" : "chat-timeout")
+        setInitialCoverPhase("exiting")
     }, [
-        hasCompletedInitialRootAuthGate,
-        hasRootLoadingDelayElapsed,
-        isPending,
-        shouldRunInitialRootAuthGate
+        hasInitialCoverTimedOut,
+        hasLeftInitialChatTarget,
+        initialCoverPhase,
+        isInitialChatReady,
+        isSignedIn
     ])
 
+    // Once the first screen is up, load the half of the app it didn't need, so later
+    // screens (and their charts, 3D and markdown) are as warm as they were before the split.
+    const [isLandingRendered, setIsLandingRendered] = useState(false)
+    const isFirstScreenSettled =
+        (showLandingPage && isLandingRendered) || (isSignedIn && initialCoverPhase === "done")
     useEffect(() => {
-        if (!shouldRunInitialRootAuthGate) return
+        if (!isFirstScreenSettled) return
+        const warm = () => warmDeferredChunks(isSignedIn)
+        if (typeof window.requestIdleCallback === "function") {
+            const idleId = window.requestIdleCallback(warm, { timeout: 2000 })
+            return () => window.cancelIdleCallback(idleId)
+        }
+        const timeoutId = window.setTimeout(warm, 500)
+        return () => window.clearTimeout(timeoutId)
+    }, [isFirstScreenSettled, isSignedIn])
+
+    useEffect(() => {
+        if (initialCoverPhase !== "exiting") return
+
+        const timeoutId = window.setTimeout(() => {
+            setInitialCoverPhase("done")
+        }, INITIAL_CHAT_SKELETON_EXIT_MS)
+
+        return () => window.clearTimeout(timeoutId)
+    }, [initialCoverPhase])
+
+    useEffect(() => {
+        if (!isInitialRootMount) return
         if (isPending || session?.user) return
 
         const store = useThemeStore.getState()
@@ -647,7 +711,7 @@ function ChatLayout() {
 
         store.setThemeState(normalizedState.themeState)
         store.setSelectedThemeUrl(normalizedState.selectedThemeUrl ?? null)
-    }, [isPending, session?.user, shouldRunInitialRootAuthGate])
+    }, [isInitialRootMount, isPending, session?.user])
 
     useEffect(() => {
         if (!activeLibrarySearch) return
@@ -750,6 +814,18 @@ function ChatLayout() {
         }
     }, [currentChatTarget, isLibraryRoute, isMobile])
 
+    // The views are code-split, and a folder or shared view has no hydration key to wait
+    // on, so the overlay also waits for the target's chunk (normally loaded long before).
+    const transitionTargetView = getChatTargetView(currentChatTarget)
+    const isTransitionViewLoaded = useIsPreloadableLoaded(transitionTargetView)
+    useEffect(() => {
+        if (!isChatTransitionOverlayVisible || !transitionTargetView || isTransitionViewLoaded) {
+            return
+        }
+        // A failure here is retried by the view's own render; the hook sees that load too.
+        transitionTargetView.preload().catch(() => {})
+    }, [isChatTransitionOverlayVisible, isTransitionViewLoaded, transitionTargetView])
+
     // The overlay exits only once the minimum spinner time has passed, the new
     // thread has committed, AND its deferred message render has settled — so slow
     // markdown hydrations never flash stale or half-rendered content.
@@ -762,6 +838,7 @@ function ChatLayout() {
         const isReady =
             hasChatTransitionMinSpinnerElapsed &&
             areCachedChatTargetsEqual(displayedChatTarget, currentChatTarget) &&
+            isTransitionViewLoaded &&
             isHydrationSettled
 
         if (!isReady) return
@@ -775,7 +852,8 @@ function ChatLayout() {
         hasChatTransitionMinSpinnerElapsed,
         hydratedChatKey,
         displayedChatTarget,
-        currentChatTarget
+        currentChatTarget,
+        isTransitionViewLoaded
     ])
 
     useEffect(() => {
@@ -798,16 +876,20 @@ function ChatLayout() {
         setLastChatRoute(location.href)
     }, [isLibraryRoute, location.href, location.pathname])
 
-    if (showRootSessionPendingState) {
-        return (
-            <RootSessionPendingState
-                isExiting={isRootLoaderExiting && shouldShowInitialRootAuthGate}
-            />
-        )
+    // Only reachable when the session is refetched with nothing cached (never on boot,
+    // where the server has already decided). Plain background; no splash.
+    if (showSessionPendingState) {
+        return <div aria-busy="true" className="min-h-svh bg-background" />
     }
 
     if (showLandingPage) {
-        return <LandingPage />
+        return (
+            // Its chunk was requested from the entry as soon as the boot said signed out.
+            <Suspense fallback={<div aria-busy="true" className="min-h-svh bg-background" />}>
+                <LandingPageView.Component />
+                <LandingRendered onRendered={() => setIsLandingRendered(true)} />
+            </Suspense>
+        )
     }
 
     const chatTargetToRender = displayedChatTarget ?? currentChatTarget ?? cachedChatTarget
@@ -904,15 +986,21 @@ function ChatLayout() {
                                         <MotionConfig
                                             reducedMotion={
                                                 isChatTransitionOverlayVisible ||
-                                                isChatContentEntering
+                                                isChatContentEntering ||
+                                                isInitialChatCovered
                                                     ? "always"
                                                     : "user"
                                             }
                                         >
-                                            <PersistentChatView
-                                                target={chatTargetToRender}
-                                                isActiveRoute={isRenderedChatActiveRoute}
-                                            />
+                                            {/* Suspends only under a skeleton: the boot
+                                                view is preloaded with the page and the
+                                                others are warmed once it settles. */}
+                                            <Suspense fallback={null}>
+                                                <PersistentChatView
+                                                    target={chatTargetToRender}
+                                                    isActiveRoute={isRenderedChatActiveRoute}
+                                                />
+                                            </Suspense>
                                         </MotionConfig>
                                     </div>
                                 </motion.div>
@@ -931,8 +1019,9 @@ function ChatLayout() {
                             {showInitialChatSkeleton ? (
                                 <ChatInitialSkeleton
                                     key="initial-chat-skeleton"
-                                    isExiting={isInitialChatSkeletonExiting}
+                                    isExiting={initialCoverPhase === "exiting"}
                                     areHeaderActionsVisible={areHeaderActionsVisible}
+                                    target={initialChatTarget}
                                 />
                             ) : null}
                         </AnimatePresence>
@@ -943,8 +1032,14 @@ function ChatLayout() {
     )
 }
 
-function RootSessionPendingState({ isExiting }: { isExiting: boolean }) {
-    return <SplashScreen isExiting={isExiting} label="Loading session" />
+// Sits beside a suspending sibling, so its effect runs only once that content commits.
+function LandingRendered({ onRendered }: { onRendered: () => void }) {
+    // biome-ignore lint/correctness/useExhaustiveDependencies: fires once, on first commit
+    useEffect(() => {
+        markBootSettled("landing")
+        onRendered()
+    }, [])
+    return null
 }
 
 export const ChatErrorBoundary = ({ error, info, reset }: ErrorComponentProps) => {

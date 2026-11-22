@@ -2,7 +2,7 @@ import type { UIMessage } from "ai"
 import { Loader2, Pause, Play, RotateCcw, Square, Volume2 } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import { useLocation } from "@tanstack/react-router"
-import { authClient } from "@/lib/auth-client"
+import { useSession } from "@/hooks/auth-hooks"
 import { getMessageSpeechText } from "@/lib/speech-text"
 import { startSpeech, stopSpeech, toggleSpeechPause, useSpeechPlayer } from "@/lib/speech-player"
 import { Button } from "./ui/button"
@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip"
 
 export function SpeechPlaybackRuntime() {
     const pathname = useLocation({ select: (location) => location.pathname })
-    const { data: session } = authClient.useSession()
+    const { data: session } = useSession()
     // Navigation and account changes end playback; virtualized row unmounts do not.
     // biome-ignore lint/correctness/useExhaustiveDependencies: These values define the playback lifetime.
     useEffect(() => stopSpeech, [pathname, session?.user.id])

@@ -7,7 +7,7 @@ import { api } from "../../../convex/_generated/api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { authClient } from "@/lib/auth-client"
+import { useSession } from "@/hooks/auth-hooks"
 import { switchImpersonation, useAccountSwitch } from "@/lib/impersonation-client"
 import {
     ACCOUNT_STORAGE_OWNER,
@@ -28,7 +28,8 @@ import {
 export function ImpersonationBoundary({ children }: { children: ReactNode }) {
     const switching = useAccountSwitch((state) => state.switching)
     const switchError = useAccountSwitch((state) => state.error)
-    const { data, isPending } = authClient.useSession()
+    // The boot-seeded session, so this gate never waits on a second /get-session.
+    const { data, isPending } = useSession()
     const userId = data?.user.id ?? "signed-out"
     const [storageOwner] = useState(() => {
         try {

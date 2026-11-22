@@ -22,6 +22,9 @@ const EMPTY_SHARED_MODELS: {
 export const useSharedModels = () => {
     const auth = useConvexAuth()
     const session = useSession()
+    // A boot session still in flight counts too, so the flag goes true -> false once rather
+    // than briefly settling on a cached signed-out list before the account is known.
+    const isAwaitingAccountList = (Boolean(session.user?.id) || session.isPending) && auth.isLoading
     const result = useDiskCachedQuery(
         api.settings.getSharedModels,
         {
@@ -36,11 +39,15 @@ export const useSharedModels = () => {
     )
 
     return useMemo(() => {
-        if ("error" in result) return EMPTY_SHARED_MODELS
+        // Still on the signed-out list while Convex auth settles, or nothing cached or
+        // loaded yet. Callers hold placeholders rather than render a list that will change.
+        const isPending = isAwaitingAccountList || (!("error" in result) && !result.version)
+        if ("error" in result) return { ...EMPTY_SHARED_MODELS, isPending }
         // Disk-cached payloads from before the policy shipped don't carry it.
         return {
             ...result,
-            hostedContextPolicy: result.hostedContextPolicy ?? DEFAULT_HOSTED_CONTEXT_POLICY
+            hostedContextPolicy: result.hostedContextPolicy ?? DEFAULT_HOSTED_CONTEXT_POLICY,
+            isPending
         }
-    }, [result])
+    }, [isAwaitingAccountList, result])
 }

@@ -1,10 +1,13 @@
 import { ThemeFontStyles } from "@/components/theme-font-styles"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext } from "@tanstack/react-router"
-import { HeadContent, Outlet, Scripts } from "@tanstack/react-router"
+import { HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router"
 import type { ReactNode } from "react"
+import { preload, preloadModule } from "react-dom"
 
 import { GlassScript, ThemeScript } from "@/components/theme-script"
+import { buildBootAuthScript } from "@/lib/boot-auth"
+import { readBootAuthFromRequest } from "@/lib/boot-auth-server"
 import { optionalBrowserEnv } from "@/lib/browser-env"
 import { OG_DEMOS } from "@/lib/og-content"
 import { LOCAL_THEME_FONT_PRELOADS } from "@/lib/theme-font-config"
@@ -17,9 +20,22 @@ const SITE_DESCRIPTION =
     "Sleek, fast, and powerful AI chatbot experience. Generate images, create and chat with Personas, and more."
 const SITE_URL = "https://silkchat.dev"
 
+const getConvexOrigin = () => {
+    try {
+        const convexUrl = optionalBrowserEnv("VITE_CONVEX_URL")
+        return convexUrl ? new URL(convexUrl).origin : null
+    } catch {
+        return null
+    }
+}
+const CONVEX_ORIGIN = getConvexOrigin()
+
 export const Route = createRootRouteWithContext<{
     queryClient: QueryClient
 }>()({
+    // In SPA mode only this route renders on the server, and its beforeLoad context is
+    // dehydrated into the page. Hydration reuses it rather than running this again.
+    beforeLoad: () => ({ bootAuth: readBootAuthFromRequest() }),
     head: () => ({
         meta: [
             {
@@ -121,6 +137,14 @@ export const Route = createRootRouteWithContext<{
             { rel: "icon", href: "/favicon.ico" },
             { rel: "apple-touch-icon", href: "/apple-icon-180.png" },
             { rel: "manifest", href: "/manifest.webmanifest" },
+            // The Convex socket opens as soon as the bundle runs; resolve its host while
+            // the bundle downloads.
+            ...(CONVEX_ORIGIN
+                ? [
+                      { rel: "dns-prefetch", href: CONVEX_ORIGIN },
+                      { rel: "preconnect", href: CONVEX_ORIGIN }
+                  ]
+                : []),
             { rel: "preconnect", href: "https://fonts.googleapis.com" },
             {
                 rel: "preconnect",
@@ -152,6 +176,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
+                <BootAuthScript />
                 <ThemeFontStyles />
                 <ThemeScript />
                 <GlassScript />
@@ -166,6 +191,75 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
             </body>
         </html>
     )
+}
+
+// The inline script waits for the stylesheets React hoists above it, so the requests start
+// as preloads, which don't; the script's fetches (same URL, mode and credentials) adopt them.
+function BootAuthScript() {
+    const router = useRouter()
+    const bootAuth = Route.useRouteContext({ select: (context) => context.bootAuth })
+    if (!bootAuth) return null
+
+    if (bootAuth.hasSession && typeof window === "undefined") {
+        preloadSignedInChatAssets(router)
+    }
+
+    return (
+        <>
+            {bootAuth.hasSession ? (
+                <link
+                    rel="preload"
+                    href="/api/auth/get-session"
+                    as="fetch"
+                    crossOrigin="use-credentials"
+                />
+            ) : null}
+            {bootAuth.hasSession && !bootAuth.convexToken ? (
+                <link
+                    rel="preload"
+                    href="/api/auth/convex/token"
+                    as="fetch"
+                    crossOrigin="use-credentials"
+                />
+            ) : null}
+            <script
+                dangerouslySetInnerHTML={{ __html: buildBootAuthScript(bootAuth) }}
+                suppressHydrationWarning
+            />
+        </>
+    )
+}
+
+// The chat views are code-split out of `/` so signed-out visitors never download them. For
+// a signed-in request the server knows they are needed, so Chat's chunks go into the HTML
+// as preloads. The thread route imports Chat statically, which makes its manifest entry
+// that chunk list. (The folder and shared routes are lazy files with no manifest entry;
+// their small views are preloaded from the entry instead, see preloadBootChunks.)
+const CHAT_ASSET_ROUTE_IDS = ["/_chat/thread/$threadId"]
+type ManifestLink = string | { href: string }
+const linkHref = (link: ManifestLink) => (typeof link === "string" ? link : link.href)
+
+function preloadSignedInChatAssets(router: ReturnType<typeof useRouter>) {
+    const routes = router.ssr?.manifest?.routes as
+        | Record<string, { preloads?: ManifestLink[]; css?: ManifestLink[] } | undefined>
+        | undefined
+    const matchedRouteIds = router.state.matches.map((match) => match.routeId as string)
+    if (!routes || !matchedRouteIds.includes("/_chat")) return
+
+    const preloaded = new Set(
+        matchedRouteIds.flatMap((routeId) => (routes[routeId]?.preloads ?? []).map(linkHref))
+    )
+    for (const routeId of CHAT_ASSET_ROUTE_IDS) {
+        for (const link of routes[routeId]?.preloads ?? []) {
+            const href = linkHref(link)
+            if (preloaded.has(href)) continue
+            preloaded.add(href)
+            preloadModule(href)
+        }
+        for (const link of routes[routeId]?.css ?? []) {
+            preload(linkHref(link), { as: "style" })
+        }
+    }
 }
 
 function GoogleAdsTag() {

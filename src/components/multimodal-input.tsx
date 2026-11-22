@@ -219,7 +219,11 @@ export const MultimodalInput = forwardRef<
     } = composerToolbar
 
     const { selectedModel, setSelectedModel, enabledTools, setEnabledTools } = useModelStore()
-    const { models: sharedModels, hostedContextPolicy } = useSharedModels()
+    const {
+        models: sharedModels,
+        hostedContextPolicy,
+        isPending: isSharedModelsPending
+    } = useSharedModels()
     const { availableModels } = useAvailableModels(userSettings)
     const modelNudge = useModelNudge({
         selectedModel,
@@ -1376,13 +1380,22 @@ export const MultimodalInput = forwardRef<
                     >
                         <IntentGuide
                             stage={intentGuideStage}
-                            availability={{
-                                image: modelSupportsVision && modelSupportsFunctionCalling,
-                                web:
-                                    modelSupportsFunctionCalling &&
-                                    composerToolbar.webSearchAvailable,
-                                analysis: modelSupportsFunctionCalling && codeExecutionAvailable
-                            }}
+                            // Until the model list is in, show the full list: a row that
+                            // drops once capabilities are known moves far less than three
+                            // rows arriving late and pushing the hero up.
+                            availability={
+                                isSharedModelsPending
+                                    ? { image: true, web: true, analysis: true }
+                                    : {
+                                          image:
+                                              modelSupportsVision && modelSupportsFunctionCalling,
+                                          web:
+                                              modelSupportsFunctionCalling &&
+                                              composerToolbar.webSearchAvailable,
+                                          analysis:
+                                              modelSupportsFunctionCalling && codeExecutionAvailable
+                                      }
+                            }
                             attachments={uploadedFiles}
                             recentImages={recentGeneratedImages.results.slice(0, 6)}
                             attachingImageKey={attachingImageKey}

@@ -1242,7 +1242,7 @@ export function ModelSelector({
         "error" in userSettings ? DefaultSettings(session.user?.id ?? "") : userSettings
     )
     selectorTelemetryRef.current.availableModelCount = availableModels.length
-    const { models: sharedModels } = useSharedModels()
+    const { models: sharedModels, isPending: isSharedModelsPending } = useSharedModels()
     const newModelIds = React.useMemo(
         () =>
             new Set(
@@ -1607,51 +1607,67 @@ export function ModelSelector({
                 "!px-1.5 min-[390px]:!px-2 gap-0.5 min-[390px]:gap-2"
             )}
         >
-            {selectedModelData && (
-                <ComposerMorph contentKey={selectedModelData.id} animateWidth={easeLabelWidth}>
-                    <div className="flex items-center gap-2">
-                        <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
-                        <span className="hidden md:hidden min-[390px]:block">
-                            {preferShortName
-                                ? (selectedModelData as SharedModel)?.shortName ||
-                                  selectedModelData.name
-                                : selectedModelData.name}
+            {/* While the model list loads, a placeholder holds the label's place in the same
+                morph slot, so the chip isn't empty and eases into the real label instead of
+                pushing its neighbours aside. */}
+            {(selectedModelData || isSharedModelsPending) && (
+                <ComposerMorph
+                    contentKey={selectedModelData?.id ?? "pending-model"}
+                    animateWidth={easeLabelWidth}
+                >
+                    {!selectedModelData ? (
+                        <span aria-hidden="true" className="flex h-5 items-center">
+                            <Skeleton className="block size-4 rounded-[var(--radius-sm)] min-[390px]:hidden" />
+                            <Skeleton className="hidden h-3 w-16 rounded-[var(--radius-sm)] md:hidden min-[390px]:block" />
+                            <Skeleton className="hidden h-3 w-28 rounded-[var(--radius-sm)] md:block" />
                         </span>
-                        <span className="hidden md:block">{selectedModelData.name}</span>
-                        {selectedSharedModel && <ModelCostIndicator model={selectedSharedModel} />}
-                        {showByokContextHint && byokContextHint && (
-                            <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className={cn(
-                                            "inline-flex text-muted-foreground",
-                                            tone === "on-primary" && "text-primary-foreground"
-                                        )}
-                                        aria-label={byokContextHint.ariaLabel}
-                                    >
-                                        <Key className="size-3.5" />
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
-                            </Tooltip>
-                        )}
-                        {activeRuntimeProvider?.isByok && byokContextHint && (
-                            <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
-                                <TooltipTrigger asChild>
-                                    <span
-                                        className={cn(
-                                            "inline-flex text-muted-foreground",
-                                            tone === "on-primary" && "text-primary-foreground"
-                                        )}
-                                        aria-label={byokContextHint.ariaLabel}
-                                    >
-                                        <Key className="size-3.5" />
-                                    </span>
-                                </TooltipTrigger>
-                                <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
-                            </Tooltip>
-                        )}
-                    </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <div className="block min-[390px]:hidden">{selectedModelIcon}</div>
+                            <span className="hidden md:hidden min-[390px]:block">
+                                {preferShortName
+                                    ? (selectedModelData as SharedModel)?.shortName ||
+                                      selectedModelData.name
+                                    : selectedModelData.name}
+                            </span>
+                            <span className="hidden md:block">{selectedModelData.name}</span>
+                            {selectedSharedModel && (
+                                <ModelCostIndicator model={selectedSharedModel} />
+                            )}
+                            {showByokContextHint && byokContextHint && (
+                                <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className={cn(
+                                                "inline-flex text-muted-foreground",
+                                                tone === "on-primary" && "text-primary-foreground"
+                                            )}
+                                            aria-label={byokContextHint.ariaLabel}
+                                        >
+                                            <Key className="size-3.5" />
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                                </Tooltip>
+                            )}
+                            {activeRuntimeProvider?.isByok && byokContextHint && (
+                                <Tooltip delayDuration={DETAIL_TOOLTIP_DELAY_MS}>
+                                    <TooltipTrigger asChild>
+                                        <span
+                                            className={cn(
+                                                "inline-flex text-muted-foreground",
+                                                tone === "on-primary" && "text-primary-foreground"
+                                            )}
+                                            aria-label={byokContextHint.ariaLabel}
+                                        >
+                                            <Key className="size-3.5" />
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{byokContextHint.tooltip}</TooltipContent>
+                                </Tooltip>
+                            )}
+                        </div>
+                    )}
                 </ComposerMorph>
             )}
             <ChevronDown className="ml-auto h-4 w-4" />
