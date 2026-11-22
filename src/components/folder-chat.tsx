@@ -26,6 +26,7 @@ import { resolveDeferredChatMessages } from "@/lib/deferred-chat-messages"
 import { useModelStore } from "@/lib/model-store"
 import { useAvailableModels, useDefaultModelId } from "@/lib/models-providers-shared"
 import { useSharedModels } from "@/lib/shared-models"
+import { willSubmitComposerMessage } from "@/lib/send-scroll-animation"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
@@ -109,7 +110,8 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     const deferredMessages = isLiveMessageStream
         ? messages
         : resolveDeferredChatMessages(messages, deferredMessageCandidate)
-    const messageRenderStatus = isLiveMessageStream ? "streaming" : status
+    const messageRenderStatus =
+        status === "submitted" ? "submitted" : isLiveMessageStream ? "streaming" : status
     const threadHasPdfAttachments = useMemo(() => hasPdfAttachmentInMessages(messages), [messages])
 
     const { handleInputSubmit, handleRetry, handleEditAndRetry, handleBranch } = useChatActions({
@@ -150,9 +152,16 @@ export function FolderChat({ folderId, isActiveRoute = true }: FolderChatProps) 
     useChatDataProcessor({ messages, status, clientId: chat.clientId, folderId })
 
     const handleInputSubmitWithScroll = (inputValue?: string, fileValues?: UploadedFile[]) => {
-        const result = handleInputSubmit(inputValue, fileValues)
-        messagesRef.current?.scrollToBottom("smooth")
-        return result
+        if (
+            willSubmitComposerMessage({
+                composerStatus,
+                inputValue,
+                fileCount: fileValues?.length ?? 0
+            })
+        ) {
+            messagesRef.current?.prepareSendScroll()
+        }
+        return handleInputSubmit(inputValue, fileValues)
     }
 
     const isEmpty = !threadId && messages.length === 0

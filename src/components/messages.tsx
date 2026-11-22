@@ -12,6 +12,15 @@ import { isLargePasteMediaType } from "@/lib/attachment-tile"
 import { getToolFailureAttempt, getToolFailureAttempts } from "@/lib/blocked-tool-attempt"
 import { useChatStore } from "@/lib/chat-store"
 import { createJumpToBottomIntent } from "@/lib/jump-to-bottom-intent"
+import {
+    SEND_BUBBLE_ENTRANCE_DURATION_MS,
+    SEND_SCROLL_CONFIG,
+    SEND_SCROLL_CSS_EASING,
+    createSendScrollAnimation,
+    getSendScrollDurationMs,
+    resolveSendScrollStartOffset
+} from "@/lib/send-scroll-animation"
+import { SEND_HANDOFF_CONFIG, playSendHandoff, takeSendHandoffSource } from "@/lib/send-handoff"
 import { getChatWidthClass, useChatWidthStore } from "@/lib/chat-width-store"
 import { getFileTypeInfo } from "@/lib/file_constants"
 import { playResponseCompleteHaptic, playResponseStartHaptic } from "@/lib/haptics"
@@ -1106,9 +1115,20 @@ MessageRow.displayName = "MessageRow"
 
 export type MessagesHandle = {
     scrollToBottom: (behavior?: ScrollBehavior) => void
+    prepareSendScroll: () => void
 }
 
 export type MessageScrollDirection = "up" | "down" | "idle"
+
+type PendingSendScroll = {
+    previousLastUserMessageId: string | undefined
+    preparedAt: number
+}
+
+type ActiveSendScrollAnimation = {
+    frameId: number
+    messageId: string | undefined
+}
 
 export const Messages = forwardRef<
     MessagesHandle,
@@ -1174,6 +1194,10 @@ export const Messages = forwardRef<
         const shouldStickToBottomRef = useRef(true)
         const allowUnboundedStreamingFollowRef = useRef(false)
         const autoFollowPausedUntilRef = useRef(0)
+        const pendingSendScrollRef = useRef<PendingSendScroll | null>(null)
+        const sendScrollAnimationRef = useRef<ActiveSendScrollAnimation | null>(null)
+        const lastUserMessageIdRef = useRef<string | undefined>(undefined)
+        const sendHandoffCancelRef = useRef<(() => void) | null>(null)
         const onRetryRef = useRef(onRetry)
         const onBranchRef = useRef(onBranch)
         const onEditAndRetryRef = useRef(onEditAndRetry)
@@ -1440,31 +1464,7 @@ export const Messages = forwardRef<
             }, BOTTOM_TRIP_SETTLE_MS)
         }, [endBottomTrip])
 
-        // Any scroll input of the reader's own ends the trip, so it never fights them.
-        useEffect(() => {
-            const scroller = scrollerRef.current
-            if (!scroller) return
-
-            const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const
-            for (const event of events) {
-                scroller.addEventListener(event, endBottomTrip, { passive: true })
-            }
-            return () => {
-                for (const event of events) {
-                    scroller.removeEventListener(event, endBottomTrip)
-                }
-                endBottomTrip()
-            }
-        }, [endBottomTrip])
-
-        useEffect(
-            () => () => {
-                if (scrollIdleTimerRef.current !== null) {
-                    clearTimeout(scrollIdleTimerRef.current)
-                }
-            },
-            []
-        )
+        const isStreamingOrSubmitted = status === "streaming" || status === "submitted"
 
         const getStreamingAnchorMaxScrollTop = useCallback(() => {
             const scroller = scrollerRef.current
@@ -1483,6 +1483,30 @@ export const Messages = forwardRef<
             return Math.max(0, userMessageBottom - STREAMING_ANCHOR_TOP_GAP_PX)
         }, [])
 
+        const getStreamingTarget = useCallback(() => {
+            const scroller = scrollerRef.current
+            if (!scroller) return null
+
+            const bottomScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+            let targetScrollTop = bottomScrollTop
+
+            if (isStreamingOrSubmitted && !allowUnboundedStreamingFollowRef.current) {
+                const maximumFollowScrollTop = getStreamingAnchorMaxScrollTop()
+                if (maximumFollowScrollTop !== null) {
+                    targetScrollTop = Math.min(bottomScrollTop, maximumFollowScrollTop)
+                }
+            }
+
+            return {
+                bottomScrollTop,
+                targetScrollTop,
+                reachedStreamingLimit: targetScrollTop < bottomScrollTop
+            }
+        }, [getStreamingAnchorMaxScrollTop, isStreamingOrSubmitted])
+
+        const getStreamingTargetRef = useRef(getStreamingTarget)
+        getStreamingTargetRef.current = getStreamingTarget
+
         const syncBottomStateFromOffset = useCallback(
             (offset?: number) => {
                 const scroller = scrollerRef.current
@@ -1494,7 +1518,7 @@ export const Messages = forwardRef<
                 const distanceFromBottom = Math.max(0, scrollSize - viewportSize - scrollOffset)
                 const isAtBottom = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX
 
-                if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
+                if (isStreamingOrSubmitted && !allowUnboundedStreamingFollowRef.current) {
                     const maximumFollowScrollTop = getStreamingAnchorMaxScrollTop()
                     if (
                         maximumFollowScrollTop !== null &&
@@ -1515,11 +1539,97 @@ export const Messages = forwardRef<
                     })
                 )
             },
-            [getStreamingAnchorMaxScrollTop, status, updateBottomState, updateJumpToBottomVisible]
+            [
+                getStreamingAnchorMaxScrollTop,
+                isStreamingOrSubmitted,
+                updateBottomState,
+                updateJumpToBottomVisible
+            ]
+        )
+
+        const syncBottomStateFromOffsetRef = useRef(syncBottomStateFromOffset)
+        syncBottomStateFromOffsetRef.current = syncBottomStateFromOffset
+
+        // Stable on purpose: effects that cancel the glide in their cleanup depend on this,
+        // and the send itself flips status (ready → submitted → streaming). An identity that
+        // followed status would re-run those effects and cut the glide off mid-flight.
+        const cancelSendScrollAnimation = useCallback(
+            ({
+                clearPending = false,
+                syncBottomState = false
+            }: {
+                clearPending?: boolean
+                syncBottomState?: boolean
+            } = {}) => {
+                if (clearPending) {
+                    pendingSendScrollRef.current = null
+                }
+
+                const activeAnimation = sendScrollAnimationRef.current
+                if (!activeAnimation) return
+
+                cancelAnimationFrame(activeAnimation.frameId)
+                sendScrollAnimationRef.current = null
+                if (syncBottomState) {
+                    syncBottomStateFromOffsetRef.current()
+                }
+            },
+            []
+        )
+
+        // A send that never commits a message (rejected, stopped) must not hold auto-follow.
+        const hasPendingSendScroll = useCallback(() => {
+            const pending = pendingSendScrollRef.current
+            if (!pending) return false
+            if (performance.now() - pending.preparedAt > SEND_SCROLL_CONFIG.pendingTimeoutMs) {
+                pendingSendScrollRef.current = null
+                return false
+            }
+            return true
+        }, [])
+
+        // Any scroll input of the reader's own ends automated scroll motion, so it never fights them.
+        useEffect(() => {
+            const scroller = scrollerRef.current
+            if (!scroller) return
+
+            const handleReaderScrollInput = () => {
+                endBottomTrip()
+                cancelSendScrollAnimation({ clearPending: true, syncBottomState: true })
+            }
+
+            const events = ["wheel", "touchstart", "pointerdown", "keydown"] as const
+            for (const event of events) {
+                scroller.addEventListener(event, handleReaderScrollInput, { passive: true })
+            }
+            return () => {
+                for (const event of events) {
+                    scroller.removeEventListener(event, handleReaderScrollInput)
+                }
+                endBottomTrip()
+                cancelSendScrollAnimation({ clearPending: true })
+            }
+        }, [cancelSendScrollAnimation, endBottomTrip])
+
+        useEffect(
+            () => () => {
+                if (scrollIdleTimerRef.current !== null) {
+                    clearTimeout(scrollIdleTimerRef.current)
+                }
+                sendHandoffCancelRef.current?.()
+            },
+            []
         )
 
         const handleScroll = useCallback(
             (offset: number) => {
+                // Keep our own eased send-scroll frames from dropping stickiness, flipping
+                // header scroll direction, or flashing the Scroll to bottom pill.
+                if (sendScrollAnimationRef.current) {
+                    lastScrollOffsetRef.current = offset
+                    return
+                }
+
                 syncBottomStateFromOffset(offset)
                 scheduleScrollIdle()
                 checkBottomTripLanding()
@@ -1565,6 +1675,7 @@ export const Messages = forwardRef<
                 }
 
                 endBottomTrip()
+                cancelSendScrollAnimation({ clearPending: true })
                 bottomTripRef.current = { corrections: 0 }
                 const viewportSize = scroller.clientHeight
                 const bottomOffset = scroller.scrollHeight - viewportSize
@@ -1584,7 +1695,187 @@ export const Messages = forwardRef<
                 })
                 checkBottomTripLanding()
             },
-            [checkBottomTripLanding, endBottomTrip, updateBottomState]
+            [cancelSendScrollAnimation, checkBottomTripLanding, endBottomTrip, updateBottomState]
+        )
+
+        const prepareSendScroll = useCallback(() => {
+            endBottomTrip()
+            cancelSendScrollAnimation()
+            pendingSendScrollRef.current = {
+                previousLastUserMessageId: lastUserMessageIdRef.current,
+                preparedAt: performance.now()
+            }
+        }, [cancelSendScrollAnimation, endBottomTrip])
+
+        const animateSentUserBubble = useCallback((messageId: string, glideDistancePx: number) => {
+            const handoffSource = takeSendHandoffSource()
+            sendHandoffCancelRef.current?.()
+            sendHandoffCancelRef.current = null
+
+            const userMessages = contentContainerRef.current?.querySelectorAll<HTMLElement>(
+                '[data-message-role="user"]'
+            )
+            const latestUserMessage = userMessages?.[userMessages.length - 1]
+            const bubbleElement =
+                latestUserMessage?.dataset.messageId === messageId
+                    ? latestUserMessage.firstElementChild
+                    : null
+            if (
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+                !(bubbleElement instanceof HTMLElement) ||
+                typeof bubbleElement.animate !== "function"
+            ) {
+                handoffSource?.releaseComposer()
+                return
+            }
+
+            if (handoffSource) {
+                const bubbleTop = bubbleElement.getBoundingClientRect().top
+                const flightPx = Math.max(
+                    Math.abs(glideDistancePx),
+                    Math.abs(handoffSource.textRect.top - (bubbleTop - glideDistancePx))
+                )
+                sendHandoffCancelRef.current = playSendHandoff({
+                    source: handoffSource,
+                    bubble: bubbleElement,
+                    durationMs:
+                        getSendScrollDurationMs(flightPx) + SEND_HANDOFF_CONFIG.extraDurationMs
+                })
+                return
+            }
+
+            // No composer text to hand off (a suggestion or attachment-only send): rise in.
+            bubbleElement.animate(
+                [
+                    { opacity: 0, transform: "translateY(16px)" },
+                    { opacity: 1, transform: "translateY(0px)" }
+                ],
+                {
+                    duration: SEND_BUBBLE_ENTRANCE_DURATION_MS,
+                    easing: SEND_SCROLL_CSS_EASING
+                }
+            )
+        }, [])
+
+        const startSendScrollAnimation = useCallback(
+            (sentMessageId: string) => {
+                if (useChatStore.getState().targetMode === "edit") return
+                const scroller = scrollerRef.current
+                if (!scroller) return
+
+                endBottomTrip()
+                cancelSendScrollAnimation()
+
+                allowUnboundedStreamingFollowRef.current = false
+                shouldStickToBottomRef.current = true
+                updateJumpToBottomVisible(jumpToBottomIntentRef.current.reset())
+
+                const initialTarget = getStreamingTargetRef.current()
+                if (!initialTarget) {
+                    animateSentUserBubble(sentMessageId, 0)
+                    return
+                }
+
+                const prefersReducedMotion = window.matchMedia(
+                    "(prefers-reduced-motion: reduce)"
+                ).matches
+                const startOffset = resolveSendScrollStartOffset({
+                    currentOffset: scroller.scrollTop,
+                    targetOffset: initialTarget.targetScrollTop,
+                    viewportSize: scroller.clientHeight
+                })
+                const distance = initialTarget.targetScrollTop - startOffset
+
+                if (
+                    prefersReducedMotion ||
+                    Math.abs(distance) < SEND_SCROLL_CONFIG.minAnimatedDistancePx
+                ) {
+                    if (initialTarget.reachedStreamingLimit) {
+                        shouldStickToBottomRef.current = false
+                        updateBottomState(false)
+                    } else {
+                        updateBottomState(true)
+                    }
+                    scroller.scrollTo({ top: initialTarget.targetScrollTop, behavior: "auto" })
+                    lastScrollOffsetRef.current = scroller.scrollTop
+                    animateSentUserBubble(sentMessageId, 0)
+                    return
+                }
+
+                updateBottomState(!initialTarget.reachedStreamingLimit)
+
+                // The clock starts on the first painted frame, not here: the send's commit is
+                // heavy, and a clock started now would spend most of the glide before the
+                // reader sees any of it.
+                let animation: ReturnType<typeof createSendScrollAnimation> | null = null
+
+                const tick = (frameTime: number) => {
+                    const activeScroller = scrollerRef.current
+                    if (!activeScroller || !sendScrollAnimationRef.current) {
+                        sendScrollAnimationRef.current = null
+                        return
+                    }
+
+                    const liveTarget = getStreamingTargetRef.current()
+                    if (!liveTarget) {
+                        sendScrollAnimationRef.current = null
+                        return
+                    }
+
+                    animation ??= createSendScrollAnimation({
+                        startOffset,
+                        initialTargetOffset: liveTarget.targetScrollTop,
+                        startTime: frameTime
+                    })
+
+                    const { offset, done } = animation.step({
+                        time: frameTime,
+                        targetOffset: liveTarget.targetScrollTop
+                    })
+
+                    activeScroller.scrollTop = offset
+                    lastScrollOffsetRef.current = activeScroller.scrollTop
+
+                    if (done) {
+                        sendScrollAnimationRef.current = null
+                        if (liveTarget.reachedStreamingLimit) {
+                            shouldStickToBottomRef.current = false
+                            updateBottomState(false)
+                        } else {
+                            shouldStickToBottomRef.current = true
+                            updateBottomState(true)
+                        }
+                        updateJumpToBottomVisible(jumpToBottomIntentRef.current.reset())
+                        return
+                    }
+
+                    sendScrollAnimationRef.current = {
+                        frameId: requestAnimationFrame(tick),
+                        messageId: sentMessageId
+                    }
+                }
+
+                sendScrollAnimationRef.current = {
+                    frameId: requestAnimationFrame(tick),
+                    messageId: sentMessageId
+                }
+
+                if (startOffset !== scroller.scrollTop) {
+                    scroller.scrollTo({ top: startOffset, behavior: "auto" })
+                    lastScrollOffsetRef.current = scroller.scrollTop
+                }
+
+                // After the glide's frame is queued, so each frame the handoff reads the
+                // bubble where the glide has just put it.
+                animateSentUserBubble(sentMessageId, distance)
+            },
+            [
+                animateSentUserBubble,
+                cancelSendScrollAnimation,
+                endBottomTrip,
+                updateBottomState,
+                updateJumpToBottomVisible
+            ]
         )
 
         const scrollToStreamingEdge = useCallback(() => {
@@ -1592,37 +1883,31 @@ export const Messages = forwardRef<
             const scroller = scrollerRef.current
             if (!scroller) return
 
-            const bottomScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-            let targetScrollTop = bottomScrollTop
+            const target = getStreamingTarget()
+            if (!target) return
 
-            if (status === "streaming" && !allowUnboundedStreamingFollowRef.current) {
-                const maximumFollowScrollTop = getStreamingAnchorMaxScrollTop()
-                if (maximumFollowScrollTop !== null) {
-                    targetScrollTop = Math.min(bottomScrollTop, maximumFollowScrollTop)
-                }
-            }
-
-            const reachedStreamingLimit = targetScrollTop < bottomScrollTop
-            if (reachedStreamingLimit) {
+            if (target.reachedStreamingLimit) {
                 shouldStickToBottomRef.current = false
                 updateBottomState(false)
             }
 
-            scroller.scrollTo({ top: targetScrollTop, behavior: "auto" })
-        }, [getStreamingAnchorMaxScrollTop, status, updateBottomState])
+            scroller.scrollTo({ top: target.targetScrollTop, behavior: "auto" })
+        }, [getStreamingTarget, updateBottomState])
 
         useImperativeHandle(
             ref,
             () => ({
-                scrollToBottom
+                scrollToBottom,
+                prepareSendScroll
             }),
-            [scrollToBottom]
+            [prepareSendScroll, scrollToBottom]
         )
 
         const lastUserMessage = useMemo(
             () => [...messages].reverse().find((message) => message.role === "user"),
             [messages]
         )
+        lastUserMessageIdRef.current = lastUserMessage?.id
 
         useEffect(() => {
             void lastUserMessage?.id
@@ -1764,12 +2049,42 @@ export const Messages = forwardRef<
             void lastMessage?.id
             void status
 
+            const pendingSend = hasPendingSendScroll() ? pendingSendScrollRef.current : null
+            if (pendingSend) {
+                if (
+                    lastUserMessage?.id &&
+                    lastUserMessage.id !== pendingSend.previousLastUserMessageId
+                ) {
+                    pendingSendScrollRef.current = null
+                    startSendScrollAnimation(lastUserMessage.id)
+                    return
+                }
+                if (status === "error") {
+                    pendingSendScrollRef.current = null
+                } else {
+                    // Wait for the newly sent user message to commit instead of snapping early.
+                    return
+                }
+            }
+
+            if (sendScrollAnimationRef.current) {
+                return
+            }
+
             if (!shouldStickToBottomRef.current || Date.now() < autoFollowPausedUntilRef.current) {
                 return
             }
 
             scrollToStreamingEdge()
-        }, [lastMessage?.id, messages.length, scrollToStreamingEdge, status])
+        }, [
+            lastMessage?.id,
+            hasPendingSendScroll,
+            lastUserMessage?.id,
+            messages.length,
+            scrollToStreamingEdge,
+            startSendScrollAnimation,
+            status
+        ])
 
         useEffect(() => {
             updateBottomState(true)
@@ -1793,6 +2108,16 @@ export const Messages = forwardRef<
         useEffect(() => {
             void threadKey
 
+            // Creating a new thread swaps threadKey from "chat" (or folder id) to the
+            // persisted thread id while the first message's send glide may still be in
+            // flight. Preserve that glide instead of cutting it short.
+            const activeSendMessageId = sendScrollAnimationRef.current?.messageId
+            if (activeSendMessageId && activeSendMessageId === lastUserMessageIdRef.current) {
+                return
+            }
+
+            endBottomTrip()
+            cancelSendScrollAnimation({ clearPending: true })
             shouldStickToBottomRef.current = true
             allowUnboundedStreamingFollowRef.current = false
             lastScrollOffsetRef.current = null
@@ -1812,6 +2137,8 @@ export const Messages = forwardRef<
                 cancelAnimationFrame(frameId)
             }
         }, [
+            cancelSendScrollAnimation,
+            endBottomTrip,
             scrollToBottom,
             threadKey,
             updateBottomState,
@@ -1828,6 +2155,8 @@ export const Messages = forwardRef<
             let frameId: number | null = null
             const observer = new ResizeObserver(() => {
                 if (
+                    hasPendingSendScroll() ||
+                    sendScrollAnimationRef.current ||
                     !shouldStickToBottomRef.current ||
                     Date.now() < autoFollowPausedUntilRef.current
                 ) {
@@ -1840,6 +2169,8 @@ export const Messages = forwardRef<
 
                 frameId = requestAnimationFrame(() => {
                     if (
+                        hasPendingSendScroll() ||
+                        sendScrollAnimationRef.current ||
                         !shouldStickToBottomRef.current ||
                         Date.now() < autoFollowPausedUntilRef.current
                     )
@@ -1856,7 +2187,7 @@ export const Messages = forwardRef<
                 }
                 observer.disconnect()
             }
-        }, [scrollToStreamingEdge])
+        }, [hasPendingSendScroll, scrollToStreamingEdge])
 
         useEffect(() => {
             if (!onQuoteSelection) {

@@ -38,6 +38,7 @@ import {
     peekPersonaOnboardingHandoff
 } from "@/lib/persona-onboarding"
 import { useSharedModels } from "@/lib/shared-models"
+import { willSubmitComposerMessage } from "@/lib/send-scroll-animation"
 import { useThemeStore } from "@/lib/theme-store"
 import { cn } from "@/lib/utils"
 import { useQuery as useConvexQuery } from "convex-helpers/react/cache"
@@ -165,7 +166,8 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
     const deferredMessages = isLiveMessageStream
         ? displayMessages
         : resolveDeferredChatMessages(displayMessages, deferredMessageCandidate)
-    const messageRenderStatus = isLiveMessageStream ? "streaming" : status
+    const messageRenderStatus =
+        status === "submitted" ? "submitted" : isLiveMessageStream ? "streaming" : status
     // Signal the route-transition overlay once the thread's data is in, the
     // composer has adopted its model/tools, and the deferred message render has
     // caught up. Keyed off the route props so it matches the key `_chat.tsx`
@@ -236,9 +238,16 @@ const ChatContent = ({ threadId: routeThreadId, folderId, isActiveRoute = true }
         ) {
             chatHelpers.setMessages([syntheticOpeningMessage])
         }
-        const result = handleInputSubmit(inputValue, fileValues)
-        messagesRef.current?.scrollToBottom("smooth")
-        return result
+        if (
+            willSubmitComposerMessage({
+                composerStatus,
+                inputValue,
+                fileCount: fileValues?.length ?? 0
+            })
+        ) {
+            messagesRef.current?.prepareSendScroll()
+        }
+        return handleInputSubmit(inputValue, fileValues)
     }
     const suggestedReplies = awaitingFirstReply
         ? (pendingPersonaOpening?.suggestedReplies ?? [])

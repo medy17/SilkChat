@@ -83,6 +83,7 @@ import { resolveMultimodalSubmitAction } from "@/lib/multimodal-submit-action"
 import { getEnabledToolsForPastedText, mergePastedTextIntoDraft } from "@/lib/pasted-text"
 import { hasPendingImageGeneration } from "@/lib/pending-image-generation"
 import { appendQuotedSelection } from "@/lib/quote-selection"
+import { captureSendHandoffSource } from "@/lib/send-handoff"
 import { captureBrowserEvent } from "@/lib/telemetry/browser"
 import { TELEMETRY_EVENTS, getErrorType } from "@/lib/telemetry/events"
 import { getThreadDraftKey } from "@/lib/thread-drafts"
@@ -449,6 +450,8 @@ export const MultimodalInput = forwardRef<
             { text: inputValue, attachments: uploadedFiles },
             session.user?.id ?? "anonymous",
             (text, files) => {
+                // Where the words sat, for the bubble that flies out of the composer.
+                captureSendHandoffSource(promptInputRef.current?.getElement())
                 promptInputRef.current?.clear()
                 return onSubmit(text, files)
             }

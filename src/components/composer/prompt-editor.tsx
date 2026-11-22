@@ -166,7 +166,13 @@ const promptEditorTheme = EditorView.theme({
         caretColor: "currentColor"
     },
     ".cm-line": { padding: "0" },
-    ".cm-placeholder": { color: "var(--muted-foreground)" },
+    ".cm-placeholder": {
+        color: "var(--muted-foreground)",
+        transition: "opacity 200ms ease-out"
+    },
+    // Set while a just-sent message lifts out of the composer, so the placeholder doesn't
+    // appear underneath the flying words.
+    "&[data-send-handoff] .cm-placeholder": { opacity: "0", transition: "none" },
     ".cm-md-inline-code": {
         backgroundColor: "var(--muted)",
         borderRadius: "var(--radius-sm)",
