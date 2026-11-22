@@ -74,7 +74,10 @@ export function ChatMascot({
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox={variant === "face" ? "285 150 585 610" : "0 0 1024 1024"}
+            // The drawing sits right of its canvas (body and shadow centre near x=577,
+            // rune further out), so the full view shifts to put the body on the centre
+            // line, the same centre the face crop already uses.
+            viewBox={variant === "face" ? "285 150 585 610" : "65 0 1024 1024"}
             role="img"
             aria-labelledby={`${id("title")} ${id("description")}`}
             className={cn(

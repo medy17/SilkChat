@@ -365,27 +365,43 @@ function ContextRingSkeleton({ className }: { className: string }) {
     )
 }
 
+// Mirrors the empty-chat hero in chat.tsx: the same column gaps, mascot sizes and
+// margins, a greeting line plus its reserved subtitle line, and the composer with
+// its starter rows (three intents, Attach a file, temporary chat), so the real
+// hero replaces it without anything moving.
 function NewChatSkeletonBody() {
+    const chatWidth = useChatWidthStore((state) => state.chatWidthState.chatWidth)
+    const widthClass = getChatWidthClass(chatWidth)
+
     return (
-        <div className="@container relative flex h-[calc(100dvh-var(--app-header-height))] items-center justify-center overflow-y-auto px-4 py-16">
-            <div
-                aria-hidden="true"
-                className="flex w-full max-w-2xl flex-col items-center gap-5 [@media(min-height:820px)]:gap-7"
-            >
-                <div className="relative size-24 sm:size-28 [@media(max-height:620px)]:size-14 [@media(min-height:820px)]:size-32">
+        <div
+            aria-hidden="true"
+            className="@container relative flex h-[calc(100dvh-var(--app-header-height))] flex-col items-center gap-4 overflow-y-auto px-4 py-3 [justify-content:safe_center] sm:gap-6 [@media(min-height:820px)]:gap-8"
+        >
+            <div className="flex flex-col items-center">
+                <div className="relative mb-3 size-24 sm:mb-5 sm:size-28 [@media(max-height:620px)]:hidden [@media(min-height:820px)]:size-32">
                     <ChatSkeletonBlock className="absolute inset-0 rounded-[var(--radius-xl)]" />
                     <LogoSymbol className="absolute inset-1/4 size-1/2 text-muted-foreground/25" />
                 </div>
-
-                <div className="flex w-full flex-col items-center gap-2 [@media(max-height:480px)]:hidden">
-                    <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
+                <div className="relative mb-1 hidden size-14 [@media(max-height:480px)]:hidden [@media(max-height:620px)]:block">
+                    <ChatSkeletonBlock className="absolute inset-0 rounded-[var(--radius-xl)]" />
                 </div>
 
-                <div className="w-full px-1">
-                    <ChatComposerSkeleton />
+                <div className="space-y-2 px-4 [@media(max-height:480px)]:hidden">
+                    {/* The h1's text-3xl line box, then the subtitle line it keeps reserved. */}
+                    <div className="flex h-9 items-center justify-center">
+                        <ChatSkeletonBlock className="h-8 w-64 max-w-[70vw] rounded-[var(--radius-md)]" />
+                    </div>
+                    <div className="min-h-10 sm:min-h-5" />
+                </div>
+            </div>
 
-                    <div className="mt-3 flex flex-col gap-1 px-2">
-                        {["w-36", "w-44", "w-40", "w-32"].map((width) => (
+            <div className="w-full max-w-4xl">
+                <div className="w-full px-1">
+                    <ChatComposerSkeleton className={cn("mx-auto w-full", widthClass)} />
+
+                    <div className={cn("mx-auto mt-3 flex w-full flex-col gap-1 px-2", widthClass)}>
+                        {["w-36", "w-44", "w-40", "w-32", "w-28"].map((width) => (
                             <div
                                 key={width}
                                 className="flex h-9 items-center gap-3 rounded-[var(--radius-md)] px-3"
