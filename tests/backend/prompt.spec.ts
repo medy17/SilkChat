@@ -16,6 +16,7 @@ describe("buildPrompt", () => {
         })
 
         expect(basePrompt).toContain("## Formatting")
+        expect(basePrompt).toContain("## Conversation")
         expect(basePrompt).toContain("## Visual References")
         expect(basePrompt).toContain(
             '<carousel mode="quick-look" query="snow leopard" title="The Snow Leopard"></carousel>'
@@ -23,6 +24,31 @@ describe("buildPrompt", () => {
         expect(basePrompt).not.toContain("## Mermaid Diagrams")
         expect(basePrompt).not.toContain("## Web Search Tool")
         expect(basePrompt).not.toContain("## Running Code")
+    })
+
+    it("includes conversation engagement only on default chats and before personalization", () => {
+        const defaultPrompt = buildPrompt({
+            enabledTools: [],
+            userSettings: {
+                userId: "user-1",
+                coreAIProviders: {},
+                customAIProviders: {},
+                customModels: {},
+                titleGenerationModel: "gemini-3.1-flash-lite",
+                generalProviders: {},
+                customization: { aiPersonality: "No follow-up questions." }
+            }
+        })
+        const personaPrompt = buildPrompt({
+            enabledTools: [],
+            personaPrompt: "## Active Persona\nName: Sage\nStay strictly in character."
+        })
+
+        expect(defaultPrompt).toContain("## Conversation")
+        expect(defaultPrompt.indexOf("## Conversation")).toBeLessThan(
+            defaultPrompt.indexOf("## User Personalization")
+        )
+        expect(personaPrompt).not.toContain("## Conversation")
     })
 
     it("aligns math delimiter guidance with Streamdown defaults", () => {
