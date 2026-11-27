@@ -17,7 +17,12 @@ export const COMPUTER_IDLE_SLEEP_MS = 90_000
 export const COMPUTER_SESSION_TIMEOUT_MS = 30 * 60_000
 export const COMPUTER_REQUEST_TTL_MS = 10 * 60_000
 export const COMPUTER_STALE_OPERATION_MS = 10 * 60_000
+/** Long enough for a rollover's snapshot or a full rebuild, so a slow leader isn't taken for dead. */
+export const COMPUTER_STALE_PREP_MS = 5 * 60_000
 export const COMPUTER_STALE_PROVISIONING_MS = 5 * 60_000
+export const COMPUTER_MAX_CONCURRENT_EXECUTIONS = 8
+export const COMPUTER_WAIT_POLL_MS = 300
+export const COMPUTER_WAIT_TIMEOUT_MS = 30_000
 
 export const COMPUTER_COMMAND_DEFAULT_TIMEOUT_MS = 60_000
 export const COMPUTER_COMMAND_MAX_TIMEOUT_MS = 240_000
@@ -28,6 +33,11 @@ export const MAX_COMPUTER_COMMAND_CHARS = 100_000
  */
 export const COMPUTER_SESSION_ROLLOVER_MS =
     COMPUTER_SESSION_TIMEOUT_MS - COMPUTER_COMMAND_MAX_TIMEOUT_MS - 60_000
+
+export const isComputerBillingWindowDue = (
+    { billingStartedAt }: { billingStartedAt?: number },
+    now = Date.now()
+) => billingStartedAt !== undefined && now - billingStartedAt >= COMPUTER_SESSION_ROLLOVER_MS
 
 export const COMPUTER_WORKSPACE_PATH = "/vercel/workspace"
 export const COMPUTER_ARTIFACT_ROOT = "/vercel/.silkchat/artifacts"
@@ -190,12 +200,20 @@ export const getComputerViewState = (computer: {
     status: string
     sessionState?: string
     executionInProgress?: boolean
+    activeExecutions?: ReadonlyArray<unknown>
+    sessionPrepLeaseId?: string
     operation?: string
 }): ComputerViewState => {
     if (computer.status === "provisioning") return "setting_up"
     if (computer.operation || computer.status === "deleting") return "busy"
     if (computer.status === "archived") return "archived"
     if (computer.sessionState === "stuck") return "stuck"
-    if (computer.executionInProgress) return "working"
+    if (
+        computer.executionInProgress ||
+        computer.activeExecutions?.length ||
+        computer.sessionPrepLeaseId
+    ) {
+        return "working"
+    }
     return computer.sessionState === "running" ? "awake" : "asleep"
 }

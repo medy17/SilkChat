@@ -17,13 +17,18 @@ import {
     COMPUTER_DELETE_AFTER_MS,
     COMPUTER_DELETION_WARNING_DAYS,
     COMPUTER_DRIVE_CEILING_BYTES,
+    COMPUTER_IDLE_SLEEP_MS,
+    COMPUTER_MAX_CONCURRENT_EXECUTIONS,
     COMPUTER_MAX_NAME_LENGTH,
     COMPUTER_OVER_LIMIT_PURGE_AFTER_MS,
     COMPUTER_OVER_LIMIT_WARNING_DAYS,
     COMPUTER_SESSION_TIMEOUT_MS,
     COMPUTER_STALE_OPERATION_MS,
+    COMPUTER_STALE_PREP_MS,
     COMPUTER_STALE_PROVISIONING_MS,
-    getComputerViewState
+    getComputerViewState,
+    hasPendingComputerKeyChange,
+    isComputerBillingWindowDue
 } from "./lib/computer_policy"
 import { getUserIdentity } from "./lib/identity"
 import {
@@ -141,6 +146,21 @@ const getOverLimitPatch = (computer: Doc<"computers">, usedBytes: number, limitB
 
 const isRequestExpired = (result: Record<string, unknown>) =>
     typeof result.confirmationExpiresAt === "number" && result.confirmationExpiresAt <= Date.now()
+
+const getLiveExecutions = (computer: Doc<"computers">, now: number) =>
+    (computer.activeExecutions ?? []).filter(
+        (entry) => now - entry.startedAt < COMPUTER_STALE_OPERATION_MS
+    )
+
+const hasLegacyInFlightExecution = (computer: Doc<"computers">, now: number) =>
+    computer.activeExecutions === undefined &&
+    computer.executionInProgress === true &&
+    now - computer.updatedAt < COMPUTER_STALE_OPERATION_MS
+
+const hasActiveSessionPrep = (computer: Doc<"computers">, now: number) =>
+    computer.sessionPrepLeaseId !== undefined &&
+    (computer.sessionPrepStartedAt === undefined ||
+        now - computer.sessionPrepStartedAt < COMPUTER_STALE_PREP_MS)
 
 export const getMyComputer = query({
     args: {},
@@ -304,6 +324,10 @@ export const markComputerReady = internalMutation({
         await ctx.db.patch(args.computerId, {
             status: "ready",
             sessionState: "running",
+            activeExecutions: [],
+            executionInProgress: false,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
             activityLeaseId: args.activityLeaseId,
             scheduledIdleStopId: args.scheduledIdleStopId,
             archivedAt: undefined,
@@ -362,55 +386,211 @@ export const recordComputerStorage = internalMutation({
 export const markComputerKeysApplied = internalMutation({
     args: { computerId: v.id("computers"), appliedAt: v.number() },
     handler: async (ctx, { computerId, appliedAt }) => {
-        if (await ctx.db.get(computerId)) {
-            await ctx.db.patch(computerId, { keysAppliedAt: appliedAt })
+        const computer = await ctx.db.get(computerId)
+        if (computer) {
+            await ctx.db.patch(computerId, {
+                keysAppliedAt: Math.max(computer.keysAppliedAt ?? 0, appliedAt)
+            })
         }
     }
 })
 
 export const beginComputerExecution = internalMutation({
-    args: { userId: v.string(), activityLeaseId: v.string() },
-    handler: async (ctx, { userId, activityLeaseId }) => {
+    args: { userId: v.string(), executionId: v.string() },
+    handler: async (ctx, { userId, executionId }) => {
         const computer = await getComputer(ctx, userId)
         if (!computer) return { ok: false as const, reason: "missing" as const }
         if (computer.status === "provisioning" || computer.status === "deleting") {
             return { ok: false as const, reason: "unavailable" as const }
         }
-        if (
-            computer.executionInProgress ||
-            computer.operation ||
-            computer.sessionState === "stopping"
-        ) {
+        if (computer.operation) {
             return { ok: false as const, reason: "busy" as const }
         }
+        if (computer.sessionState === "stopping") {
+            return { ok: false as const, reason: "stopping" as const }
+        }
         const now = Date.now()
+        if (hasLegacyInFlightExecution(computer, now)) {
+            return { ok: false as const, reason: "busy" as const }
+        }
+        if (hasActiveSessionPrep(computer, now)) {
+            return { ok: false as const, reason: "preparing" as const }
+        }
+
+        const active = getLiveExecutions(computer, now)
+        const rolloverDue = isComputerBillingWindowDue(computer, now)
+        if (active.length > 0) {
+            if (rolloverDue) {
+                return { ok: false as const, reason: "draining" as const }
+            }
+            if (active.length >= COMPUTER_MAX_CONCURRENT_EXECUTIONS) {
+                return { ok: false as const, reason: "capacity" as const }
+            }
+            if (
+                computer.status !== "ready" ||
+                computer.sessionState !== "running" ||
+                !computer.billingMessageKey
+            ) {
+                return { ok: false as const, reason: "preparing" as const }
+            }
+            await ctx.db.patch(computer._id, {
+                activeExecutions: [...active, { id: executionId, startedAt: now }],
+                executionInProgress: true,
+                sessionPrepLeaseId: undefined,
+                sessionPrepStartedAt: undefined,
+                activityLeaseId: undefined,
+                scheduledIdleStopId: undefined,
+                deletionWarningsSent: 0,
+                lastUsedAt: now,
+                updatedAt: now
+            })
+            return { ok: true as const, mode: "join" as const, record: computer }
+        }
+
+        const needsPrep =
+            computer.status === "archived" ||
+            computer.sessionState !== "running" ||
+            !computer.billingMessageKey ||
+            rolloverDue ||
+            hasPendingComputerKeyChange(computer)
+
         await ctx.db.patch(computer._id, {
-            activityLeaseId,
+            activeExecutions: [{ id: executionId, startedAt: now }],
             executionInProgress: true,
+            sessionPrepLeaseId: needsPrep ? executionId : undefined,
+            sessionPrepStartedAt: needsPrep ? now : undefined,
+            activityLeaseId: undefined,
             scheduledIdleStopId: undefined,
             deletionWarningsSent: 0,
             lastUsedAt: now,
             updatedAt: now
         })
-        return { ok: true as const, record: computer }
+        return {
+            ok: true as const,
+            mode: needsPrep ? ("prepare" as const) : ("join" as const),
+            record: computer
+        }
+    }
+})
+
+/**
+ * A rebuilt sandbox exists from the moment it's created, so the record stops calling the computer
+ * archived straight away. Waiting for the rest of setup would leave a live sandbox that the next
+ * command tries to create again and the idle timer never puts to sleep.
+ */
+export const markComputerRebuilt = internalMutation({
+    args: { computerId: v.id("computers") },
+    handler: async (ctx, { computerId }) => {
+        const computer = await ctx.db.get(computerId)
+        if (!computer || computer.status !== "archived") return
+        await ctx.db.patch(computerId, {
+            status: "ready",
+            archivedAt: undefined,
+            updatedAt: Date.now()
+        })
+    }
+})
+
+export const markComputerSessionPrepared = internalMutation({
+    args: {
+        computerId: v.id("computers"),
+        executionId: v.string(),
+        recovered: v.optional(v.boolean())
+    },
+    handler: async (ctx, args) => {
+        const computer = await ctx.db.get(args.computerId)
+        if (!computer || computer.sessionPrepLeaseId !== args.executionId) return false
+        const now = Date.now()
+        const active = getLiveExecutions(computer, now)
+        if (!active.some((entry) => entry.id === args.executionId)) return false
+        await ctx.db.patch(computer._id, {
+            status: "ready",
+            sessionState: "running",
+            archivedAt: undefined,
+            setupCard: undefined,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
+            ...(args.recovered ? { lastRecoveredAt: now } : {}),
+            updatedAt: now
+        })
+        return true
+    }
+})
+
+export const claimComputerRecovery = internalMutation({
+    args: { computerId: v.id("computers"), executionId: v.string() },
+    handler: async (ctx, args) => {
+        const computer = await ctx.db.get(args.computerId)
+        if (!computer || computer.operation || computer.status !== "ready") {
+            return { status: "aborted" as const }
+        }
+        const now = Date.now()
+        const active = getLiveExecutions(computer, now)
+        const mine = active.find((entry) => entry.id === args.executionId)
+        if (!mine) return { status: "aborted" as const }
+        if (computer.sessionState === "stuck") return { status: "stuck" as const }
+        if (hasActiveSessionPrep(computer, now)) {
+            return computer.sessionPrepLeaseId === args.executionId
+                ? { status: "recover" as const }
+                : { status: "wait" as const }
+        }
+        if (computer.lastRecoveredAt !== undefined && computer.lastRecoveredAt >= mine.startedAt) {
+            return { status: "recovered" as const }
+        }
+        await ctx.db.patch(computer._id, {
+            sessionPrepLeaseId: args.executionId,
+            sessionPrepStartedAt: now,
+            updatedAt: now
+        })
+        return { status: "recover" as const }
     }
 })
 
 export const finishComputerExecution = internalMutation({
     args: {
         computerId: v.id("computers"),
-        activityLeaseId: v.string(),
-        scheduledIdleStopId: v.optional(v.id("_scheduled_functions")),
+        executionId: v.string(),
+        sessionReady: v.optional(v.boolean()),
         stuck: v.optional(v.boolean())
     },
     handler: async (ctx, args) => {
         const computer = await ctx.db.get(args.computerId)
-        if (!computer || computer.activityLeaseId !== args.activityLeaseId) return false
+        if (!computer) return false
         const now = Date.now()
+        const active = getLiveExecutions(computer, now)
+        const ownsExecution = active.some((entry) => entry.id === args.executionId)
+        const ownsPrep = computer.sessionPrepLeaseId === args.executionId
+        if (!ownsExecution && !ownsPrep) return false
+
+        const remaining = active.filter((entry) => entry.id !== args.executionId)
+        // Only a fresh prepare or recovery (which marks the session running) clears a stuck mark,
+        // so a sibling that finishes after another command found the VM stuck can't undo it.
+        const sessionState =
+            args.stuck || computer.sessionState === "stuck"
+                ? ("stuck" as const)
+                : args.sessionReady
+                  ? ("running" as const)
+                  : computer.sessionState
+
+        const shouldScheduleIdleSleep =
+            remaining.length === 0 && !args.stuck && sessionState === "running"
+        const idleLeaseId = shouldScheduleIdleSleep ? crypto.randomUUID() : undefined
+        const scheduledIdleStopId =
+            shouldScheduleIdleSleep && idleLeaseId
+                ? await ctx.scheduler.runAfter(
+                      COMPUTER_IDLE_SLEEP_MS,
+                      internal.computers_node.suspendIdleComputer,
+                      { computerId: computer._id, activityLeaseId: idleLeaseId }
+                  )
+                : undefined
+
         await ctx.db.patch(computer._id, {
-            executionInProgress: false,
-            scheduledIdleStopId: args.scheduledIdleStopId,
-            sessionState: args.stuck ? "stuck" : "running",
+            activeExecutions: remaining,
+            executionInProgress: remaining.length > 0,
+            ...(ownsPrep ? { sessionPrepLeaseId: undefined, sessionPrepStartedAt: undefined } : {}),
+            activityLeaseId: idleLeaseId,
+            scheduledIdleStopId,
+            sessionState,
             lastUsedAt: now,
             updatedAt: now
         })
@@ -422,11 +602,14 @@ export const claimComputerIdleStop = internalMutation({
     args: { computerId: v.id("computers"), activityLeaseId: v.string() },
     handler: async (ctx, args) => {
         const computer = await ctx.db.get(args.computerId)
+        const now = Date.now()
         if (
             !computer ||
             computer.status !== "ready" ||
             computer.activityLeaseId !== args.activityLeaseId ||
-            computer.executionInProgress ||
+            getLiveExecutions(computer, now).length > 0 ||
+            hasLegacyInFlightExecution(computer, now) ||
+            hasActiveSessionPrep(computer, now) ||
             computer.operation ||
             computer.sessionState !== "running"
         ) {
@@ -434,8 +617,12 @@ export const claimComputerIdleStop = internalMutation({
         }
         await ctx.db.patch(computer._id, {
             sessionState: "stopping",
+            activeExecutions: [],
+            executionInProgress: false,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
             scheduledIdleStopId: undefined,
-            updatedAt: Date.now()
+            updatedAt: now
         })
         return computer
     }
@@ -449,14 +636,17 @@ export const markComputerStopped = internalMutation({
         await ctx.db.patch(computerId, {
             sessionState: "stopped",
             operation: undefined,
+            activeExecutions: [],
             executionInProgress: false,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
             scheduledIdleStopId: undefined,
             updatedAt: Date.now()
         })
     }
 })
 
-/** Claims the computer for a user action, which takes over from any running command. */
+/** Claims the computer for a user action, which takes over from any running commands. */
 export const claimComputerOperation = internalMutation({
     args: { userId: v.string(), operation: ComputerOperation },
     handler: async (ctx, { userId, operation }) => {
@@ -469,7 +659,10 @@ export const claimComputerOperation = internalMutation({
         await ctx.db.patch(computer._id, {
             operation,
             activityLeaseId: crypto.randomUUID(),
+            activeExecutions: [],
             executionInProgress: false,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
             scheduledIdleStopId: undefined,
             updatedAt: Date.now()
         })
@@ -491,16 +684,19 @@ export const claimComputerArchive = internalMutation({
     args: { computerId: v.id("computers") },
     handler: async (ctx, { computerId }) => {
         const computer = await ctx.db.get(computerId)
+        const now = Date.now()
         if (
             !computer ||
             computer.status !== "ready" ||
             computer.operation ||
-            computer.executionInProgress ||
-            computer.lastUsedAt > Date.now() - COMPUTER_ARCHIVE_AFTER_MS
+            getLiveExecutions(computer, now).length > 0 ||
+            hasLegacyInFlightExecution(computer, now) ||
+            hasActiveSessionPrep(computer, now) ||
+            computer.lastUsedAt > now - COMPUTER_ARCHIVE_AFTER_MS
         ) {
             return null
         }
-        await ctx.db.patch(computerId, { operation: "archive", updatedAt: Date.now() })
+        await ctx.db.patch(computerId, { operation: "archive", updatedAt: now })
         return computer
     }
 })
@@ -544,7 +740,11 @@ export const claimComputerDeletion = internalMutation({
         await ctx.db.patch(computer._id, {
             status: "deleting",
             activityLeaseId: crypto.randomUUID(),
+            activeExecutions: [],
             executionInProgress: false,
+            sessionPrepLeaseId: undefined,
+            sessionPrepStartedAt: undefined,
+            scheduledIdleStopId: undefined,
             updatedAt: Date.now()
         })
         return computer

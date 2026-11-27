@@ -163,12 +163,12 @@ Owned by `convex/computers.ts` (state) and `convex/computers_node.ts` (Vercel ca
 - **Sandbox**: a named, persistent Vercel sandbox on the managed `universal` image, which holds installed tools. Snapshots never expire on Vercel's side (`snapshotExpiration: 0`) because an expired snapshot silently yields an empty computer. SilkChat owns retention instead.
 - **Drive**: mounted at `/vercel/workspace`, which holds project files. It outlives the sandbox, which is what makes Reset and archiving possible.
 - **Project notes**: the assistant keeps working notes in `/vercel/workspace/project_memories/<project_name>/`. They are on the Drive so they survive Reset and archiving, and outside each repository so they are never committed. Regular memory holds facts about the user; these hold the state of a project.
-- **`computers` table**: one row per account, with the session state, the single execution lock, the open billing window, and the last storage reading. Keys live in `computerKeys`.
+- **`computers` table**: one row per account, with the session state, active execution leases (with single-leader session preparation/recovery), the open billing window, and the last storage reading. Keys live in `computerKeys`.
 
 ### Tools
 
 - `request_computer` shows the one-time Allow card and stops the turn. Allow does not continue the reply on its own, so the user sends the next message.
-- `computer_run` runs a bash command with a four-minute ceiling. The working directory must stay inside the workspace. One command runs at a time per account; a second call gets a busy error.
+- `computer_run` runs a bash command with a four-minute ceiling. The working directory must stay inside the workspace. Up to 8 commands can run concurrently per account once the session is ready; concurrent callers wait briefly while a single leader wakes, rebuilds, rolls over, or recovers the sandbox.
 
 ### Lifecycle
 
@@ -214,7 +214,7 @@ The computer replaced 3 to 30 minute persistent workspaces, and that system has 
 - Revalidate attachment ownership immediately before staging.
 - Never accept raw R2 keys, sandbox names, snapshot IDs, environment variables, or credentials from tool input.
 - Sanitize staged filenames and prevent path traversal and symlink escapes.
-- Serialize execution on the computer until concurrent command semantics are explicitly designed.
+- Bound concurrent execution on the computer and serialize session wake, billing rollover, key sync, and crash recovery.
 - Treat attachment content as untrusted and susceptible to prompt injection.
 - Enforce expiry before every provider call, not only in the cleanup job.
 - Cap output at collection time and reject unexpected artifact count or size.

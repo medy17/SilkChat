@@ -3,7 +3,11 @@ import { z } from "zod"
 import { internal } from "../../_generated/api"
 import type { Doc } from "../../_generated/dataModel"
 import { describeComputerKeys } from "../computer_keys"
-import { COMPUTER_COMMAND_MAX_TIMEOUT_MS, COMPUTER_REQUEST_TTL_MS } from "../computer_policy"
+import {
+    COMPUTER_COMMAND_MAX_TIMEOUT_MS,
+    COMPUTER_MAX_CONCURRENT_EXECUTIONS,
+    COMPUTER_REQUEST_TTL_MS
+} from "../computer_policy"
 import type { ToolAdapter } from "../toolkit"
 
 const DEFAULT_EXECUTION_TIMEOUT_MS = 20_000
@@ -120,6 +124,7 @@ export const CodeExecutionAdapter: ToolAdapter = async (params) => {
             description: [
                 "Run a bash command on your own computer, a persistent Ubuntu machine with git, gh, Node 24, npm, pnpm, bun, and Python 3.14. It is yours to use whenever it helps.",
                 "Files under /vercel/workspace stay between commands and chats. Commands start there. Anything outside the workspace, including system packages, can be lost after a reset or a long break.",
+                `Independent commands can run in parallel, up to ${COMPUTER_MAX_CONCURRENT_EXECUTIONS} at once; run commands that depend on each other or modify the same files sequentially.`,
                 "Running processes stop about 90 seconds after your last command. To give the user a file, write it under the directory in SILKCHAT_ARTIFACT_DIR.",
                 computer
                     ? "Your computer is set up and ready."

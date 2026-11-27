@@ -116,7 +116,11 @@ const createCtx = (record: Record<string, unknown>, queries: Record<string, unkn
         runMutation: vi.fn(async (reference: unknown) => {
             const name = String(reference)
             mutations.push(name)
-            if (name.endsWith("beginComputerExecution")) return { ok: true, record }
+            if (name.endsWith("beginComputerExecution")) {
+                return { ok: true, mode: "prepare", record }
+            }
+            if (name.endsWith("markComputerSessionPrepared")) return true
+            if (name.endsWith("claimComputerRecovery")) return { status: "recover" }
             if (name.endsWith("claimComputerIdleStop")) return record
             if (name.endsWith("claimComputerDeletion")) return record
             if (name.endsWith("reserveCreditForMessage")) return { allowed: true }
@@ -314,6 +318,74 @@ describe("running a command on the computer", () => {
 
         expect(sandbox.stop).not.toHaveBeenCalled()
     })
+
+    it("waits briefly when another command is preparing the session, then runs in parallel", async () => {
+        const sandbox = createSandbox()
+        sandboxGet.mockResolvedValue(sandbox)
+        const record = createRecord({
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+        const ctx = createCtx(record)
+        let attempts = 0
+        const baseMutation = ctx.runMutation.getMockImplementation()
+        ctx.runMutation.mockImplementation(async (reference: unknown) => {
+            const name = String(reference)
+            if (name.endsWith("beginComputerExecution")) {
+                attempts += 1
+                return attempts === 1
+                    ? { ok: false, reason: "preparing" }
+                    : { ok: true, mode: "join", record }
+            }
+            return baseMutation?.(reference)
+        })
+
+        const result = await execute(ctx, "ls -la")
+
+        expect(attempts).toBe(2)
+        expect(result.success).toBe(true)
+        expect(sandbox.runCommand).toHaveBeenCalledTimes(1)
+        expect(
+            ctx.mutations.filter((name) => name.endsWith("reserveCreditForMessage"))
+        ).toHaveLength(0)
+    })
+
+    it("reuses a sibling's VM recovery when joining a crashed session", async () => {
+        const crashed = createSandbox({
+            fs: {
+                mkdir: vi.fn(async () => {
+                    throw SERVER_ERROR
+                }),
+                rm: vi.fn(async () => undefined)
+            }
+        })
+        const recovered = createSandbox()
+        sandboxGet.mockResolvedValueOnce(crashed).mockResolvedValueOnce(recovered)
+        const record = createRecord({
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+        const ctx = createCtx(record)
+        const baseMutation = ctx.runMutation.getMockImplementation()
+        ctx.runMutation.mockImplementation(async (reference: unknown) => {
+            const name = String(reference)
+            if (name.endsWith("beginComputerExecution")) {
+                return { ok: true, mode: "join", record }
+            }
+            if (name.endsWith("claimComputerRecovery")) {
+                return { status: "recovered" }
+            }
+            return baseMutation?.(reference)
+        })
+
+        const result = await execute(ctx, "pwd")
+
+        expect(crashed.stop).not.toHaveBeenCalled()
+        expect(recovered.runCommand).toHaveBeenCalledTimes(1)
+        expect(result.success).toBe(true)
+    })
 })
 
 describe("rebuilding a computer on its Drive", () => {
@@ -335,6 +407,26 @@ describe("rebuilding a computer on its Drive", () => {
         await rebuild({})
         expect(driveGet).toHaveBeenCalled()
         expect(driveGetOrCreate).not.toHaveBeenCalled()
+    })
+
+    it("stops calling the computer archived even when setup fails after the rebuild", async () => {
+        driveGet.mockResolvedValue({})
+        sandboxCreate.mockResolvedValue(
+            createSandbox({
+                fs: {
+                    mkdir: vi.fn(async () => {
+                        throw new Error("disk full")
+                    }),
+                    rm: vi.fn(async () => undefined)
+                }
+            })
+        )
+        const ctx = createCtx(createRecord({ status: "archived" }))
+
+        const result = await execute(ctx)
+
+        expect(result.success).toBe(false)
+        expect(ctx.mutations.some((name) => name.endsWith("markComputerRebuilt"))).toBe(true)
     })
 })
 

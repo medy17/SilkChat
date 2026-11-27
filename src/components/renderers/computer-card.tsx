@@ -279,8 +279,9 @@ function ComputerRunStep({ run }: { run: MessageComputerRun }) {
 export const ComputerRunCard = memo(
     ({ runs, isStreaming }: { runs: MessageComputerRun[]; isStreaming: boolean }) => {
         const name = useComputerName()
-        const running = runs.find((run) => run.status === "running")
-        const working = isStreaming || Boolean(running)
+        const runningRuns = runs.filter((run) => run.status === "running")
+        const running = runningRuns[0]
+        const working = isStreaming || runningRuns.length > 0
         // The last step stays on show in the gaps, so the card doesn't jump between commands.
         const current = running ?? (working ? runs.at(-1) : undefined)
         const failed = !working && runs.at(-1)?.status === "failed"
@@ -305,6 +306,11 @@ export const ComputerRunCard = memo(
                                 aria-hidden="true"
                             />
                             <span className="min-w-0 truncate">{current.title}</span>
+                            {runningRuns.length > 1 && (
+                                <span className="shrink-0 text-muted-foreground text-xs">
+                                    +{runningRuns.length - 1} more
+                                </span>
+                            )}
                         </p>
                     )}
                     <ComputerDisclosure

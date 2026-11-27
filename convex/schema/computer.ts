@@ -34,6 +34,17 @@ export const Computer = v.object({
     operation: v.optional(ComputerOperation),
     activityLeaseId: v.optional(v.string()),
     executionInProgress: v.optional(v.boolean()),
+    activeExecutions: v.optional(
+        v.array(
+            v.object({
+                id: v.string(),
+                startedAt: v.number()
+            })
+        )
+    ),
+    sessionPrepLeaseId: v.optional(v.string()),
+    sessionPrepStartedAt: v.optional(v.number()),
+    lastRecoveredAt: v.optional(v.number()),
     scheduledIdleStopId: v.optional(v.id("_scheduled_functions")),
     billingMessageKey: v.optional(v.string()),
     billingStartedAt: v.optional(v.number()),

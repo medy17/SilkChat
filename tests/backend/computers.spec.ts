@@ -5,6 +5,8 @@ import type { Doc } from "../../convex/_generated/dataModel"
 import { getHostedUsageState, recordStorageUsage } from "../../convex/credits"
 import {
     COMPUTER_ARCHIVE_AFTER_MS,
+    COMPUTER_MAX_CONCURRENT_EXECUTIONS,
+    COMPUTER_SESSION_ROLLOVER_MS,
     COMPUTER_SESSION_TIMEOUT_MS,
     COMPUTER_STALE_OPERATION_MS
 } from "../../convex/lib/computer_policy"
@@ -36,53 +38,300 @@ const insertComputer = (t: Test, overrides: Partial<Doc<"computers">> = {}) =>
 const readComputer = (t: Test, id: Doc<"computers">["_id"]) => t.run((ctx) => ctx.db.get(id))
 
 describe("computer execution lock", () => {
-    it("lets one command run at a time", async () => {
+    beforeEach(() => {
+        vi.useFakeTimers()
+    })
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
+    it("lets concurrent commands run once a ready session is open and caps concurrency", async () => {
         const t = setup()
-        await insertComputer(t)
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+
+        for (let i = 0; i < COMPUTER_MAX_CONCURRENT_EXECUTIONS; i += 1) {
+            const begun = await t.mutation(internal.computers.beginComputerExecution, {
+                userId: USER,
+                executionId: `cmd-${i}`
+            })
+            expect(begun).toMatchObject({ ok: true, mode: "join" })
+        }
+
+        const overflow = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-overflow"
+        })
+        expect(overflow).toEqual({ ok: false, reason: "capacity" })
+
+        // Finishing one command frees a slot without scheduling idle sleep while others run.
+        expect(
+            await t.mutation(internal.computers.finishComputerExecution, {
+                computerId: id,
+                executionId: "cmd-0",
+                sessionReady: true
+            })
+        ).toBe(true)
+        const mid = await readComputer(t, id)
+        expect(mid?.executionInProgress).toBe(true)
+        expect(mid?.scheduledIdleStopId).toBeUndefined()
+
+        const next = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-next"
+        })
+        expect(next).toMatchObject({ ok: true, mode: "join" })
+    })
+
+    it("serializes session wake until the leader finishes preparing, then lets followers join", async () => {
+        const t = setup()
+        const id = await insertComputer(t, { sessionState: "stopped" })
+
+        const leader = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "leader"
+        })
+        const followerWhilePreparing = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "follower"
+        })
+
+        expect(leader).toMatchObject({ ok: true, mode: "prepare" })
+        expect(followerWhilePreparing).toEqual({ ok: false, reason: "preparing" })
+
+        await t.mutation(internal.computers.setComputerBilling, {
+            computerId: id,
+            billingMessageKey: "window",
+            billingStartedAt: Date.now(),
+            reservedMicrousd: 100
+        })
+        expect(
+            await t.mutation(internal.computers.markComputerSessionPrepared, {
+                computerId: id,
+                executionId: "leader"
+            })
+        ).toBe(true)
+
+        const follower = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "follower"
+        })
+        expect(follower).toMatchObject({ ok: true, mode: "join" })
+    })
+
+    it("drains active commands before rolling over an expired billing window", async () => {
+        const t = setup()
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "old-window",
+            billingStartedAt: Date.now() - COMPUTER_SESSION_ROLLOVER_MS + 10_000
+        })
 
         const first = await t.mutation(internal.computers.beginComputerExecution, {
             userId: USER,
-            activityLeaseId: "first"
+            executionId: "first"
         })
-        const second = await t.mutation(internal.computers.beginComputerExecution, {
+        expect(first).toMatchObject({ ok: true, mode: "join" })
+
+        vi.advanceTimersByTime(15_000)
+
+        const blocked = await t.mutation(internal.computers.beginComputerExecution, {
             userId: USER,
-            activityLeaseId: "second"
+            executionId: "second"
+        })
+        expect(blocked).toEqual({ ok: false, reason: "draining" })
+
+        await t.mutation(internal.computers.finishComputerExecution, {
+            computerId: id,
+            executionId: "first",
+            sessionReady: true
         })
 
-        expect(first.ok).toBe(true)
-        expect(second).toEqual({ ok: false, reason: "busy" })
+        const leader = await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "second"
+        })
+        expect(leader).toMatchObject({ ok: true, mode: "prepare" })
     })
 
-    it("refuses a command while the computer is going to sleep", async () => {
+    it("schedules idle sleep only when the last concurrent command finishes", async () => {
+        const t = setup()
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+
+        await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-1"
+        })
+        await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-2"
+        })
+
+        await t.mutation(internal.computers.finishComputerExecution, {
+            computerId: id,
+            executionId: "cmd-1",
+            sessionReady: true
+        })
+        const afterFirst = await readComputer(t, id)
+        expect(afterFirst?.executionInProgress).toBe(true)
+        expect(afterFirst?.scheduledIdleStopId).toBeUndefined()
+        expect(afterFirst?.activityLeaseId).toBeUndefined()
+
+        await t.mutation(internal.computers.finishComputerExecution, {
+            computerId: id,
+            executionId: "cmd-2",
+            sessionReady: true
+        })
+        const afterSecond = await readComputer(t, id)
+        expect(afterSecond?.executionInProgress).toBe(false)
+        expect(afterSecond?.scheduledIdleStopId).toBeDefined()
+        expect(afterSecond?.activityLeaseId).toBeTypeOf("string")
+    })
+
+    it("coordinates crash recovery so only one concurrent command restarts the VM", async () => {
+        const t = setup()
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+
+        await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-1"
+        })
+        await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "cmd-2"
+        })
+
+        expect(
+            await t.mutation(internal.computers.claimComputerRecovery, {
+                computerId: id,
+                executionId: "cmd-1"
+            })
+        ).toEqual({ status: "recover" })
+        expect(
+            await t.mutation(internal.computers.claimComputerRecovery, {
+                computerId: id,
+                executionId: "cmd-2"
+            })
+        ).toEqual({ status: "wait" })
+
+        expect(
+            await t.mutation(internal.computers.markComputerSessionPrepared, {
+                computerId: id,
+                executionId: "cmd-1",
+                recovered: true
+            })
+        ).toBe(true)
+
+        expect(
+            await t.mutation(internal.computers.claimComputerRecovery, {
+                computerId: id,
+                executionId: "cmd-2"
+            })
+        ).toEqual({ status: "recovered" })
+    })
+
+    it("asks a command to wait while the computer is going to sleep", async () => {
         const t = setup()
         await insertComputer(t, { sessionState: "stopping" })
 
         expect(
             await t.mutation(internal.computers.beginComputerExecution, {
                 userId: USER,
-                activityLeaseId: "late"
+                executionId: "late"
             })
-        ).toEqual({ ok: false, reason: "busy" })
+        ).toEqual({ ok: false, reason: "stopping" })
     })
 
-    it("ignores a command finishing after a user action took over", async () => {
+    it("keeps a stuck mark when a sibling command finishes afterwards", async () => {
         const t = setup()
-        const id = await insertComputer(t)
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
+        for (const executionId of ["cmd-1", "cmd-2"]) {
+            await t.mutation(internal.computers.beginComputerExecution, {
+                userId: USER,
+                executionId
+            })
+        }
+
+        await t.mutation(internal.computers.finishComputerExecution, {
+            computerId: id,
+            executionId: "cmd-1",
+            sessionReady: true,
+            stuck: true
+        })
+        await t.mutation(internal.computers.finishComputerExecution, {
+            computerId: id,
+            executionId: "cmd-2",
+            sessionReady: true
+        })
+
+        const computer = await readComputer(t, id)
+        expect(computer?.sessionState).toBe("stuck")
+        expect(computer?.scheduledIdleStopId).toBeUndefined()
+    })
+
+    it("marks an archived computer ready once its sandbox is rebuilt, but not one being deleted", async () => {
+        const t = setup()
+        const archived = await insertComputer(t, { status: "archived", archivedAt: Date.now() })
+        const deleting = await insertComputer(t, { userId: "user-2", status: "deleting" })
+
+        await t.mutation(internal.computers.markComputerRebuilt, { computerId: archived })
+        await t.mutation(internal.computers.markComputerRebuilt, { computerId: deleting })
+
+        const rebuilt = await readComputer(t, archived)
+        expect(rebuilt?.status).toBe("ready")
+        expect(rebuilt?.archivedAt).toBeUndefined()
+        expect((await readComputer(t, deleting))?.status).toBe("deleting")
+    })
+
+    it("ignores commands finishing after a user action took over", async () => {
+        const t = setup()
+        const id = await insertComputer(t, {
+            sessionState: "running",
+            billingMessageKey: "window",
+            billingStartedAt: Date.now()
+        })
         await t.mutation(internal.computers.beginComputerExecution, {
             userId: USER,
-            activityLeaseId: "command"
+            executionId: "command-1"
+        })
+        await t.mutation(internal.computers.beginComputerExecution, {
+            userId: USER,
+            executionId: "command-2"
         })
         await t.mutation(internal.computers.claimComputerOperation, {
             userId: USER,
             operation: "restart"
         })
 
-        const finished = await t.mutation(internal.computers.finishComputerExecution, {
-            computerId: id,
-            activityLeaseId: "command"
-        })
-
-        expect(finished).toBe(false)
+        expect(
+            await t.mutation(internal.computers.finishComputerExecution, {
+                computerId: id,
+                executionId: "command-1",
+                sessionReady: true
+            })
+        ).toBe(false)
+        expect(
+            await t.mutation(internal.computers.finishComputerExecution, {
+                computerId: id,
+                executionId: "command-2",
+                sessionReady: true
+            })
+        ).toBe(false)
         expect((await readComputer(t, id))?.operation).toBe("restart")
     })
 
@@ -109,6 +358,7 @@ describe("computer execution lock", () => {
         const t = setup()
         const id = await insertComputer(t, {
             executionInProgress: true,
+            activeExecutions: [{ id: "cmd-1", startedAt: Date.now() }],
             lastUsedAt: Date.now() - COMPUTER_ARCHIVE_AFTER_MS - DAY_MS
         })
 

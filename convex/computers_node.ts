@@ -12,8 +12,9 @@ import { getComputerKeyEnv, getComputerKeyRoutes } from "./lib/computer_keys"
 import {
     COMPUTER_ARTIFACT_ROOT,
     COMPUTER_IDLE_SLEEP_MS,
-    COMPUTER_SESSION_ROLLOVER_MS,
     COMPUTER_SESSION_TIMEOUT_MS,
+    COMPUTER_WAIT_POLL_MS,
+    COMPUTER_WAIT_TIMEOUT_MS,
     COMPUTER_WORKSPACE_PATH,
     MAX_COMPUTER_COMMAND_CHARS,
     buildComputerNetworkPolicy,
@@ -21,6 +22,7 @@ import {
     getComputerOverLimitStep,
     getComputerRetentionStep,
     hasPendingComputerKeyChange,
+    isComputerBillingWindowDue,
     resolveComputerCommandTimeout,
     resolveComputerWorkingDirectory
 } from "./lib/computer_policy"
@@ -234,14 +236,26 @@ const scheduleIdleSleep = (ctx: ActionCtx, record: ComputerRecord, activityLease
 
 const UNAVAILABLE_MESSAGES = {
     missing: "Your computer isn't set up yet. Call request_computer once to set it up.",
-    busy: "Your computer is busy with another command. Retry shortly.",
+    busy: "Your computer is busy right now. Retry shortly.",
+    stopping: "Your computer is going to sleep. Retry shortly.",
+    preparing: "Your computer is still starting up. Retry shortly.",
+    draining: "Your computer is finishing a session rollover. Retry shortly.",
+    capacity: "Too many commands are running on your computer at once. Retry shortly.",
     unavailable: "Your computer isn't available right now. Retry shortly."
 }
+const WAITABLE_REASONS = new Set<keyof typeof UNAVAILABLE_MESSAGES>([
+    "stopping",
+    "preparing",
+    "draining",
+    "capacity"
+])
 const KEY_CHANGE_FAILED_MESSAGE =
     "The user's keys changed and your computer couldn't pick that up, so nothing ran. Retry shortly."
 const SETUP_ABANDONED_MESSAGE = "Setup didn't finish. Ask Silky to try again."
 const LOST_COMMAND_MESSAGE =
     "Lost contact with your computer while that command ran, so it may or may not have finished. Check what it did before running it again."
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Sends the sandbox any key change it hasn't received. A sleeping sandbox gets it on waking. */
 const applyPendingKeyChange = async (ctx: ActionCtx, record: ComputerRecord, sandbox: Sandbox) => {
@@ -256,12 +270,92 @@ const applyPendingKeyChange = async (ctx: ActionCtx, record: ComputerRecord, san
     })
 }
 
-const isBillingWindowDue = ({ billingStartedAt }: ComputerRecord) =>
-    billingStartedAt !== undefined && Date.now() - billingStartedAt >= COMPUTER_SESSION_ROLLOVER_MS
+const acquireComputerExecution = async (ctx: ActionCtx, userId: string, executionId: string) => {
+    const deadline = Date.now() + COMPUTER_WAIT_TIMEOUT_MS
+    while (true) {
+        const begun = await ctx.runMutation(internal.computers.beginComputerExecution, {
+            userId,
+            executionId
+        })
+        if (begun.ok) return begun
+        if (!WAITABLE_REASONS.has(begun.reason) || Date.now() >= deadline) {
+            throw new Error(UNAVAILABLE_MESSAGES[begun.reason])
+        }
+        await sleep(COMPUTER_WAIT_POLL_MS)
+    }
+}
+
+const recoverUnresponsiveJoinedSandbox = async (
+    ctx: ActionCtx,
+    record: ComputerRecord,
+    executionId: string,
+    sandbox: Sandbox,
+    prepare: (sandbox: Sandbox) => Promise<void>
+): Promise<{ stuck: false; sandbox: Sandbox } | { stuck: true; error: unknown }> => {
+    const deadline = Date.now() + COMPUTER_WAIT_TIMEOUT_MS
+    while (true) {
+        const claim = await ctx.runMutation(internal.computers.claimComputerRecovery, {
+            computerId: record._id,
+            executionId
+        })
+        if (claim.status === "aborted") {
+            throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+        }
+        if (claim.status === "stuck") {
+            return { stuck: true, error: new Error(UNAVAILABLE_MESSAGES.unavailable) }
+        }
+        if (claim.status === "wait") {
+            if (Date.now() >= deadline) {
+                throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+            }
+            await sleep(COMPUTER_WAIT_POLL_MS)
+            continue
+        }
+        if (claim.status === "recover") {
+            await sandbox.stop()
+            const restarted = await getComputerSandbox(record)
+            if (!restarted) {
+                throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+            }
+            try {
+                await prepare(restarted)
+            } catch (retryError) {
+                if (isSandboxUnresponsiveError(retryError)) {
+                    return { stuck: true, error: retryError }
+                }
+                throw retryError
+            }
+            const marked = await ctx.runMutation(internal.computers.markComputerSessionPrepared, {
+                computerId: record._id,
+                executionId,
+                recovered: true
+            })
+            if (marked === false) {
+                throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+            }
+            return { stuck: false, sandbox: restarted }
+        }
+        // Another concurrent command just restarted the VM; reuse the new session once.
+        const restarted = await getComputerSandbox(record)
+        if (!restarted) {
+            throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+        }
+        try {
+            await prepare(restarted)
+        } catch (retryError) {
+            if (isSandboxUnresponsiveError(retryError)) {
+                return { stuck: true, error: retryError }
+            }
+            throw retryError
+        }
+        return { stuck: false, sandbox: restarted }
+    }
+}
 
 /**
- * Runs work on the computer: claims the single execution slot, opens billing, wakes or rebuilds
- * the sandbox, and hands back to the idle timer.
+ * Runs work on the computer: claims an execution slot (allowing bounded concurrent commands on a
+ * ready session), coordinates one-leader wake/rebuild/billing rollover, and hands back to the idle
+ * timer once the last active command finishes.
  *
  * Only `prepare` is retried after an unresponsive VM. `run` acts on the user's real accounts, so
  * it runs at most once, even if the VM stops answering part way through.
@@ -272,65 +366,103 @@ const withComputerSession = async <T>(
     prepare: (sandbox: Sandbox) => Promise<void>,
     run: (sandbox: Sandbox) => Promise<T>
 ): Promise<T> => {
-    const activityLeaseId = crypto.randomUUID()
-    const begun = await ctx.runMutation(internal.computers.beginComputerExecution, {
-        userId,
-        activityLeaseId
-    })
-    if (!begun.ok) throw new Error(UNAVAILABLE_MESSAGES[begun.reason])
+    const executionId = crypto.randomUUID()
+    const begun = await acquireComputerExecution(ctx, userId, executionId)
 
     let record = begun.record
+    const mode = begun.mode
+    let sessionReady = mode === "join"
     let stuck = false
     try {
         if (record.scheduledIdleStopId) {
             await ctx.scheduler.cancel(record.scheduledIdleStopId).catch(() => undefined)
         }
-        // Closing the window here re-checks credit, and gives the next command a full session.
-        if (isBillingWindowDue(record)) {
-            await stopComputerSession(ctx, record)
-            record = { ...record, billingMessageKey: undefined }
-        }
-        await openComputerBilling(ctx, record)
 
-        const existing = record.status === "archived" ? null : await getComputerSandbox(record)
-        let sandbox = existing ?? (await createComputerSandbox(ctx, record))
-        if (!existing) {
-            await ctx.runMutation(internal.computers.markComputerReady, {
+        let sandbox: Sandbox
+        if (mode === "prepare") {
+            // Closing the window here re-checks credit, and gives the next command a full session.
+            if (isComputerBillingWindowDue(record)) {
+                await stopComputerSession(ctx, record)
+                record = { ...record, billingMessageKey: undefined }
+            }
+            await openComputerBilling(ctx, record)
+
+            const existing = record.status === "archived" ? null : await getComputerSandbox(record)
+            sandbox = existing ?? (await createComputerSandbox(ctx, record))
+            if (!existing) {
+                await ctx.runMutation(internal.computers.markComputerRebuilt, {
+                    computerId: record._id
+                })
+            }
+            sessionReady = true
+
+            let recovered = false
+            try {
+                await prepare(sandbox)
+            } catch (error) {
+                if (!isSandboxUnresponsiveError(error)) throw error
+                await sandbox.stop()
+                const restarted = await getComputerSandbox(record)
+                if (!restarted) throw error
+                sandbox = restarted
+                try {
+                    await prepare(sandbox)
+                    recovered = true
+                } catch (retryError) {
+                    stuck = isSandboxUnresponsiveError(retryError)
+                    throw retryError
+                }
+            }
+
+            // Stop here rather than run a command with a key the user may have just turned off.
+            await applyPendingKeyChange(ctx, record, sandbox).catch((error) => {
+                console.error("Failed to apply computer key change", error)
+                throw new Error(KEY_CHANGE_FAILED_MESSAGE)
+            })
+
+            const prepared = await ctx.runMutation(internal.computers.markComputerSessionPrepared, {
                 computerId: record._id,
-                activityLeaseId
+                executionId,
+                ...(recovered ? { recovered: true } : {})
+            })
+            if (prepared === false) {
+                throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+            }
+        } else {
+            const existing = await getComputerSandbox(record)
+            if (!existing) throw new Error(UNAVAILABLE_MESSAGES.unavailable)
+            sandbox = existing
+            try {
+                await prepare(sandbox)
+            } catch (error) {
+                if (!isSandboxUnresponsiveError(error)) throw error
+                const recovered = await recoverUnresponsiveJoinedSandbox(
+                    ctx,
+                    record,
+                    executionId,
+                    sandbox,
+                    prepare
+                )
+                if (recovered.stuck) {
+                    stuck = true
+                    throw recovered.error
+                }
+                sandbox = recovered.sandbox
+            }
+
+            // Stop here rather than run a command with a key the user may have just turned off.
+            await applyPendingKeyChange(ctx, record, sandbox).catch((error) => {
+                console.error("Failed to apply computer key change", error)
+                throw new Error(KEY_CHANGE_FAILED_MESSAGE)
             })
         }
 
-        try {
-            await prepare(sandbox)
-        } catch (error) {
-            if (!isSandboxUnresponsiveError(error)) throw error
-            await sandbox.stop()
-            const restarted = await getComputerSandbox(record)
-            if (!restarted) throw error
-            sandbox = restarted
-            try {
-                await prepare(sandbox)
-            } catch (retryError) {
-                stuck = isSandboxUnresponsiveError(retryError)
-                throw retryError
-            }
-        }
-
-        // Stop here rather than run a command with a key the user may have just turned off.
-        await applyPendingKeyChange(ctx, record, sandbox).catch((error) => {
-            console.error("Failed to apply computer key change", error)
-            throw new Error(KEY_CHANGE_FAILED_MESSAGE)
-        })
         return await run(sandbox)
     } finally {
-        const scheduledIdleStopId = stuck
-            ? undefined
-            : await scheduleIdleSleep(ctx, record, activityLeaseId)
         await ctx.runMutation(internal.computers.finishComputerExecution, {
             computerId: record._id,
-            activityLeaseId,
-            scheduledIdleStopId,
+            executionId,
+            sessionReady,
             stuck
         })
     }
