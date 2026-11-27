@@ -413,7 +413,9 @@ describe("useChatIntegration", () => {
             ]
         })
 
-        expect(resolveJwtTokenMock).toHaveBeenCalledWith("token-1")
+        expect(resolveJwtTokenMock).toHaveBeenCalledWith("token-1", {
+            minRemainingSeconds: 25 * 60
+        })
 
         expect(sendRequest).toEqual({
             headers: {
@@ -461,7 +463,9 @@ describe("useChatIntegration", () => {
             id: "fallback-thread"
         })
 
-        expect(resolveJwtTokenMock).toHaveBeenLastCalledWith("token-1")
+        expect(resolveJwtTokenMock).toHaveBeenLastCalledWith("token-1", {
+            minRemainingSeconds: 25 * 60
+        })
 
         expect(reconnectRequest).toEqual({
             api: "https://convex.example/chat?chatId=thread-1",

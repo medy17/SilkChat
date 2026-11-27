@@ -73,15 +73,21 @@ export function useToken(options?: Partial<AnyUseQueryOptions>) {
 
         const expiresAt = payload.exp * 1000
         const expiresIn = expiresAt - Date.now()
-        // Refresh token 1 minute before it expires
-        const refreshIn = Math.max(expiresIn - 60000, 5000) // Minimum 5 seconds delay to prevent infinite loop
+        // Refresh halfway through the token's lifetime so long-running chat requests start with
+        // plenty of validity left without needing an extra round-trip on send.
+        const lifetimeMs =
+            typeof payload.iat === "number" && payload.exp > payload.iat
+                ? (payload.exp - payload.iat) * 1000
+                : 0
+        const refreshLeadMs = lifetimeMs > 0 ? Math.max(60_000, Math.floor(lifetimeMs / 2)) : 60_000
+        const refreshIn = Math.max(expiresIn - refreshLeadMs, 5000) // Minimum 5 seconds delay to prevent infinite loop
 
         const timeout = setTimeout(() => {
             void queryResult.refetch()
         }, refreshIn)
 
         return () => clearTimeout(timeout)
-    }, [payload?.exp, queryResult.refetch, token])
+    }, [payload?.exp, payload?.iat, queryResult.refetch, token])
 
     const tokenData = useMemo(() => {
         if (!session.data?.user?.id || !token || !isJwtToken(token)) {

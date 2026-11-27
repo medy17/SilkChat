@@ -63,6 +63,60 @@ describe("auth-token", () => {
         await expect(resolveJwtToken(token, { forceRefresh: true })).resolves.toBe(token)
     })
 
+    it("refreshes an expired token automatically", async () => {
+        const expiredToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) - 65
+        })
+        const refreshedToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) + 3600
+        })
+        fetchMock.mockResolvedValue({ data: { token: refreshedToken } })
+
+        await expect(resolveJwtToken(expiredToken)).resolves.toBe(refreshedToken)
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("refreshes a token whose remaining lifetime is below minRemainingSeconds", async () => {
+        const shortLivedToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) + 5 * 60
+        })
+        const refreshedToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) + 60 * 60
+        })
+        fetchMock.mockResolvedValue({ data: { token: refreshedToken } })
+
+        await expect(
+            resolveJwtToken(shortLivedToken, { minRemainingSeconds: 25 * 60 })
+        ).resolves.toBe(refreshedToken)
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("reuses a token that meets minRemainingSeconds without fetching", async () => {
+        const freshToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) + 45 * 60
+        })
+
+        await expect(resolveJwtToken(freshToken, { minRemainingSeconds: 25 * 60 })).resolves.toBe(
+            freshToken
+        )
+        expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it("does not fall back to an already-expired token when refresh fails", async () => {
+        const expiredToken = createJwt({
+            sub: "user-1",
+            exp: Math.floor(Date.now() / 1000) - 10
+        })
+        fetchMock.mockRejectedValue(new Error("network"))
+
+        await expect(resolveJwtToken(expiredToken)).resolves.toBeUndefined()
+    })
+
     it("returns undefined when neither the current nor fetched token is valid", async () => {
         fetchMock.mockResolvedValue({
             data: {

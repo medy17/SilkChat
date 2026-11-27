@@ -423,7 +423,11 @@ export function useChatIntegration<IsShared extends boolean>({
                       const { selectedModel, enabledTools, autoSelectTools, reasoningEffort } =
                           useModelStore.getState()
                       const { selectedPersona, pendingPersonaOpening } = useChatStore.getState()
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          // Convex httpActions re-validate this JWT on every tool/DB sub-call for
+                          // the entire stream, so require plenty of remaining lifetime up front.
+                          minRemainingSeconds: 25 * 60
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }
@@ -519,7 +523,11 @@ export function useChatIntegration<IsShared extends boolean>({
                   },
                   async prepareReconnectToStreamRequest({ api, id }) {
                       const currentContext = latestRequestContextRef.current
-                      const jwt = await resolveJwtToken(currentContext.token)
+                      const jwt = await resolveJwtToken(currentContext.token, {
+                          // Convex httpActions re-validate this JWT on every tool/DB sub-call for
+                          // the entire stream, so require plenty of remaining lifetime up front.
+                          minRemainingSeconds: 25 * 60
+                      })
                       if (!jwt) {
                           throw new Error("Authentication token unavailable")
                       }

@@ -33,6 +33,9 @@ const normalizeOrigin = (value?: string) => {
 const DAY_SECONDS = 60 * 60 * 24
 const SESSION_EXPIRES_IN_SECONDS = 30 * DAY_SECONDS
 const SESSION_UPDATE_AGE_SECONDS = DAY_SECONDS
+// Convex httpActions re-validate the request's JWT on every internal ctx.run* call for the full
+// lifetime of a streaming response; the plugin's 15-minute default expires mid-turn on long runs.
+const CONVEX_JWT_EXPIRATION_SECONDS = 60 * 60
 
 const isDefined = <T>(value: T | undefined): value is T => value !== undefined
 
@@ -218,6 +221,9 @@ export const createAuth = (ctx: Parameters<typeof authComponent.adapter>[0]) =>
             convex({
                 authConfig,
                 jwks: staticJwks,
+                jwt: {
+                    expirationSeconds: CONVEX_JWT_EXPIRATION_SECONDS
+                },
                 options: {
                     basePath: "/api/auth"
                 }
