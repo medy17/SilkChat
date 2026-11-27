@@ -283,9 +283,12 @@ describe("buildPrompt", () => {
 
     it("builds the effective per-turn tool budget for the changing prompt suffix", () => {
         const context = buildToolBudgetContext(5)
+        const withComputer = buildToolBudgetContext(5, { computerEnabled: true })
 
         expect(context).toContain("## Tool Budget")
         expect(context).toContain("This turn has 5 allocated tool calls maximum.")
+        expect(context).not.toContain("computer_run")
+        expect(withComputer).toContain("separate from your computer (`computer_run`")
         expect(buildToolBudgetContext()).toBe("")
     })
 

@@ -1195,7 +1195,9 @@ async function handleChatPost(
                 personalizationDisabled
             }),
             buildTemporalContext(),
-            buildToolBudgetContext(toolCallLimitPerTurn),
+            buildToolBudgetContext(toolCallLimitPerTurn, {
+                computerEnabled: callableEnabledTools.includes("code_execution")
+            }),
             skillIndexContext,
             memoryTurnContext,
             modelData.abilities.includes("function_calling") &&

@@ -74,12 +74,19 @@ export const buildTemporalContext = ({
 UTC date: ${utcDate}.${userTimeInfo}`
 }
 
-export const buildToolBudgetContext = (toolCallLimitPerTurn?: number) => {
+export const buildToolBudgetContext = (
+    toolCallLimitPerTurn?: number,
+    options?: { computerEnabled?: boolean }
+) => {
     if (!toolCallLimitPerTurn || toolCallLimitPerTurn <= 0) return ""
+
+    const computerNote = options?.computerEnabled
+        ? "\n- This limit is separate from your computer (`computer_run` and `request_computer`), which does not count against this allocation and has a much larger per-turn step budget."
+        : ""
 
     return dedent`
 ## Tool Budget
-This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.
+This turn has ${toolCallLimitPerTurn} allocated tool calls maximum.${computerNote}
 - Use tools only when they are necessary to answer well.
 - If a tool budget error appears, continue the turn and answer with the information you already have.`
 }
